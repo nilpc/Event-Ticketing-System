@@ -86,6 +86,9 @@ class AuthService:
             if attempts >= MAX_FAILED_ATTEMPTS:
                 lock_until = datetime.now(UTC) + timedelta(minutes=LOCKOUT_MINUTES)
                 await self.user_repo.lock_account(user.user_id, lock_until)
+            # Commit lockout state immediately so rollback in get_db_session
+            # doesn't undo the security-relevant writes.
+            await self.session.commit()
             raise NotFoundError("Invalid email or password.")
 
         if not user.is_active:

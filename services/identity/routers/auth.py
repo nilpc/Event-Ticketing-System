@@ -101,6 +101,7 @@ async def google_authorize(
 @router.get(
     "/google/callback",
     response_model=LoginResponse,
+    responses={400: {"model": ErrorResponse}},
 )
 async def google_callback(
     code: str,
@@ -111,7 +112,10 @@ async def google_callback(
     """FR-2: Handle Google OAuth2 callback, issue tokens."""
     redirect_uri = str(request.url)
     svc = OAuthService(session)
-    return await svc.handle_callback(code, redirect_uri)
+    try:
+        return await svc.handle_callback(code, redirect_uri)
+    except (ValueError, LookupError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.delete("/me", status_code=204)

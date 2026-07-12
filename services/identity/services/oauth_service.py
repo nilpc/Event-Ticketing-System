@@ -45,26 +45,32 @@ class OAuthService:
         redirect_uri: str,
     ) -> LoginResponse:
         """FR-2: Exchange code, find-or-create user, issue tokens."""
-        async with httpx.AsyncClient() as client:
-            token_resp = await client.post(
-                GOOGLE_TOKEN_URL,
-                data={
-                    "code": code,
-                    "client_id": settings.GOOGLE_CLIENT_ID,
-                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
-                    "redirect_uri": redirect_uri,
-                    "grant_type": "authorization_code",
-                },
-            )
-            token_resp.raise_for_status()
-            tokens = token_resp.json()
+        try:
+            async with httpx.AsyncClient() as client:
+                token_resp = await client.post(
+                    GOOGLE_TOKEN_URL,
+                    data={
+                        "code": code,
+                        "client_id": settings.GOOGLE_CLIENT_ID,
+                        "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                        "redirect_uri": redirect_uri,
+                        "grant_type": "authorization_code",
+                    },
+                )
+                token_resp.raise_for_status()
+                tokens = token_resp.json()
 
-            userinfo_resp = await client.get(
-                GOOGLE_USERINFO_URL,
-                headers={"Authorization": f"Bearer {tokens['access_token']}"},
-            )
-            userinfo_resp.raise_for_status()
-            userinfo = userinfo_resp.json()
+                userinfo_resp = await client.get(
+                    GOOGLE_USERINFO_URL,
+                    headers={"Authorization": f"Bearer {tokens['access_token']}"},
+                )
+                userinfo_resp.raise_for_status()
+                userinfo = userinfo_resp.json()
+        except httpx.HTTPStatusError as exc:
+            raise ValueError(
+                "Google OAuth token exchange failed. "
+                f"Status {exc.response.status_code}: {exc.response.text[:200]}"
+            ) from exc
 
         google_subject = userinfo["sub"]
         email = userinfo.get("email", "")

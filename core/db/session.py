@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncGenerator
 
+import structlog
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -10,11 +11,14 @@ from sqlalchemy.ext.asyncio import (
 
 from core.config import settings
 
+logger = structlog.get_logger()
+
 engine = create_async_engine(
     settings.DATABASE_URL,
     pool_size=20,
     max_overflow=10,
     pool_pre_ping=True,
+    pool_recycle=300,  # Recycle connections every 5 min (Neon idle timeout)
 )
 
 async_session_factory = async_sessionmaker(
@@ -25,6 +29,11 @@ async_session_factory = async_sessionmaker(
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency — yields an AsyncSession per request."""
+    """FastAPI dependency — yields an AsyncSession, commits on success, rolls back on error."""
     async with async_session_factory() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
