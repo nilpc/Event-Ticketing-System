@@ -22,6 +22,12 @@ async def lifespan(app: FastAPI):
 
     await engine.dispose()
 
+    # Close Redis connection pool on shutdown
+    from core.redis import _redis_client
+
+    if _redis_client is not None:
+        await _redis_client.aclose()
+
 
 def create_app() -> FastAPI:
     """FR-12: Wire up routers, middleware, and health endpoints."""

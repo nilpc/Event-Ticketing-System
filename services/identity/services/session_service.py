@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -45,6 +46,10 @@ class SessionService:
 
         if stored is None:
             raise NotFoundError("Refresh token not found.")
+
+        # FR-3: Reject expired refresh tokens immediately
+        if stored.expires_at < datetime.now(UTC):
+            raise NotFoundError("Refresh token has expired.")
 
         new_raw, _ = await rotate_refresh_token(
             old_token_id=stored.token_id,

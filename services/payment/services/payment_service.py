@@ -52,9 +52,11 @@ class PaymentService:
         existing = await self.payment_repo.get_active_payment_for_booking(booking_id)
         if existing is not None and existing.provider_payment_id:
             logger.info("reusing_existing_intent", payment_id=existing.payment_id)
+            # FR-5: Retrieve the real client_secret from Stripe for reuse
+            intent = await self.provider.retrieve_payment_intent(existing.provider_payment_id)
             return PaymentIntentResponse(
                 payment_id=existing.payment_id,
-                client_secret=f"reused_{existing.provider_payment_id}",
+                client_secret=intent.client_secret or "",
                 status=existing.status,
             )
 
@@ -65,7 +67,7 @@ class PaymentService:
         await self.payment_repo.create_payment_record(
             payment_id=payment_id,
             booking_id=booking_id,
-            amount=float(booking.amount),
+            amount=booking.amount,
             status=PaymentStatus.INITIATED,
         )
         await self.session.flush()

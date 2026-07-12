@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.booking.repositories.cache_repo import CacheRepository
 from services.booking.repositories.catalog_repo import CatalogRepository
 from services.booking.schemas.catalog import (
+    EventResponse,
     SeatMapResponse,
     SeatResponse,
     ShowtimeResponse,
@@ -55,10 +56,8 @@ class CatalogService:
 
         return responses
 
-    async def list_events(self) -> list:
+    async def list_events(self) -> list[EventResponse]:
         """FR-4: Read-through cache for events."""
-        from services.booking.schemas.catalog import EventResponse
-
         try:
             cached = await self.cache.get("events:all")
             if cached is not None:

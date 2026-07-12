@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.session import get_db_session
+from core.exceptions import WeakPasswordError
 from services.identity.schemas.auth import (
     ErrorResponse,
     LoginRequest,
@@ -36,6 +37,8 @@ async def signup(
     svc = AuthService(session)
     try:
         return await svc.signup(payload)
+    except WeakPasswordError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
 
@@ -91,7 +94,11 @@ async def google_authorize(
     session: AsyncSession = Depends(get_db_session),
 ) -> OAuthAuthorizeResponse:
     """FR-2: Get Google OAuth2 authorization URL."""
-    redirect_uri = str(request.url).replace("/google/authorize", "/google/callback")
+    from urllib.parse import urlparse, urlunparse
+
+    parsed = urlparse(str(request.url))
+    callback_path = parsed.path.replace("/authorize", "/callback")
+    redirect_uri = urlunparse(parsed._replace(path=callback_path, query="", fragment=""))
     svc = OAuthService(session)
     state = "placeholder_state"  # TODO: generate CSRF state
     url = svc.get_authorize_url(redirect_uri, state)
@@ -110,7 +117,10 @@ async def google_callback(
     session: AsyncSession = Depends(get_db_session),
 ) -> LoginResponse:
     """FR-2: Handle Google OAuth2 callback, issue tokens."""
-    redirect_uri = str(request.url)
+    from urllib.parse import urlparse, urlunparse
+
+    parsed = urlparse(str(request.url))
+    redirect_uri = urlunparse(parsed._replace(query="", fragment=""))
     svc = OAuthService(session)
     try:
         return await svc.handle_callback(code, redirect_uri)

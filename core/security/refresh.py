@@ -12,6 +12,11 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
+
+# NOTE: RefreshToken model lives in services/identity/models (correct CSR location),
+# but core.security.refresh needs it for DB operations. This creates a
+# core→services dependency. Acceptable trade-off for Phase 2; refactor in Phase 3
+# by moving token DB ops into the identity service layer.
 from services.identity.models.user import RefreshToken
 
 
@@ -81,7 +86,13 @@ async def revoke_refresh_token(token_id: UUID, session: AsyncSession) -> None:
 
 
 async def _revoke_family_by_id(token_id: UUID, session: AsyncSession) -> None:
-    """FR-3: Walk the rotated_from chain and revoke all tokens in the family."""
+    """FR-3: Walk the rotated_from chain and revoke all tokens in the family.
+
+    Revokes both backward (ancestors via rotated_from) and forward
+    (descendants where rotated_from == token_id) to fully invalidate
+    a stolen token chain.
+    """
+    # Backward: revoke this token and all ancestors
     current_id: UUID | None = token_id
     while current_id is not None:
         result = await session.execute(
@@ -92,4 +103,13 @@ async def _revoke_family_by_id(token_id: UUID, session: AsyncSession) -> None:
             break
         token.is_revoked = True
         current_id = token.rotated_from
+
+    # Forward: revoke all descendants (tokens whose rotated_from points to any
+    # token we just revoked in the backward walk)
+    await session.execute(
+        update(RefreshToken)
+        .where(RefreshToken.rotated_from == token_id, RefreshToken.is_revoked.is_(False))
+        .values(is_revoked=True)
+    )
+
     await session.flush()

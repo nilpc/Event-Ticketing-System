@@ -27,3 +27,7 @@ class NotFoundError(LookupError):
 
 class PaymentProviderError(OSError):
     """Raised when the payment provider returns an error (FR-5)."""
+
+
+class WeakPasswordError(ValueError):
+    """Raised when a password fails zxcvbn strength validation (FR-1)."""

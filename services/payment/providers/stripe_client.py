@@ -57,6 +57,15 @@ class StripeClient:
         except stripe.StripeError as exc:
             logger.error("stripe_intent_cancel_failed", intent_id=intent_id, error=str(exc))
 
+    async def retrieve_payment_intent(self, intent_id: str) -> stripe.PaymentIntent:
+        """FR-5: Retrieve an existing PaymentIntent (e.g. to get client_secret for reuse)."""
+        try:
+            intent = await asyncio.to_thread(stripe.PaymentIntent.retrieve, intent_id)
+            return intent
+        except stripe.StripeError as exc:
+            logger.error("stripe_intent_retrieve_failed", intent_id=intent_id, error=str(exc))
+            raise PaymentProviderError(f"Stripe retrieve error: {exc.user_message}") from exc
+
     def construct_webhook_event(
         self,
         payload: bytes,

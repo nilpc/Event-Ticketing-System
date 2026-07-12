@@ -8,7 +8,7 @@ from uuid import UUID
 import zxcvbn
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.exceptions import NotFoundError
+from core.exceptions import NotFoundError, WeakPasswordError
 from core.security.jwt import create_access_token
 from core.security.refresh import create_refresh_token
 from services.identity.repositories.user_repo import UserRepository
@@ -36,11 +36,15 @@ try:
 except ImportError:
     import hashlib
 
+    _SALT = b"event-ticketing-fallback-salt"  # noqa: S105
+
     def _hash_password(password: str) -> str:  # type: ignore[misc]
-        return hashlib.sha256(password.encode()).hexdigest()
+        return hashlib.pbkdf2_hmac(
+            "sha256", password.encode(), _SALT, iterations=600_000
+        ).hex()
 
     def _verify_password(password: str, hashed: str) -> bool:  # type: ignore[misc]
-        return hashlib.sha256(password.encode()).hexdigest() == hashed
+        return _hash_password(password) == hashed
 
 
 class AuthService:
@@ -54,7 +58,7 @@ class AuthService:
         """FR-1: Register with zxcvbn password strength validation."""
         result = zxcvbn.zxcvbn(payload.password, user_inputs=[payload.email])
         if result["score"] < MIN_PASSWORD_SCORE:
-            raise ValueError(
+            raise WeakPasswordError(
                 f"Password too weak (score {result['score']}/{MIN_PASSWORD_SCORE}). "
                 + " ".join(result["feedback"]["suggestions"])
             )
@@ -80,6 +84,11 @@ class AuthService:
                 f"Account locked. Try again after {user.locked_until.isoformat()}."
             )
 
+        # FR-1: Check account active BEFORE password check to avoid
+        # leaking password validity for deactivated accounts.
+        if not user.is_active:
+            raise NotFoundError("Invalid email or password.")
+
         if not user.password_hash or not _verify_password(payload.password, user.password_hash):
             await self.user_repo.increment_failed_attempts(user.user_id)
             attempts = (user.failed_login_attempts or 0) + 1
@@ -90,9 +99,6 @@ class AuthService:
             # doesn't undo the security-relevant writes.
             await self.session.commit()
             raise NotFoundError("Invalid email or password.")
-
-        if not user.is_active:
-            raise NotFoundError("Account is deactivated.")
 
         await self.user_repo.reset_failed_attempts(user.user_id)
 

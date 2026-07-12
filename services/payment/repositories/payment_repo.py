@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import and_, select, update
@@ -20,7 +21,7 @@ class PaymentRepository:
         self,
         payment_id: UUID,
         booking_id: UUID,
-        amount: float,
+        amount: Decimal,
         status: str,
     ) -> None:
         """FR-5: Write initiated record before calling Stripe."""

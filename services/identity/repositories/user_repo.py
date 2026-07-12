@@ -20,7 +20,7 @@ class UserRepository:
 
     async def find_by_email(self, email: str) -> User | None:
         result = await self.session.execute(
-            select(User).where(User.email == email)
+            select(User).where(User.email == email, User.deleted_at.is_(None))
         )
         return result.scalar_one_or_none()
 
@@ -32,7 +32,10 @@ class UserRepository:
 
     async def find_by_google_subject(self, google_subject_id: str) -> User | None:
         result = await self.session.execute(
-            select(User).where(User.google_subject_id == google_subject_id)
+            select(User).where(
+                User.google_subject_id == google_subject_id,
+                User.deleted_at.is_(None),
+            )
         )
         return result.scalar_one_or_none()
 
