@@ -16,6 +16,10 @@ ENV/
 # Environment variables
 .env
 
+# Secrets / keys
+certs/
+*.pem
+
 # IDE
 .vscode/
 .idea/
