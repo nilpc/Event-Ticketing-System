@@ -1,0 +1,11 @@
+# Project Rules
+- Python 3.11+, FastAPI, Pydantic v2, SQLAlchemy 2.0 async.
+- STRICT Controller-Service-Repository (CSR) architecture.
+  - Routers (Controllers) handle HTTP, call Services.
+  - Services handle business logic, call Repositories.
+  - Repositories handle DB queries using SQLAlchemy 2.0 ORM (NO RAW SQL).
+- Postgres schemas: `identity` and `booking`. Cross-schema FKs enforced.
+- All money/state mutations must occur inside a single `async with session.begin():` block.
+- Redis failures must NEVER break post-commit API responses.
+- Cite FR-x / NFR-x in docstrings of the code that implements them.
+- Source of truth: docs/PHASES.md (build order) and docs/REQUIREMENTS.md (contract).
