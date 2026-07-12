@@ -5,6 +5,7 @@ from __future__ import annotations
 from urllib.parse import urlencode
 
 import httpx
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
@@ -46,7 +47,7 @@ class OAuthService:
     ) -> LoginResponse:
         """FR-2: Exchange code, find-or-create user, issue tokens."""
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
                 token_resp = await client.post(
                     GOOGLE_TOKEN_URL,
                     data={
@@ -83,13 +84,23 @@ class OAuthService:
             user = await self.user_repo.find_by_email(email)
             if user is not None:
                 # FR-2: Link Google account to existing password-based user
-                await self.user_repo.link_google_subject(user.user_id, google_subject)
-            else:
-                # Create new user
-                user = await self.user_repo.create_user(
-                    email=email,
-                    google_subject_id=google_subject,
+                linked = await self.user_repo.link_google_subject(
+                    user.user_id, google_subject
                 )
+                if not linked:
+                    raise ValueError("Google account already linked to another user.")
+            else:
+                # Create new user — handle race with IntegrityError
+                try:
+                    user = await self.user_repo.create_user(
+                        email=email,
+                        google_subject_id=google_subject,
+                    )
+                except IntegrityError:
+                    # Race: another request created the user — look it up
+                    user = await self.user_repo.find_by_google_subject(google_subject)
+                    if user is None:
+                        raise ValueError("Failed to create or find user account.")
 
         raw_refresh, _ = await create_refresh_token(user.user_id, self.session)
         access_token = create_access_token(str(user.user_id))

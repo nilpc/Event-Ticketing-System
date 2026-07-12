@@ -68,6 +68,9 @@ async def rotate_refresh_token(
 
     if old_token.is_revoked:
         await _revoke_family_by_id(old_token_id, session)
+        # FR-3: Commit revocations immediately so rollback in get_db_session
+        # doesn't undo the security-relevant family invalidation.
+        await session.commit()
         raise ValueError("Refresh token reuse detected — family invalidated.")
 
     old_token.is_revoked = True
@@ -89,10 +92,11 @@ async def _revoke_family_by_id(token_id: UUID, session: AsyncSession) -> None:
     """FR-3: Walk the rotated_from chain and revoke all tokens in the family.
 
     Revokes both backward (ancestors via rotated_from) and forward
-    (descendants where rotated_from == token_id) to fully invalidate
-    a stolen token chain.
+    (all descendants via recursive BFS) to fully invalidate a stolen
+    token chain.
     """
     # Backward: revoke this token and all ancestors
+    revoked_ids: set[UUID] = set()
     current_id: UUID | None = token_id
     while current_id is not None:
         result = await session.execute(
@@ -102,14 +106,31 @@ async def _revoke_family_by_id(token_id: UUID, session: AsyncSession) -> None:
         if token is None:
             break
         token.is_revoked = True
+        revoked_ids.add(current_id)
         current_id = token.rotated_from
 
-    # Forward: revoke all descendants (tokens whose rotated_from points to any
-    # token we just revoked in the backward walk)
-    await session.execute(
-        update(RefreshToken)
-        .where(RefreshToken.rotated_from == token_id, RefreshToken.is_revoked.is_(False))
-        .values(is_revoked=True)
-    )
+    # Forward: iteratively find ALL descendants (including through
+    # already-revoked intermediaries) and revoke any still-active ones.
+    frontier = list(revoked_ids)
+    while frontier:
+        result = await session.execute(
+            select(RefreshToken.token_id, RefreshToken.is_revoked)
+            .where(RefreshToken.rotated_from.in_(frontier))
+        )
+        children = [(row[0], row[1]) for row in result.all()]
+        if not children:
+            break
+        # Revoke any children that aren't revoked yet
+        to_revoke = [cid for cid, revoked in children if not revoked]
+        if to_revoke:
+            await session.execute(
+                update(RefreshToken)
+                .where(RefreshToken.token_id.in_(to_revoke))
+                .values(is_revoked=True)
+            )
+        # Continue traversal through ALL children (even already-revoked)
+        all_children = [cid for cid, _ in children]
+        revoked_ids.update(all_children)
+        frontier = all_children
 
     await session.flush()

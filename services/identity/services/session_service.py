@@ -6,6 +6,7 @@ import hashlib
 from datetime import UTC, datetime
 from uuid import UUID
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,8 +17,10 @@ from core.security.refresh import (
     revoke_refresh_token,
     rotate_refresh_token,
 )
-from services.identity.models.user import RefreshToken
+from services.identity.models.user import RefreshToken, User
 from services.identity.schemas.auth import LoginResponse
+
+logger = structlog.get_logger()
 
 
 class SessionService:
@@ -40,16 +43,30 @@ class SessionService:
         token_hash = hashlib.sha256(refresh_token_raw.encode()).hexdigest()
 
         result = await self.session.execute(
-            select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+            select(RefreshToken, User)
+            .join(User, RefreshToken.user_id == User.user_id)
+            .where(RefreshToken.token_hash == token_hash)
         )
-        stored = result.scalar_one_or_none()
+        row = result.one_or_none()
 
-        if stored is None:
+        if row is None:
             raise NotFoundError("Refresh token not found.")
+
+        stored, user = row
 
         # FR-3: Reject expired refresh tokens immediately
         if stored.expires_at < datetime.now(UTC):
             raise NotFoundError("Refresh token has expired.")
+
+        # C4: Reject tokens for soft-deleted or deactivated users
+        if not user.is_active or user.deleted_at is not None:
+            logger.warning(
+                "refresh_token_used_by_inactive_user",
+                user_id=str(user.user_id),
+                is_active=user.is_active,
+                deleted=user.deleted_at is not None,
+            )
+            raise NotFoundError("Refresh token not found.")
 
         new_raw, _ = await rotate_refresh_token(
             old_token_id=stored.token_id,

@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+import structlog
 import zxcvbn
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import NotFoundError, WeakPasswordError
@@ -18,6 +20,8 @@ from services.identity.schemas.auth import (
     SignupRequest,
     SignupResponse,
 )
+
+logger = structlog.get_logger()
 
 # FR-1: minimum zxcvbn score for password strength
 MIN_PASSWORD_SCORE = 3
@@ -56,21 +60,26 @@ class AuthService:
 
     async def signup(self, payload: SignupRequest) -> SignupResponse:
         """FR-1: Register with zxcvbn password strength validation."""
-        result = zxcvbn.zxcvbn(payload.password, user_inputs=[payload.email])
+        email = payload.email.strip().lower()
+
+        result = zxcvbn.zxcvbn(payload.password, user_inputs=[email])
         if result["score"] < MIN_PASSWORD_SCORE:
             raise WeakPasswordError(
                 f"Password too weak (score {result['score']}/{MIN_PASSWORD_SCORE}). "
                 + " ".join(result["feedback"]["suggestions"])
             )
 
-        existing = await self.user_repo.find_by_email(payload.email)
+        existing = await self.user_repo.find_by_email(email)
         if existing is not None:
             raise ValueError("Email already registered.")
 
         password_hash = _hash_password(payload.password)
-        user = await self.user_repo.create_user(
-            email=payload.email, password_hash=password_hash
-        )
+        try:
+            user = await self.user_repo.create_user(
+                email=email, password_hash=password_hash
+            )
+        except IntegrityError:
+            raise ValueError("Email already registered.")
         return SignupResponse(user_id=user.user_id, email=user.email)
 
     async def login(self, payload: LoginRequest) -> LoginResponse:
@@ -98,6 +107,7 @@ class AuthService:
             # Commit lockout state immediately so rollback in get_db_session
             # doesn't undo the security-relevant writes.
             await self.session.commit()
+            logger.warning("login_failed", email=payload.email, user_id=str(user.user_id))
             raise NotFoundError("Invalid email or password.")
 
         await self.user_repo.reset_failed_attempts(user.user_id)

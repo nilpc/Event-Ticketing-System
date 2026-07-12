@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import structlog
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.enums import PaymentStatus
@@ -64,13 +65,25 @@ class PaymentService:
         amount_cents = int(booking.amount * 100)
 
         # FR-5: Write initiated record BEFORE calling Stripe
-        await self.payment_repo.create_payment_record(
-            payment_id=payment_id,
-            booking_id=booking_id,
-            amount=booking.amount,
-            status=PaymentStatus.INITIATED,
-        )
-        await self.session.flush()
+        try:
+            await self.payment_repo.create_payment_record(
+                payment_id=payment_id,
+                booking_id=booking_id,
+                amount=booking.amount,
+                status=PaymentStatus.INITIATED,
+            )
+            await self.session.flush()
+        except IntegrityError:
+            # H4: Race — another request created a record between our check and insert
+            existing = await self.payment_repo.get_active_payment_for_booking(booking_id)
+            if existing is not None and existing.provider_payment_id:
+                intent = await self.provider.retrieve_payment_intent(existing.provider_payment_id)
+                return PaymentIntentResponse(
+                    payment_id=existing.payment_id,
+                    client_secret=intent.client_secret or "",
+                    status=existing.status,
+                )
+            raise
 
         try:
             intent = await self.provider.create_payment_intent(

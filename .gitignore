@@ -46,5 +46,13 @@ migrations/versions/__pycache__/
 .DS_Store
 Thumbs.db
 
+# Logs
+server.log
+server_err.log
+server_out.log
+
+# Checkpoint / test scripts
+_ckpt_*.py
+
 # Docker
 docker-compose.override.yml

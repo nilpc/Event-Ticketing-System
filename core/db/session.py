@@ -3,6 +3,7 @@
 from collections.abc import AsyncGenerator
 
 import structlog
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -13,6 +14,21 @@ from core.config import settings
 
 logger = structlog.get_logger()
 
+
+def _on_connect(dbapi_conn, connection_record) -> None:
+    """FR-10: Set search_path so asyncpg resolves booking schema enums."""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("SET search_path TO booking,identity,public")
+    cursor.close()
+
+
+def _on_checkout(dbapi_conn, connection_record, connection_proxy) -> None:
+    """FR-10: Re-set search_path on every checkout (safe against pool recycling)."""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("SET search_path TO booking,identity,public")
+    cursor.close()
+
+
 engine = create_async_engine(
     settings.DATABASE_URL,
     pool_size=20,
@@ -20,6 +36,10 @@ engine = create_async_engine(
     pool_pre_ping=True,
     pool_recycle=300,  # Recycle connections every 5 min (Neon idle timeout)
 )
+
+# FR-10: Ensure every connection has the correct search_path.
+event.listen(engine.sync_engine, "connect", _on_connect)
+event.listen(engine.sync_engine.pool, "checkout", _on_checkout)
 
 async_session_factory = async_sessionmaker(
     engine,

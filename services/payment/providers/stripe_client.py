@@ -56,6 +56,7 @@ class StripeClient:
             logger.info("stripe_intent_cancelled", intent_id=intent_id)
         except stripe.StripeError as exc:
             logger.error("stripe_intent_cancel_failed", intent_id=intent_id, error=str(exc))
+            raise PaymentProviderError(f"Stripe cancel error: {exc.user_message}") from exc
 
     async def retrieve_payment_intent(self, intent_id: str) -> stripe.PaymentIntent:
         """FR-5: Retrieve an existing PaymentIntent (e.g. to get client_secret for reuse)."""

@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.identity.models.user import User
+from services.identity.models.user import RefreshToken, User
 
 
 class UserRepository:
@@ -75,17 +75,30 @@ class UserRepository:
             .values(locked_until=until)
         )
 
-    async def link_google_subject(self, user_id: UUID, google_subject_id: str) -> None:
-        """FR-2: Link a Google subject ID to an existing user."""
-        await self.session.execute(
+    async def link_google_subject(self, user_id: UUID, google_subject_id: str) -> bool:
+        """FR-2: Link a Google subject ID to an existing user.
+
+        Returns True if linked, False if already linked by another request.
+        """
+        result = await self.session.execute(
             update(User)
-            .where(User.user_id == user_id)
+            .where(User.user_id == user_id, User.google_subject_id.is_(None))
             .values(google_subject_id=google_subject_id)
         )
+        return result.rowcount > 0  # type: ignore[attr-defined]
 
     # FR-1: GDPR soft-delete / anonymization
 
+    async def _revoke_user_tokens(self, user_id: UUID) -> None:
+        """Revoke all active refresh tokens for a user (GDPR compliance)."""
+        await self.session.execute(
+            update(RefreshToken)
+            .where(RefreshToken.user_id == user_id, RefreshToken.is_revoked.is_(False))
+            .values(is_revoked=True)
+        )
+
     async def soft_delete_user(self, user_id: UUID) -> None:
+        await self._revoke_user_tokens(user_id)
         await self.session.execute(
             update(User)
             .where(User.user_id == user_id)
@@ -93,6 +106,7 @@ class UserRepository:
         )
 
     async def anonymize_user(self, user_id: UUID) -> None:
+        await self._revoke_user_tokens(user_id)
         anon_hash = hashlib.sha256(str(user_id).encode()).hexdigest()[:16]
         await self.session.execute(
             update(User)

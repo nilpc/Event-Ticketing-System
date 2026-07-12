@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from uuid import UUID
 
 import structlog
@@ -24,6 +25,15 @@ VENUE_CACHE_TTL = 60
 EVENT_CACHE_TTL = 60
 SHOWTIME_CACHE_TTL = 60
 SEATMAP_CACHE_TTL = 30
+
+
+class _DecimalEncoder(json.JSONEncoder):
+    """C6: Serialize Decimal as str to avoid float precision loss in cache."""
+
+    def default(self, o: object) -> object:
+        if isinstance(o, Decimal):
+            return str(o)
+        return super().default(o)
 
 
 class CatalogService:
@@ -48,7 +58,7 @@ class CatalogService:
         try:
             await self.cache.set(
                 "venues:all",
-                json.dumps([r.model_dump(mode="json") for r in responses]),
+                json.dumps([r.model_dump(mode="json") for r in responses], cls=_DecimalEncoder),
                 ttl=VENUE_CACHE_TTL,
             )
         except Exception:
@@ -71,7 +81,7 @@ class CatalogService:
         try:
             await self.cache.set(
                 "events:all",
-                json.dumps([r.model_dump(mode="json") for r in responses]),
+                json.dumps([r.model_dump(mode="json") for r in responses], cls=_DecimalEncoder),
                 ttl=EVENT_CACHE_TTL,
             )
         except Exception:
@@ -98,7 +108,7 @@ class CatalogService:
         try:
             await self.cache.set(
                 cache_key,
-                json.dumps(response.model_dump(mode="json")),
+                json.dumps(response.model_dump(mode="json"), cls=_DecimalEncoder),
                 ttl=SHOWTIME_CACHE_TTL,
             )
         except Exception:
@@ -127,7 +137,7 @@ class CatalogService:
         try:
             await self.cache.set(
                 cache_key,
-                json.dumps(result.model_dump(mode="json")),
+                json.dumps(result.model_dump(mode="json"), cls=_DecimalEncoder),
                 ttl=SEATMAP_CACHE_TTL,
             )
         except Exception:

@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.enums import BookingStatus
 from services.booking.models.booking import Booking
+from services.booking.models.booking_event import BookingEvent
+from services.booking.models.outbox_event import OutboxEvent
+from services.booking.models.processed_webhook import ProcessedWebhookEvent
 
 
 class BookingRepository:
@@ -38,29 +42,76 @@ class BookingRepository:
         correlation_id: str | None = None,
     ) -> None:
         """FR-8: Insert PENDING booking inside atomic transaction."""
-        ...  # Phase 3
+        booking = Booking(
+            booking_id=booking_id,
+            user_id=user_id,
+            show_id=show_id,
+            seat_id=seat_id,
+            status=BookingStatus.PENDING,
+            idempotency_key=idempotency_key,
+            amount=amount,
+            currency="USD",
+            expires_at=expires_at,
+        )
+        self.session.add(booking)
 
-    async def get_booking_by_idempotency(self, idempotency_key: str) -> object | None:
+    async def get_booking_by_idempotency(
+        self, idempotency_key: str
+    ) -> Booking | None:
         """FR-8: Idempotency replay — fetch existing booking by key."""
-        ...  # Phase 3
+        result = await self.session.execute(
+            select(Booking).where(Booking.idempotency_key == idempotency_key)
+        )
+        return result.scalar_one_or_none()
 
     async def update_booking_status(
         self,
         booking_id: UUID,
-        new_status: object,
+        new_status: BookingStatus,
         correlation_id: str | None = None,
         source: str = "system",
     ) -> None:
         """FR-8, FR-9: State machine transition with audit event."""
-        ...  # Phase 3
+        # Fetch current status for audit
+        result = await self.session.execute(
+            select(Booking.status).where(Booking.booking_id == booking_id)
+        )
+        current_status = result.scalar_one_or_none()
 
-    async def get_zombie_bookings(self, cutoff: datetime) -> list[object]:
+        # Update booking status
+        await self.session.execute(
+            update(Booking)
+            .where(Booking.booking_id == booking_id)
+            .values(status=new_status)
+        )
+
+        # Write audit event
+        event = BookingEvent(
+            booking_id=booking_id,
+            from_status=current_status,
+            to_status=new_status,
+            source=source,
+            correlation_id=(
+                UUID(correlation_id) if correlation_id else None
+            ),
+        )
+        self.session.add(event)
+
+    async def get_zombie_bookings(self, cutoff: datetime) -> list[Booking]:
         """FR-9: Sweeper query — PENDING bookings older than cutoff."""
-        ...  # Phase 3
+        result = await self.session.execute(
+            select(Booking).where(
+                Booking.status == BookingStatus.PENDING,
+                Booking.expires_at < cutoff,
+            )
+        )
+        return list(result.scalars().all())
 
     async def revert_booking_to_failed(self, booking_id: UUID) -> None:
         """FR-9: Sweeper marks zombie booking as FAILED."""
-        ...  # Phase 3
+        await self.update_booking_status(
+            booking_id, BookingStatus.FAILED, source="sweeper"
+        )
 
     # --- Outbox ---
 
@@ -72,17 +123,35 @@ class BookingRepository:
         payload: dict,
     ) -> None:
         """FR-8: Append outbox event inside same transaction as booking."""
-        ...  # Phase 3
+        event = OutboxEvent(
+            aggregate_type=aggregate_type,
+            aggregate_id=aggregate_id,
+            event_type=event_type,
+            payload=payload,
+        )
+        self.session.add(event)
 
     async def get_unpublished_outbox_events_for_update_skip_locked(
         self,
-    ) -> list[object]:
+    ) -> list[OutboxEvent]:
         """Outbox relay: SELECT ... FOR UPDATE SKIP LOCKED."""
-        ...  # Phase 3
+
+        result = await self.session.execute(
+            select(OutboxEvent)
+            .where(OutboxEvent.published_at.is_(None))
+            .order_by(OutboxEvent.created_at)
+            .limit(10)
+            .with_for_update(skip_locked=True)
+        )
+        return list(result.scalars().all())
 
     async def mark_outbox_published(self, event_id: UUID) -> None:
         """Outbox relay: stamp published_at."""
-        ...  # Phase 3
+        await self.session.execute(
+            update(OutboxEvent)
+            .where(OutboxEvent.event_id == event_id)
+            .values(published_at=datetime.now(UTC))
+        )
 
     # --- Webhook idempotency ---
 
@@ -90,4 +159,17 @@ class BookingRepository:
         self, event_id: str, event_type: str, payload: str
     ) -> bool:
         """FR-9: Insert processed_webhook_events; returns False if duplicate."""
-        ...  # Phase 3
+        from sqlalchemy.exc import IntegrityError
+
+        try:
+            event = ProcessedWebhookEvent(
+                event_id=event_id,
+                event_type=event_type,
+                payload={"raw": payload},
+            )
+            self.session.add(event)
+            await self.session.flush()
+            return True
+        except IntegrityError:
+            await self.session.rollback()
+            return False

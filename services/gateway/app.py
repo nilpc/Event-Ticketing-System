@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 
 import structlog
@@ -14,9 +15,25 @@ logger = structlog.get_logger()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup/shutdown lifecycle — DB engine, Redis pool."""
+    """Startup/shutdown lifecycle — DB engine, Redis pool, background workers."""
     logger.info("app_starting", env="development")
+
+    # FR-9, NFR-3: Start background workers
+    from services.workers.admitter import run_admitter
+    from services.workers.relay import run_relay
+    from services.workers.sweeper import run_sweeper
+
+    sweeper_task = asyncio.create_task(run_sweeper())
+    relay_task = asyncio.create_task(run_relay())
+    admitter_task = asyncio.create_task(run_admitter())
+
     yield
+
+    # Shutdown background workers
+    sweeper_task.cancel()
+    relay_task.cancel()
+    admitter_task.cancel()
+
     logger.info("app_shutting_down")
     from core.db.session import engine
 
@@ -38,22 +55,32 @@ def create_app() -> FastAPI:
     )
 
     # --- Middleware ---
+    from core.config import settings
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=[o.strip() for o in settings.CORS_ORIGINS.split(",")],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
     # --- Routers ---
+    from services.booking.routers.booking import router as booking_router
     from services.booking.routers.catalog import router as catalog_router
+    from services.booking.routers.queue import router as queue_router
+    from services.booking.routers.seats import router as seats_router
     from services.identity.routers.auth import router as auth_router
     from services.payment.routers.payment import router as payment_router
+    from services.payment.routers.webhooks import router as webhook_router
 
     app.include_router(auth_router)
     app.include_router(catalog_router)
     app.include_router(payment_router)
+    app.include_router(queue_router)
+    app.include_router(seats_router)
+    app.include_router(booking_router)
+    app.include_router(webhook_router)
 
     # --- Health endpoints (FR-12) ---
     @app.get("/health", tags=["ops"])

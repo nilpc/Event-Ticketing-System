@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
 
+    # --- CORS ---
+    CORS_ORIGINS: str = "http://localhost:3000"
+
     # --- Observability ---
     SENTRY_DSN: str = ""
     OTEL_EXPORTER_OTLP_ENDPOINT: str = ""

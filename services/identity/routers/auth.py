@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import secrets
+
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.session import get_db_session
 from core.exceptions import WeakPasswordError
+from core.redis import get_redis
 from services.identity.schemas.auth import (
     ErrorResponse,
     LoginRequest,
@@ -20,6 +24,7 @@ from services.identity.services.auth_service import AuthService
 from services.identity.services.oauth_service import OAuthService
 from services.identity.services.session_service import SessionService
 
+logger = structlog.get_logger()
 router = APIRouter(prefix="/v1/auth", tags=["identity"])
 
 
@@ -100,7 +105,13 @@ async def google_authorize(
     callback_path = parsed.path.replace("/authorize", "/callback")
     redirect_uri = urlunparse(parsed._replace(path=callback_path, query="", fragment=""))
     svc = OAuthService(session)
-    state = "placeholder_state"  # TODO: generate CSRF state
+    # C2: Generate cryptographic random state, store in Redis for 10 min
+    state = secrets.token_urlsafe(32)
+    try:
+        redis = get_redis()
+        await redis.set(f"oauth_state:{state}", "1", ex=600)
+    except Exception:
+        logger.warning("oauth_state_store_failed", reason="Redis unavailable")
     url = svc.get_authorize_url(redirect_uri, state)
     return OAuthAuthorizeResponse(authorize_url=url, state=state)
 
@@ -118,6 +129,18 @@ async def google_callback(
 ) -> LoginResponse:
     """FR-2: Handle Google OAuth2 callback, issue tokens."""
     from urllib.parse import urlparse, urlunparse
+
+    # C2: Validate OAuth CSRF state (one-time use, stored in Redis)
+    try:
+        redis = get_redis()
+        exists = await redis.delete(f"oauth_state:{state}")
+        if not exists:
+            raise HTTPException(status_code=400, detail="Invalid or expired OAuth state.")
+    except HTTPException:
+        raise  # re-raise our own 400
+    except Exception:
+        # Redis unavailable — skip CSRF validation (degraded mode)
+        logger.warning("oauth_state_validate_failed", reason="Redis unavailable")
 
     parsed = urlparse(str(request.url))
     redirect_uri = urlunparse(parsed._replace(query="", fragment=""))
