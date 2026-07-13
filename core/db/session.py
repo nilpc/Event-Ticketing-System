@@ -39,9 +39,15 @@ engine = create_async_engine(
     connect_args={"statement_cache_size": 0},
 )
 
+
+def register_pool_listeners() -> None:
+    """FR-10: Register listeners on current pool. Call after engine.dispose()."""
+    event.listen(engine.sync_engine.pool, "checkout", _on_checkout)
+
+
 # FR-10: Ensure every connection has the correct search_path.
 event.listen(engine.sync_engine, "connect", _on_connect)
-event.listen(engine.sync_engine.pool, "checkout", _on_checkout)
+register_pool_listeners()
 
 async_session_factory = async_sessionmaker(
     engine,

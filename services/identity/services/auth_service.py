@@ -28,15 +28,15 @@ MIN_PASSWORD_SCORE = 3
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 
-# Password hashing — bcrypt via passlib or hashlib fallback
+# Password hashing — bcrypt or hashlib fallback
 try:
-    from passlib.hash import bcrypt
+    import bcrypt as _bcrypt_lib
 
     def _hash_password(password: str) -> str:
-        return bcrypt.hash(password)
+        return _bcrypt_lib.hashpw(password.encode(), _bcrypt_lib.gensalt()).decode()
 
     def _verify_password(password: str, hashed: str) -> bool:
-        return bcrypt.verify(password, hashed)
+        return _bcrypt_lib.checkpw(password.encode(), hashed.encode())
 except ImportError:
     import hashlib
 

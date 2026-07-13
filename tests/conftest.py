@@ -55,9 +55,10 @@ def _setup_database():
 async def _dispose_pool():
     """Dispose async engine pool after each test to avoid stale event-loop connections."""
     yield
-    from core.db.session import engine
+    from core.db.session import engine, register_pool_listeners
 
     await engine.dispose()
+    register_pool_listeners()
 
 
 @pytest_asyncio.fixture

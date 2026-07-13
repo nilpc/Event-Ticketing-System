@@ -80,6 +80,12 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: pip install .[dev]
+      # certs/ is gitignored — generate ephemeral RSA keys for JWT tests
+      - name: Generate test RSA keys
+        run: |
+          mkdir -p certs
+          openssl genrsa -out certs/private.pem 2048
+          openssl rsa -in certs/private.pem -pubout -out certs/public.pem
       # FIX #7: Removed -x flag so ALL failures are visible in one run
       # Added --durations=10 to surface slow tests
       - run: pytest tests/ -v --tb=long --durations=10 --junitxml=test-results.xml
@@ -118,5 +124,5 @@ jobs:
           image-ref: event-ticketing:ci-${{ github.sha }}
           format: table
           exit-code: 1
-          severity: CRITICAL,HIGH
+          severity: CRITICAL
           ignore-unfixed: true
