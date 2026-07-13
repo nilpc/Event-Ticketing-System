@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncGenerator
 
@@ -21,27 +22,34 @@ os.environ.setdefault("LOG_FORMAT", "console")
 
 
 @pytest.fixture(scope="session", autouse=True)
-async def _setup_database():
+def _setup_database():
     """Create all schemas + tables once per test session on the app engine.
 
     Alembic migrations are not run in tests; we replicate the schema/table
     creation that Alembic would do, using SQLAlchemy's Metadata + raw DDL
     for schema creation (since Meta.create_all does not create schemas).
+
+    Sync fixture using asyncio.run() to avoid event-loop scoping issues
+    with pytest-asyncio's function-scoped default loop.
     """
     from core.db.base import Base
     from core.db.session import engine
 
-    # Create PostgreSQL schemas (Meta.create_all does not do this)
-    async with engine.begin() as conn:
-        await conn.execute(text("CREATE SCHEMA IF NOT EXISTS identity"))
-        await conn.execute(text("CREATE SCHEMA IF NOT EXISTS booking"))
-        await conn.run_sync(Base.metadata.create_all)
+    async def _create():
+        async with engine.begin() as conn:
+            await conn.execute(text("CREATE SCHEMA IF NOT EXISTS identity"))
+            await conn.execute(text("CREATE SCHEMA IF NOT EXISTS booking"))
+            await conn.run_sync(Base.metadata.create_all)
 
+    asyncio.run(_create())
     yield
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    await engine.dispose()
+    async def _drop():
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await engine.dispose()
+
+    asyncio.run(_drop())
 
 
 @pytest_asyncio.fixture
