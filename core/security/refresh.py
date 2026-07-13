@@ -114,8 +114,9 @@ async def _revoke_family_by_id(token_id: UUID, session: AsyncSession) -> None:
     frontier = list(revoked_ids)
     while frontier:
         result = await session.execute(
-            select(RefreshToken.token_id, RefreshToken.is_revoked)
-            .where(RefreshToken.rotated_from.in_(frontier))
+            select(RefreshToken.token_id, RefreshToken.is_revoked).where(
+                RefreshToken.rotated_from.in_(frontier)
+            )
         )
         children = [(row[0], row[1]) for row in result.all()]
         if not children:

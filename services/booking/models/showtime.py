@@ -39,12 +39,8 @@ class Showtime(Base):
         nullable=False,
     )
     base_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
-    start_time: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
-    end_time: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     # Relationships
     event: Mapped[Event] = relationship()

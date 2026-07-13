@@ -45,9 +45,7 @@ class PaymentService:
 
         guard_time = datetime.now(UTC) + timedelta(minutes=EXPIRY_GUARD_MINUTES)
         if booking.expires_at < guard_time:
-            raise BookingConflictError(
-                "Booking is about to expire. Please start a new booking."
-            )
+            raise BookingConflictError("Booking is about to expire. Please start a new booking.")
 
         # FR-5: Check for existing non-terminal intent
         existing = await self.payment_repo.get_active_payment_for_booking(booking_id)

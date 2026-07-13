@@ -31,9 +31,7 @@ class QueueService:
         # Check if already admitted
         existing_token = await self.lock_repo.get_admitted_token(show_id, user_id)
         if existing_token is not None:
-            return QueueJoinResponse(
-                queue_token=existing_token, position=0, status="admitted"
-            )
+            return QueueJoinResponse(queue_token=existing_token, position=0, status="admitted")
 
         # Check if already in queue
         position = await self.lock_repo.get_queue_position(show_id, user_id)
@@ -56,9 +54,7 @@ class QueueService:
 
         # FR-6: Calculate Retry-After based on position and admission rate
         retry_after = max(1, position // ADMISSION_RATE)
-        return QueueStatusResponse(
-            position=position, status="waiting", retry_after=retry_after
-        )
+        return QueueStatusResponse(position=position, status="waiting", retry_after=retry_after)
 
     async def recover(self, show_id: UUID, user_id: UUID) -> QueueRecoverResponse:
         """FR-6: Crash recovery — return active session token if exists."""

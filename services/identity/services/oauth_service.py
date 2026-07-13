@@ -84,9 +84,7 @@ class OAuthService:
             user = await self.user_repo.find_by_email(email)
             if user is not None:
                 # FR-2: Link Google account to existing password-based user
-                linked = await self.user_repo.link_google_subject(
-                    user.user_id, google_subject
-                )
+                linked = await self.user_repo.link_google_subject(user.user_id, google_subject)
                 if not linked:
                     raise ValueError("Google account already linked to another user.")
             else:

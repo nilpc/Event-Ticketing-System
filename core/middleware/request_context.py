@@ -18,9 +18,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
     include these fields without manual pass-through.
     """
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         # Extract from response headers set by IdentityMiddleware
         request_id = request.headers.get("x-request-id", "") or str(uuid.uuid4())
         traceparent = request.headers.get("traceparent", "")

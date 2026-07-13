@@ -25,9 +25,7 @@ class UserRepository:
         return result.scalar_one_or_none()
 
     async def find_by_id(self, user_id: UUID) -> User | None:
-        result = await self.session.execute(
-            select(User).where(User.user_id == user_id)
-        )
+        result = await self.session.execute(select(User).where(User.user_id == user_id))
         return result.scalar_one_or_none()
 
     async def find_by_google_subject(self, google_subject_id: str) -> User | None:
@@ -70,9 +68,7 @@ class UserRepository:
 
     async def lock_account(self, user_id: UUID, until: datetime) -> None:
         await self.session.execute(
-            update(User)
-            .where(User.user_id == user_id)
-            .values(locked_until=until)
+            update(User).where(User.user_id == user_id).values(locked_until=until)
         )
 
     async def link_google_subject(self, user_id: UUID, google_subject_id: str) -> bool:

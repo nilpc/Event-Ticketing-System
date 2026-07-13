@@ -52,6 +52,7 @@ async def _dispose_pool():
     """Dispose async engine pool after each test to avoid stale event-loop connections."""
     yield
     from core.db.session import engine
+
     await engine.dispose()
 
 

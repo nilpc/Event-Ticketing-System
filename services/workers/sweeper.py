@@ -34,9 +34,7 @@ async def sweep_zombie_bookings() -> None:
             try:
                 async with session.begin():
                     # Revert seat to AVAILABLE
-                    await seat_repo.revert_seat_to_available(
-                        booking.show_id, booking.seat_id
-                    )
+                    await seat_repo.revert_seat_to_available(booking.show_id, booking.seat_id)
                     # Mark booking as FAILED
                     await booking_repo.revert_booking_to_failed(booking.booking_id)
                     # Add outbox event
@@ -54,9 +52,7 @@ async def sweep_zombie_bookings() -> None:
                 await lock_repo.release_seat_lock_safe(
                     booking.show_id, booking.seat_id, booking.user_id
                 )
-                await lock_repo.release_user_hold_limit(
-                    booking.show_id, booking.user_id
-                )
+                await lock_repo.release_user_hold_limit(booking.show_id, booking.user_id)
 
                 logger.info(
                     "zombie_booking_reverted",

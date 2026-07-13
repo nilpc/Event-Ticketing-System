@@ -56,14 +56,10 @@ class Booking(Base):
         nullable=False,
         default=BookingStatus.PENDING,
     )
-    idempotency_key: Mapped[str] = mapped_column(
-        String(255), unique=True, nullable=False
-    )
+    idempotency_key: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

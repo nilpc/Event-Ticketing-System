@@ -20,9 +20,7 @@ async def publish_outbox_events() -> None:
         booking_repo = BookingRepository(session)
 
         async with session.begin():
-            events = await (
-                booking_repo.get_unpublished_outbox_events_for_update_skip_locked()
-            )
+            events = await booking_repo.get_unpublished_outbox_events_for_update_skip_locked()
             for event in events:
                 # Phase 3: log only. Phase 6: real message broker.
                 logger.info(

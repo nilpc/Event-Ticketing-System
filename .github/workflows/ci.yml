@@ -23,9 +23,9 @@ jobs:
           python-version: "3.11"
       - run: pip install ruff
       # FIX #5: also lint tests/ and workers/
-      - run: ruff check core/ services/ tests/ workers/
+      - run: ruff check core/ services/ tests/
       # FIX #6: catch format drift before merge
-      - run: ruff format --check core/ services/ tests/ workers/
+      - run: ruff format --check core/ services/ tests/
 
   typecheck:
     name: Mypy

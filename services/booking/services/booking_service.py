@@ -60,9 +60,7 @@ class BookingService:
         """
         # FR-8: Idempotency check (must be before queue validation for replays)
         if not await self.lock_repo.is_idempotency_key_available(idempotency_key):
-            existing = await self.booking_repo.get_booking_by_idempotency(
-                idempotency_key
-            )
+            existing = await self.booking_repo.get_booking_by_idempotency(idempotency_key)
             if existing:
                 return BookResponse(
                     booking_id=existing.booking_id,
@@ -78,14 +76,10 @@ class BookingService:
         # Verify seat lock belongs to this user
         lock_holder = await self.lock_repo.get_seat_lock(show_id, seat_id)
         if lock_holder != user_id:
-            raise BookingConflictError(
-                "Seat lock expired or assigned to another user."
-            )
+            raise BookingConflictError("Seat lock expired or assigned to another user.")
 
         booking_id = uuid.uuid4()
-        expires_at = datetime.now(UTC) + timedelta(
-            minutes=BOOKING_EXPIRY_MINUTES
-        )
+        expires_at = datetime.now(UTC) + timedelta(minutes=BOOKING_EXPIRY_MINUTES)
 
         try:
             # CRITICAL: Single Atomic Transaction
@@ -132,9 +126,7 @@ class BookingService:
             logger.exception(
                 "unexpected_persistence_failure", error=str(e), booking_id=str(booking_id)
             )
-            raise PersistenceError(
-                f"Checkout failed unexpectedly: {e}"
-            ) from e
+            raise PersistenceError(f"Checkout failed unexpectedly: {e}") from e
 
         # CRITICAL: Cache invalidation MUST happen AFTER DB commit.
         try:

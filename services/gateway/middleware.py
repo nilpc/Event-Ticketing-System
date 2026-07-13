@@ -45,9 +45,7 @@ class IdentityMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._public_key_path = public_key_path
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         # --- Step 1: Strip client-supplied identity headers (zero-trust) ---
         filtered_headers = []
         for k, v in request.scope.get("headers", []):
@@ -94,8 +92,7 @@ class IdentityMiddleware(BaseHTTPMiddleware):
             token = auth_header[7:]
 
         is_public = any(
-            request.url.path == p or request.url.path.startswith(p)
-            for p in _PUBLIC_PREFIXES
+            request.url.path == p or request.url.path.startswith(p) for p in _PUBLIC_PREFIXES
         )
 
         if token:

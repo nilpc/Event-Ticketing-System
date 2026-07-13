@@ -40,9 +40,7 @@ class BookingEvent(Base):
         nullable=False,
     )
     source: Mapped[str] = mapped_column(String(50), nullable=False)
-    correlation_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True
-    )
+    correlation_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     changed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

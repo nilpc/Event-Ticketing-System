@@ -134,9 +134,7 @@ class WebhookService:
                     if booking.status == BookingStatus.PENDING:
                         if show_id is None or seat_id is None:
                             return  # §6: missing metadata — cannot revert
-                        await self.seat_repo.revert_seat_to_available(
-                            show_id, seat_id
-                        )
+                        await self.seat_repo.revert_seat_to_available(show_id, seat_id)
                         await self.booking_repo.update_booking_status(
                             booking_id,
                             BookingStatus.FAILED,

@@ -79,25 +79,19 @@ class LockRepository:
         except (ValueError, TypeError):
             return None
 
-    async def release_seat_lock_safe(
-        self, show_id: UUID, seat_id: str, user_id: UUID
-    ) -> None:
+    async def release_seat_lock_safe(self, show_id: UUID, seat_id: str, user_id: UUID) -> None:
         """FR-7: CAS release — only free if still held by this user."""
         if self.redis is None:
             return
         key = f"seat_lock:{show_id}:{seat_id}"
         try:
-            await self.redis.eval(
-                _RELEASE_SEAT_LOCK_LUA, 1, key, str(user_id)
-            )
+            await self.redis.eval(_RELEASE_SEAT_LOCK_LUA, 1, key, str(user_id))
         except Exception:
             logger.warning("seat_lock_release_failed", show_id=str(show_id), seat_id=seat_id)
 
     # --- User Hold Limit (FR-7) ---
 
-    async def acquire_user_hold(
-        self, show_id: UUID, user_id: UUID, ttl: int = 600
-    ) -> bool:
+    async def acquire_user_hold(self, show_id: UUID, user_id: UUID, ttl: int = 600) -> bool:
         """FR-7: Enforce 10-min per-user hold limit.
 
         Uses a Redis set per (show_id, user_id) to track held seats.
@@ -160,6 +154,7 @@ class LockRepository:
         if self.redis is None:
             return 1
         import time
+
         queue_key = f"queue:{show_id}"
         score = time.time()
         await self.redis.zadd(queue_key, {str(user_id): score})
@@ -186,6 +181,7 @@ class LockRepository:
     async def admit_user(self, show_id: UUID, user_id: UUID, ttl: int = 600) -> str:
         """FR-6: Admit user from queue, generate and store queue token."""
         import secrets
+
         if self.redis is None:
             return secrets.token_urlsafe(32)
         token = secrets.token_urlsafe(32)

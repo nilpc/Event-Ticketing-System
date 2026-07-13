@@ -25,9 +25,7 @@ class BookingRepository:
 
     async def get_booking_by_id(self, booking_id: UUID) -> Booking | None:
         """FR-5, FR-9: Fetch booking by PK."""
-        result = await self.session.execute(
-            select(Booking).where(Booking.booking_id == booking_id)
-        )
+        result = await self.session.execute(select(Booking).where(Booking.booking_id == booking_id))
         return result.scalar_one_or_none()
 
     async def create_pending_booking(
@@ -55,9 +53,7 @@ class BookingRepository:
         )
         self.session.add(booking)
 
-    async def get_booking_by_idempotency(
-        self, idempotency_key: str
-    ) -> Booking | None:
+    async def get_booking_by_idempotency(self, idempotency_key: str) -> Booking | None:
         """FR-8: Idempotency replay — fetch existing booking by key."""
         result = await self.session.execute(
             select(Booking).where(Booking.idempotency_key == idempotency_key)
@@ -80,9 +76,7 @@ class BookingRepository:
 
         # Update booking status
         await self.session.execute(
-            update(Booking)
-            .where(Booking.booking_id == booking_id)
-            .values(status=new_status)
+            update(Booking).where(Booking.booking_id == booking_id).values(status=new_status)
         )
 
         # Write audit event
@@ -91,9 +85,7 @@ class BookingRepository:
             from_status=current_status,
             to_status=new_status,
             source=source,
-            correlation_id=(
-                UUID(correlation_id) if correlation_id else None
-            ),
+            correlation_id=(UUID(correlation_id) if correlation_id else None),
         )
         self.session.add(event)
 
@@ -109,9 +101,7 @@ class BookingRepository:
 
     async def revert_booking_to_failed(self, booking_id: UUID) -> None:
         """FR-9: Sweeper marks zombie booking as FAILED."""
-        await self.update_booking_status(
-            booking_id, BookingStatus.FAILED, source="sweeper"
-        )
+        await self.update_booking_status(booking_id, BookingStatus.FAILED, source="sweeper")
 
     # --- Outbox ---
 
@@ -155,9 +145,7 @@ class BookingRepository:
 
     # --- Webhook idempotency ---
 
-    async def log_webhook_event(
-        self, event_id: str, event_type: str, payload: str
-    ) -> bool:
+    async def log_webhook_event(self, event_id: str, event_type: str, payload: str) -> bool:
         """FR-9: Insert processed_webhook_events; returns False if duplicate.
 
         Caller must handle IntegrityError when used inside session.begin().

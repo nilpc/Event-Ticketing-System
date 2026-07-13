@@ -28,9 +28,7 @@ class CatalogRepository:
         return list(result.scalars().all())
 
     async def get_showtime(self, show_id: UUID) -> Showtime | None:
-        result = await self.session.execute(
-            select(Showtime).where(Showtime.show_id == show_id)
-        )
+        result = await self.session.execute(select(Showtime).where(Showtime.show_id == show_id))
         return result.scalar_one_or_none()
 
     async def get_seat_map(self, show_id: UUID) -> list[Seat]:
@@ -40,7 +38,5 @@ class CatalogRepository:
         return list(result.scalars().all())
 
     async def get_showtimes_by_event(self, event_id: UUID) -> list[Showtime]:
-        result = await self.session.execute(
-            select(Showtime).where(Showtime.event_id == event_id)
-        )
+        result = await self.session.execute(select(Showtime).where(Showtime.event_id == event_id))
         return list(result.scalars().all())

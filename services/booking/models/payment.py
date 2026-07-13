@@ -32,9 +32,7 @@ class Payment(Base):
         nullable=False,
     )
     provider: Mapped[str] = mapped_column(String(50), nullable=False)
-    provider_payment_id: Mapped[str | None] = mapped_column(
-        String(255), unique=True, nullable=True
-    )
+    provider_payment_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False)
     created_at: Mapped[datetime] = mapped_column(

@@ -34,9 +34,7 @@ class SeatRepository:
             .values(status=SeatStatus.PENDING_PAYMENT)
         )
         if result.rowcount == 0:  # type: ignore[attr-defined]
-            raise SeatUnavailableError(
-                f"Seat {seat_id} for show {show_id} is not available."
-            )
+            raise SeatUnavailableError(f"Seat {seat_id} for show {show_id} is not available.")
 
     async def get_seat_price(self, show_id: UUID, seat_id: str) -> Decimal:
         """FR-10: Read true seat price for server-side amount calculation."""
@@ -50,9 +48,7 @@ class SeatRepository:
         )
         price = result.scalar_one_or_none()
         if price is None:
-            raise SeatUnavailableError(
-                f"Seat {seat_id} for show {show_id} not found."
-            )
+            raise SeatUnavailableError(f"Seat {seat_id} for show {show_id} not found.")
         return price
 
     async def finalize_sold_seat(self, show_id: UUID, seat_id: str) -> None:

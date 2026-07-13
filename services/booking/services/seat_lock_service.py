@@ -32,9 +32,7 @@ class SeatLockService:
         self.lock_repo = lock_repo
         self.seat_repo = seat_repo
 
-    async def lock_seat(
-        self, show_id: UUID, seat_id: str, user_id: UUID
-    ) -> SeatLockResponse:
+    async def lock_seat(self, show_id: UUID, seat_id: str, user_id: UUID) -> SeatLockResponse:
         """FR-7: Lock seat with distributed lock + hoarding limit + server-generated key."""
         import secrets
 
@@ -46,9 +44,7 @@ class SeatLockService:
             )
 
         # Layer 2: Distributed lock — SETNX with TTL
-        if not await self.lock_repo.acquire_seat_lock(
-            show_id, seat_id, user_id, SEAT_LOCK_TTL
-        ):
+        if not await self.lock_repo.acquire_seat_lock(show_id, seat_id, user_id, SEAT_LOCK_TTL):
             # Release the hold we just acquired since we can't lock the seat
             await self.lock_repo.release_user_hold_limit(show_id, user_id)
             raise BookingConflictError("Seat is currently locked by another user.")

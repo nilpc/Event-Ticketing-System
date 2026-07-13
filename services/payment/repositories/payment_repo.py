@@ -49,9 +49,7 @@ class PaymentRepository:
             values["status"] = status
         if values:
             await self.session.execute(
-                update(Payment)
-                .where(Payment.payment_id == payment_id)
-                .values(**values)
+                update(Payment).where(Payment.payment_id == payment_id).values(**values)
             )
 
     async def get_active_payment_for_booking(self, booking_id: UUID) -> Payment | None:
@@ -71,9 +69,7 @@ class PaymentRepository:
         )
         return result.scalar_one_or_none()
 
-    async def update_payment_status_by_intent(
-        self, provider_payment_id: str, status: str
-    ) -> None:
+    async def update_payment_status_by_intent(self, provider_payment_id: str, status: str) -> None:
         """FR-5: Webhook handler — update status by Stripe intent ID."""
         await self.session.execute(
             update(Payment)

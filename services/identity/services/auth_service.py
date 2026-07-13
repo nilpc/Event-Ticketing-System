@@ -43,9 +43,7 @@ except ImportError:
     _SALT = b"event-ticketing-fallback-salt"  # noqa: S105
 
     def _hash_password(password: str) -> str:  # type: ignore[misc]
-        return hashlib.pbkdf2_hmac(
-            "sha256", password.encode(), _SALT, iterations=600_000
-        ).hex()
+        return hashlib.pbkdf2_hmac("sha256", password.encode(), _SALT, iterations=600_000).hex()
 
     def _verify_password(password: str, hashed: str) -> bool:  # type: ignore[misc]
         return _hash_password(password) == hashed
@@ -75,9 +73,7 @@ class AuthService:
 
         password_hash = _hash_password(payload.password)
         try:
-            user = await self.user_repo.create_user(
-                email=email, password_hash=password_hash
-            )
+            user = await self.user_repo.create_user(email=email, password_hash=password_hash)
         except IntegrityError:
             raise ValueError("Email already registered.")
         return SignupResponse(user_id=user.user_id, email=user.email)
