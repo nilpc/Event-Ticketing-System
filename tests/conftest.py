@@ -36,14 +36,18 @@ def _setup_database():
     sync_engine = create_engine(sync_url)
 
     with sync_engine.begin() as conn:
-        conn.execute(text("CREATE SCHEMA IF NOT EXISTS identity"))
-        conn.execute(text("CREATE SCHEMA IF NOT EXISTS booking"))
+        conn.execute(text("DROP SCHEMA IF EXISTS identity CASCADE"))
+        conn.execute(text("DROP SCHEMA IF EXISTS booking CASCADE"))
+        conn.execute(text("CREATE SCHEMA identity"))
+        conn.execute(text("CREATE SCHEMA booking"))
         Base.metadata.create_all(bind=conn)
 
     yield
 
     with sync_engine.begin() as conn:
         Base.metadata.drop_all(bind=conn)
+        conn.execute(text("DROP SCHEMA IF EXISTS identity CASCADE"))
+        conn.execute(text("DROP SCHEMA IF EXISTS booking CASCADE"))
     sync_engine.dispose()
 
 
