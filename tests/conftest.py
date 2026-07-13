@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
 from collections.abc import AsyncGenerator
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Ensure test env vars are set before any app imports
@@ -23,33 +22,37 @@ os.environ.setdefault("LOG_FORMAT", "console")
 
 @pytest.fixture(scope="session", autouse=True)
 def _setup_database():
-    """Create all schemas + tables once per test session on the app engine.
+    """Create all schemas + tables once per test session.
 
-    Alembic migrations are not run in tests; we replicate the schema/table
-    creation that Alembic would do, using SQLAlchemy's Metadata + raw DDL
-    for schema creation (since Meta.create_all does not create schemas).
-
-    Sync fixture using asyncio.run() to avoid event-loop scoping issues
-    with pytest-asyncio's function-scoped default loop.
+    Uses a sync SQLAlchemy engine (psycopg2) for setup/teardown so there
+    is no event-loop conflict with pytest-asyncio's function-scoped loops.
     """
+    from core.config import settings
     from core.db.base import Base
-    from core.db.session import engine
+    from services.booking import models as _booking_models  # noqa: F401
+    from services.identity import models as _identity_models  # noqa: F401
 
-    async def _create():
-        async with engine.begin() as conn:
-            await conn.execute(text("CREATE SCHEMA IF NOT EXISTS identity"))
-            await conn.execute(text("CREATE SCHEMA IF NOT EXISTS booking"))
-            await conn.run_sync(Base.metadata.create_all)
+    sync_url = settings.DATABASE_URL.replace("+asyncpg", "")
+    sync_engine = create_engine(sync_url)
 
-    asyncio.run(_create())
+    with sync_engine.begin() as conn:
+        conn.execute(text("CREATE SCHEMA IF NOT EXISTS identity"))
+        conn.execute(text("CREATE SCHEMA IF NOT EXISTS booking"))
+        Base.metadata.create_all(sync_engine)
+
     yield
 
-    async def _drop():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-        await engine.dispose()
+    with sync_engine.begin() as conn:
+        Base.metadata.drop_all(sync_engine)
+    sync_engine.dispose()
 
-    asyncio.run(_drop())
+
+@pytest_asyncio.fixture(autouse=True)
+async def _dispose_pool():
+    """Dispose async engine pool after each test to avoid stale event-loop connections."""
+    yield
+    from core.db.session import engine
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture

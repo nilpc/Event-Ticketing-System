@@ -7,12 +7,11 @@ and asserts that no two PENDING/CONFIRMED bookings exist for the same user+show.
 from __future__ import annotations
 
 import asyncio
-import os
 import uuid
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 
 async def _setup_test_data(session: AsyncSession, show_id: str, seat_ids: list[str]) -> None:
@@ -33,7 +32,8 @@ async def _setup_test_data(session: AsyncSession, show_id: str, seat_ids: list[s
     )
     await session.execute(
         text(
-            f"INSERT INTO booking.showtimes (show_id, event_id, venue_id, base_price, start_time, end_time) "
+            f"INSERT INTO booking.showtimes "
+            f"(show_id, event_id, venue_id, base_price, start_time, end_time) "
             f"VALUES ('{show_id}', '{event_id}', '{venue_id}', 50.00, "
             f"NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours') ON CONFLICT DO NOTHING"
         )
@@ -75,9 +75,11 @@ async def _attempt_booking(
                 await session.execute(
                     text(
                         f"INSERT INTO booking.bookings "
-                        f"(booking_id, user_id, show_id, seat_id, status, idempotency_key, amount, currency, expires_at) "
-                        f"VALUES ('{booking_id}', '{user_id}', '{show_id}', '{seat_id}', "
-                        f"'PENDING', '{idempotency_key}', 50.00, 'USD', NOW() + INTERVAL '10 minutes')"
+                        f"(booking_id, user_id, show_id, seat_id, status, "
+                        f"idempotency_key, amount, currency, expires_at) "
+                        f"VALUES ('{booking_id}', '{user_id}', '{show_id}', "
+                        f"'{seat_id}', 'PENDING', '{idempotency_key}', 50.00, "
+                        f"'USD', NOW() + INTERVAL '10 minutes')"
                     )
                 )
             return True
