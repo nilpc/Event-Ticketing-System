@@ -36,7 +36,10 @@ class Settings(BaseSettings):
 
     # --- Observability ---
     SENTRY_DSN: str = ""
+    SENTRY_ENVIRONMENT: str = "development"
     OTEL_EXPORTER_OTLP_ENDPOINT: str = ""
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "json"  # "json" for production, "console" for dev
 
 
 @lru_cache

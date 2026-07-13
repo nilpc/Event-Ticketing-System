@@ -1,4 +1,4 @@
-"""FR-11, FR-12, NFR-6: FastAPI application factory."""
+"""FR-11, FR-12, NFR-4, NFR-5, NFR-6: FastAPI application factory."""
 
 from __future__ import annotations
 
@@ -16,7 +16,18 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle — DB engine, Redis pool, background workers."""
-    logger.info("app_starting", env="development")
+    from core.config import settings
+    from core.observability import configure_logging, init_sentry
+
+    # NFR-4: Configure structured JSON logging
+    configure_logging(
+        log_level=settings.LOG_LEVEL,
+        log_format=settings.LOG_FORMAT,
+    )
+    logger.info("app_starting", env=settings.SENTRY_ENVIRONMENT)
+
+    # NFR-5: Initialize Sentry error tracking
+    init_sentry(dsn=settings.SENTRY_DSN, environment=settings.SENTRY_ENVIRONMENT)
 
     # FR-9, NFR-3: Start background workers
     from services.workers.admitter import run_admitter
@@ -47,7 +58,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    """FR-12: Wire up routers, middleware, and health endpoints."""
+    """FR-12, NFR-4: Wire up routers, middleware, and health endpoints."""
     app = FastAPI(
         title="Event Ticketing Backend",
         version="0.1.0",
@@ -71,6 +82,12 @@ def create_app() -> FastAPI:
     from services.gateway.middleware import IdentityMiddleware
 
     app.add_middleware(IdentityMiddleware)
+
+    # NFR-4: Request context — binds request_id, trace_id, user_id
+    # into structlog contextvars for all downstream log calls.
+    from core.middleware import RequestContextMiddleware
+
+    app.add_middleware(RequestContextMiddleware)
 
     # --- Routers ---
     from services.booking.routers.booking import router as booking_router

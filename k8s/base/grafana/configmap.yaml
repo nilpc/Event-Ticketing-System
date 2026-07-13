@@ -1,0 +1,16 @@
+# Phase 6.3: Grafana dashboard ConfigMap — import into Grafana via sidecar.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-event-ticketing
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/part-of: event-ticketing
+data:
+  event-ticketing.json: |-
+    # This ConfigMap is loaded by Grafana's dashboard sidecar.
+    # The dashboard JSON is in k8s/base/grafana/dashboard.json.
+    # To apply: kubectl create configmap grafana-dashboard-event-ticketing \
+    #   --from-file=event-ticketing.json=k8s/base/grafana/dashboard.json \
+    #   -n monitoring --dry-run=client -o yaml | kubectl apply -f -

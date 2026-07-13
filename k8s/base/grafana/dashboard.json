@@ -1,0 +1,76 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Booking Write Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(booking_initialized_total[5m]))",
+          "legendBookmarks": "bookings/sec",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "409 Rejection Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{status=\"409\"}[5m]))",
+          "legendBookmarks": "409s/sec",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Queue Depth (Redis sorted sets)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "redis_memory_used_bytes",
+          "legendBookmarks": "Redis memory",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "DB Connection Pool Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sqlalchemy_pool_checked_out",
+          "legendBookmarks": "connections checked out",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Sweeper Revert Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(rate(zombie_booking_reverted_total[5m]))",
+          "legendBookmarks": "reverts/sec",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["event-ticketing"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "Event Ticketing Backend",
+  "uid": "event-ticketing"
+}

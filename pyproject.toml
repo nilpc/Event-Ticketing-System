@@ -39,6 +39,11 @@ plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
 disable_error_code = ["empty-body"]
 exclude = ["venv", "migrations"]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.1.1",
