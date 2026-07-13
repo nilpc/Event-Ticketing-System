@@ -1,4 +1,4 @@
-"""FR-12, NFR-6: FastAPI application factory."""
+"""FR-11, FR-12, NFR-6: FastAPI application factory."""
 
 from __future__ import annotations
 
@@ -64,6 +64,13 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # FR-11: Gateway identity enforcement — JWT validation, header stripping,
+    # X-Request-ID + traceparent injection. Must be added AFTER CORS so
+    # preflight OPTIONS requests pass through unauthenticated.
+    from services.gateway.middleware import IdentityMiddleware
+
+    app.add_middleware(IdentityMiddleware)
 
     # --- Routers ---
     from services.booking.routers.booking import router as booking_router

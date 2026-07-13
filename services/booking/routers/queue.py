@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.session import get_db_session
@@ -33,14 +33,9 @@ async def join_queue(
     svc: QueueService = Depends(_get_queue_service),
 ) -> QueueJoinResponse:
     """FR-6: Join the queue for a showtime. Returns position."""
-    # TODO: extract user_id from JWT via Depends(get_current_user_id) in Phase 4
-    # Placeholder: use header
-    user_id_str = request.headers.get("X-User-Id")
-    if not user_id_str:
-        raise HTTPException(status_code=401, detail="Authentication required.")
     from uuid import UUID
 
-    user_id = UUID(user_id_str)
+    user_id = UUID(request.state.user_id)
     return await svc.join(payload.show_id, user_id)
 
 
@@ -53,10 +48,7 @@ async def queue_status(
     """FR-6: Get queue position. Response includes Retry-After header."""
     from uuid import UUID
 
-    user_id_str = request.headers.get("X-User-Id")
-    if not user_id_str:
-        raise HTTPException(status_code=401, detail="Authentication required.")
-    user_id = UUID(user_id_str)
+    user_id = UUID(request.state.user_id)
     result = await svc.status(UUID(show_id), user_id)
     return result
 
@@ -70,8 +62,5 @@ async def recover_queue(
     """FR-6: Crash recovery — returns active session token if one exists."""
     from uuid import UUID
 
-    user_id_str = request.headers.get("X-User-Id")
-    if not user_id_str:
-        raise HTTPException(status_code=401, detail="Authentication required.")
-    user_id = UUID(user_id_str)
+    user_id = UUID(request.state.user_id)
     return await svc.recover(UUID(show_id), user_id)

@@ -35,12 +35,9 @@ async def lock_seat(
     svc: SeatLockService = Depends(_get_seat_lock_service),
 ) -> SeatLockResponse:
     """FR-7: Lock a seat. Server generates the idempotency key."""
-    user_id_str = request.headers.get("X-User-Id")
-    if not user_id_str:
-        raise HTTPException(status_code=401, detail="Authentication required.")
     from uuid import UUID
 
-    user_id = UUID(user_id_str)
+    user_id = UUID(request.state.user_id)
     try:
         return await svc.lock_seat(payload.show_id, payload.seat_id, user_id)
     except BookingConflictError as exc:

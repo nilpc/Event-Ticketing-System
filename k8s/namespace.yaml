@@ -1,0 +1,8 @@
+# Event Ticketing namespace — all services run here.
+# Phase 4.3: Scaffolded now; apply when K8s cluster is provisioned.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: event-ticketing
+  labels:
+    app.kubernetes.io/part-of: event-ticketing

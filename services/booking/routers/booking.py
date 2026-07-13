@@ -49,17 +49,13 @@ async def book_seat(
     """FR-8, FR-10: Atomic booking initialization.
 
     Single transaction: seat transition, server-side price lookup,
-    booking insert, outbox event — §6 Layer 1.
+    booking insert, outbox event -- §6 Layer 1.
     """
-    user_id_str = request.headers.get("X-User-Id")
-    queue_token = request.headers.get("X-Queue-Token", "")
-    request_id = request.headers.get("X-Request-ID", "")
-
-    if not user_id_str:
-        raise HTTPException(status_code=401, detail="Authentication required.")
     from uuid import UUID
 
-    user_id = UUID(user_id_str)
+    user_id = UUID(request.state.user_id)
+    queue_token = request.headers.get("X-Queue-Token", "")
+    request_id = request.headers.get("X-Request-ID", "")
     try:
         return await svc.initialize_checkout(
             show_id=payload.show_id,

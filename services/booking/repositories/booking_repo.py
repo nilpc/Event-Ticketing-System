@@ -158,18 +158,15 @@ class BookingRepository:
     async def log_webhook_event(
         self, event_id: str, event_type: str, payload: str
     ) -> bool:
-        """FR-9: Insert processed_webhook_events; returns False if duplicate."""
-        from sqlalchemy.exc import IntegrityError
+        """FR-9: Insert processed_webhook_events; returns False if duplicate.
 
-        try:
-            event = ProcessedWebhookEvent(
-                event_id=event_id,
-                event_type=event_type,
-                payload={"raw": payload},
-            )
-            self.session.add(event)
-            await self.session.flush()
-            return True
-        except IntegrityError:
-            await self.session.rollback()
-            return False
+        Caller must handle IntegrityError when used inside session.begin().
+        """
+        event = ProcessedWebhookEvent(
+            event_id=event_id,
+            event_type=event_type,
+            payload={"raw": payload},
+        )
+        self.session.add(event)
+        await self.session.flush()
+        return True

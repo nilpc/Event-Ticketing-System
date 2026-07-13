@@ -10,6 +10,7 @@ from core.redis import get_redis
 from services.booking.repositories.booking_repo import BookingRepository
 from services.booking.repositories.lock_repo import LockRepository
 from services.booking.repositories.seat_repo import SeatRepository
+from services.payment.repositories.payment_repo import PaymentRepository
 from services.payment.services.webhook_service import WebhookService
 
 router = APIRouter(prefix="/v1/webhooks", tags=["webhooks"])
@@ -21,7 +22,8 @@ def _get_webhook_service(
     lock_repo = LockRepository(session, redis_client=get_redis())
     seat_repo = SeatRepository(session)
     booking_repo = BookingRepository(session)
-    return WebhookService(session, booking_repo, seat_repo, lock_repo)
+    payment_repo = PaymentRepository(session)
+    return WebhookService(session, booking_repo, seat_repo, lock_repo, payment_repo)
 
 
 @router.post("/stripe")

@@ -1,0 +1,32 @@
+# NFR-7: Zero-trust NetworkPolicy — backend services accept traffic ONLY from the API gateway.
+# Phase 4.3: Scaffolded now; enforced in Phase 5+ when K8s cluster is provisioned.
+#
+# Apply after cluster setup:
+#   kubectl apply -f k8s/network-policy-backend.yaml
+#
+# This prevents header spoofing at the network layer: even if an attacker
+# reaches a backend pod directly, they cannot inject fake X-User-Id headers
+# because the gateway middleware is the only trusted identity boundary.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-only
+  namespace: event-ticketing
+  labels:
+    app.kubernetes.io/part-of: event-ticketing
+    phase: "4"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: event-ticketing
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow traffic from the API gateway only.
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway
+      ports:
+        - protocol: TCP
+          port: 8000
