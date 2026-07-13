@@ -38,12 +38,12 @@ def _setup_database():
     with sync_engine.begin() as conn:
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS identity"))
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS booking"))
-        Base.metadata.create_all(sync_engine)
+        Base.metadata.create_all(bind=conn)
 
     yield
 
     with sync_engine.begin() as conn:
-        Base.metadata.drop_all(sync_engine)
+        Base.metadata.drop_all(bind=conn)
     sync_engine.dispose()
 
 
