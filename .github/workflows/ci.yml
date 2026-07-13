@@ -73,6 +73,20 @@ jobs:
           cache: pip
       - run: pip install .[dev]
       - run: pytest tests/ -v --tb=long --junitxml=test-results.xml
+      - name: Print test failures
+        if: failure()
+        run: |
+          python3 -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('test-results.xml')
+          for tc in tree.iter('testcase'):
+              for f in tc.findall('failure'):
+                  print(f'FAILED: {tc.get(\"classname\")}.{tc.get(\"name\")}')
+                  print(f.text[:3000] if f.text else '')
+              for e in tc.findall('error'):
+                  print(f'ERROR: {tc.get(\"classname\")}.{tc.get(\"name\")}')
+                  print(e.text[:3000] if e.text else '')
+          "
       - uses: actions/upload-artifact@v4
         if: always()
         with:
