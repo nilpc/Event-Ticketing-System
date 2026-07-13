@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import os
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Ensure test env vars are set before any app imports
 os.environ.setdefault(
@@ -19,27 +20,37 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("LOG_FORMAT", "console")
 
 
-@pytest_asyncio.fixture
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Provide a transactional DB session that rolls back after each test."""
+@pytest.fixture(scope="session", autouse=True)
+async def _setup_database():
+    """Create all schemas + tables once per test session on the app engine.
+
+    Alembic migrations are not run in tests; we replicate the schema/table
+    creation that Alembic would do, using SQLAlchemy's Metadata + raw DDL
+    for schema creation (since Meta.create_all does not create schemas).
+    """
     from core.db.base import Base
+    from core.db.session import engine
 
-    engine = create_async_engine(
-        os.environ["DATABASE_URL"],
-        pool_size=5,
-        max_overflow=2,
-    )
-    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
+    # Create PostgreSQL schemas (Meta.create_all does not do this)
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE SCHEMA IF NOT EXISTS identity"))
+        await conn.execute(text("CREATE SCHEMA IF NOT EXISTS booking"))
         await conn.run_sync(Base.metadata.create_all)
 
-    async with session_factory() as session:
-        yield session
+    yield
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Provide a DB session from the app's session factory."""
+    from core.db.session import async_session_factory
+
+    async with async_session_factory() as session:
+        yield session
 
 
 @pytest_asyncio.fixture
