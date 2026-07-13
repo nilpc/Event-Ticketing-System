@@ -53,5 +53,11 @@ Thumbs.db
 # Checkpoint / test scripts
 _ckpt_*.py
 
+# Local dev / test utilities
+seed.py
+postman_collection.json
+*.tmp
+*.bak
+
 # Docker
 docker-compose.override.yml

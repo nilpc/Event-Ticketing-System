@@ -22,22 +22,21 @@ GRACE_PERIOD_MINUTES = 15
 
 async def sweep_zombie_bookings() -> None:
     """FR-9: Find and revert expired PENDING bookings."""
+    cutoff = datetime.now(UTC) - timedelta(minutes=GRACE_PERIOD_MINUTES)
+
     async with async_session_factory() as session:
         booking_repo = BookingRepository(session)
-        seat_repo = SeatRepository(session)
-        lock_repo = LockRepository(session, redis_client=get_redis())
-
-        cutoff = datetime.now(UTC) - timedelta(minutes=GRACE_PERIOD_MINUTES)
         zombies = await booking_repo.get_zombie_bookings(cutoff)
 
-        for booking in zombies:
-            try:
+    for booking in zombies:
+        try:
+            async with async_session_factory() as session:
+                seat_repo = SeatRepository(session)
+                booking_repo = BookingRepository(session)
+
                 async with session.begin():
-                    # Revert seat to AVAILABLE
                     await seat_repo.revert_seat_to_available(booking.show_id, booking.seat_id)
-                    # Mark booking as FAILED
                     await booking_repo.revert_booking_to_failed(booking.booking_id)
-                    # Add outbox event
                     await booking_repo.add_outbox_event(
                         aggregate_type="Booking",
                         aggregate_id=booking.booking_id,
@@ -48,23 +47,24 @@ async def sweep_zombie_bookings() -> None:
                         },
                     )
 
-                # After commit: release Redis holds
+            async with async_session_factory() as session:
+                lock_repo = LockRepository(session, redis_client=get_redis())
                 await lock_repo.release_seat_lock_safe(
                     booking.show_id, booking.seat_id, booking.user_id
                 )
                 await lock_repo.release_user_hold_limit(booking.show_id, booking.user_id)
 
-                logger.info(
-                    "zombie_booking_reverted",
-                    booking_id=str(booking.booking_id),
-                    show_id=str(booking.show_id),
-                )
-            except Exception as exc:
-                logger.error(
-                    "sweeper_revert_failed",
-                    booking_id=str(booking.booking_id),
-                    error=str(exc),
-                )
+            logger.info(
+                "zombie_booking_reverted",
+                booking_id=str(booking.booking_id),
+                show_id=str(booking.show_id),
+            )
+        except Exception as exc:
+            logger.error(
+                "sweeper_revert_failed",
+                booking_id=str(booking.booking_id),
+                error=str(exc),
+            )
 
 
 async def run_sweeper() -> None:
