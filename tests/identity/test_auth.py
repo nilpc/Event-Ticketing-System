@@ -15,7 +15,7 @@ async def test_signup_returns_201(client: AsyncClient) -> None:
         "/v1/auth/signup",
         json={"email": email, "password": "Str0ng!Pass#2024"},
     )
-    assert r.status_code == 201
+    assert r.status_code == 201, f"Expected 201, got {r.status_code}: {r.text}"
     body = r.json()
     assert "user_id" in body
 
@@ -24,7 +24,8 @@ async def test_signup_returns_201(client: AsyncClient) -> None:
 async def test_signup_duplicate_returns_409(client: AsyncClient) -> None:
     email = f"dup_{uuid.uuid4().hex[:8]}@example.com"
     payload = {"email": email, "password": "Str0ng!Pass#2024"}
-    await client.post("/v1/auth/signup", json=payload)
+    r1 = await client.post("/v1/auth/signup", json=payload)
+    assert r1.status_code == 201, f"First signup should be 201, got {r1.status_code}: {r1.text}"
     r = await client.post("/v1/auth/signup", json=payload)
     assert r.status_code == 409
 
