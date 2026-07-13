@@ -87,6 +87,38 @@ class UserRepository:
         )
         return result.rowcount > 0  # type: ignore[attr-defined]
 
+    # --- FR-3: Refresh token lookups ---
+
+    async def find_refresh_token_with_user(
+        self, token_hash: str
+    ) -> tuple[RefreshToken, User] | None:
+        """FR-3: Look up refresh token by hash, joined with owning user.
+
+        Used by SessionService.refresh_access_token for rotation + reuse
+        detection.  Returns (RefreshToken, User) or None.
+        """
+        from sqlalchemy.engine.row import Row
+
+        result = await self.session.execute(
+            select(RefreshToken, User)
+            .join(User, RefreshToken.user_id == User.user_id)
+            .where(RefreshToken.token_hash == token_hash)
+        )
+        row: Row[tuple[RefreshToken, User]] | None = result.one_or_none()
+        if row is None:
+            return None
+        return row[0], row[1]
+
+    async def find_refresh_token_by_hash(self, token_hash: str) -> RefreshToken | None:
+        """FR-3: Look up a single refresh token by hash.
+
+        Used by SessionService.logout to find the token before revocation.
+        """
+        result = await self.session.execute(
+            select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+        )
+        return result.scalar_one_or_none()
+
     # FR-1: GDPR soft-delete / anonymization
 
     async def _revoke_user_tokens(self, user_id: UUID) -> None:

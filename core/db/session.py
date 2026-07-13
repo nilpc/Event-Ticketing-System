@@ -35,6 +35,8 @@ engine = create_async_engine(
     max_overflow=10,
     pool_pre_ping=True,
     pool_recycle=300,  # Recycle connections every 5 min (Neon idle timeout)
+    # PgBouncer compat: disable asyncpg prepared-statement cache
+    connect_args={"statement_cache_size": 0},
 )
 
 # FR-10: Ensure every connection has the correct search_path.

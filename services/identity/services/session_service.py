@@ -7,7 +7,6 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import NotFoundError
@@ -17,7 +16,7 @@ from core.security.refresh import (
     revoke_refresh_token,
     rotate_refresh_token,
 )
-from services.identity.models.user import RefreshToken, User
+from services.identity.repositories.user_repo import UserRepository
 from services.identity.schemas.auth import LoginResponse
 
 logger = structlog.get_logger()
@@ -28,6 +27,7 @@ class SessionService:
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+        self.user_repo = UserRepository(session)
 
     async def issue_token_pair(self, user_id: UUID) -> LoginResponse:
         """FR-3: Issue access + refresh token pair."""
@@ -42,12 +42,7 @@ class SessionService:
         """FR-3: Rotate refresh token with reuse detection."""
         token_hash = hashlib.sha256(refresh_token_raw.encode()).hexdigest()
 
-        result = await self.session.execute(
-            select(RefreshToken, User)
-            .join(User, RefreshToken.user_id == User.user_id)
-            .where(RefreshToken.token_hash == token_hash)
-        )
-        row = result.one_or_none()
+        row = await self.user_repo.find_refresh_token_with_user(token_hash)
 
         if row is None:
             raise NotFoundError("Refresh token not found.")
@@ -83,9 +78,6 @@ class SessionService:
     async def logout(self, refresh_token_raw: str) -> None:
         """FR-3: Revoke a refresh token."""
         token_hash = hashlib.sha256(refresh_token_raw.encode()).hexdigest()
-        result = await self.session.execute(
-            select(RefreshToken).where(RefreshToken.token_hash == token_hash)
-        )
-        stored = result.scalar_one_or_none()
+        stored = await self.user_repo.find_refresh_token_by_hash(token_hash)
         if stored is not None:
             await revoke_refresh_token(stored.token_id, self.session)

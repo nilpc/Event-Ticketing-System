@@ -153,15 +153,25 @@ async def google_callback(
 
 @router.delete("/me", status_code=204)
 async def delete_me(
+    request: Request,
     session: AsyncSession = Depends(get_db_session),
 ) -> None:
-    """FR-1: GDPR soft-delete (placeholder — needs JWT auth dependency)."""
-    raise HTTPException(status_code=501, detail="Requires JWT auth dependency (Phase 3)")
+    """FR-1: GDPR soft-delete — revokes tokens, marks user inactive."""
+    from core.security.auth import get_current_user_id
+
+    user_id = get_current_user_id(request)
+    svc = AuthService(session)
+    await svc.soft_delete(user_id)
 
 
 @router.post("/me/anonymize", status_code=204)
 async def anonymize_me(
+    request: Request,
     session: AsyncSession = Depends(get_db_session),
 ) -> None:
-    """FR-1: GDPR anonymization (placeholder — needs JWT auth dependency)."""
-    raise HTTPException(status_code=501, detail="Requires JWT auth dependency (Phase 3)")
+    """FR-1: GDPR anonymization — irreversibly scrubs PII."""
+    from core.security.auth import get_current_user_id
+
+    user_id = get_current_user_id(request)
+    svc = AuthService(session)
+    await svc.anonymize(user_id)
