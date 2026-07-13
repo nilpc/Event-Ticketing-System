@@ -1,0 +1,19 @@
+# Phase 5.2 + 5.3: Kustomize base — all K8s manifests for the event-ticketing stack.
+# Apply via:  kubectl apply -k k8s/base/
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: event-ticketing
+
+resources:
+  - namespace.yaml
+  - network-policies.yaml
+  - gateway-deployment.yaml
+  - gateway-service.yaml
+  - pdb.yaml
+  - sweeper-deployment.yaml
+  - relay-deployment.yaml
+  - admitter-deployment.yaml
+  - migration-job.yaml
+  - keda-gateway-scaler.yaml
+  - keda-queue-scaler.yaml

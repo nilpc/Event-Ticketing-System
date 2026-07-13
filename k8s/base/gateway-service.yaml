@@ -1,0 +1,18 @@
+# Gateway Service — ClusterIP for internal access, exposed via Ingress/LB.
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: event-ticketing
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/part-of: event-ticketing
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

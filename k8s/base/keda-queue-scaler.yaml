@@ -1,0 +1,24 @@
+# Phase 5.4, NFR-2: KEDA ScaledObject — scale admitter on Redis queue depth.
+# Monitors all queue:* sorted sets in Redis.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: queue-scaler
+  namespace: event-ticketing
+  labels:
+    app.kubernetes.io/name: admitter
+    app.kubernetes.io/part-of: event-ticketing
+spec:
+  scaleTargetRef:
+    name: admitter
+  minReplicaCount: 1
+  maxReplicaCount: 5
+  pollingInterval: 10
+  cooldownPeriod: 120
+  triggers:
+    - type: redis
+      metadata:
+        address: redis.event-ticketing.svc.cluster.local:6379
+        listName: queue:*
+        listLength: "50"
+        # Scale up when any queue has >50 pending users

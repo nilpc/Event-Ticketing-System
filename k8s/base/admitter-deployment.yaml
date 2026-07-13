@@ -1,0 +1,59 @@
+# NFR-3: Queue Admitter Deployment — admits users from Redis sorted sets.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admitter
+  namespace: event-ticketing
+  labels:
+    app.kubernetes.io/name: admitter
+    app.kubernetes.io/part-of: event-ticketing
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: admitter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: admitter
+        app.kubernetes.io/part-of: event-ticketing
+        app.kubernetes.io/component: worker
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: admitter
+                topologyKey: kubernetes.io/hostname
+
+      containers:
+        - name: admitter
+          image: event-ticketing:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "services.workers", "admitter"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "pgrep -f 'services.workers admitter' || exit 1"
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          envFrom:
+            - secretRef:
+                name: event-ticketing-secrets

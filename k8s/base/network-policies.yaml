@@ -1,0 +1,41 @@
+# NFR-7: Zero-trust NetworkPolicies — backend services accept traffic ONLY from the API gateway.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-only
+  namespace: event-ticketing
+  labels:
+    app.kubernetes.io/part-of: event-ticketing
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: event-ticketing
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+# Gateway accepts external ingress on port 8000.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-external-access
+  namespace: event-ticketing
+  labels:
+    app.kubernetes.io/part-of: event-ticketing
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8000

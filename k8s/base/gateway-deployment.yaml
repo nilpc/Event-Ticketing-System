@@ -1,0 +1,104 @@
+# Phase 5.2 + 5.3: Gateway Deployment — FR-11, FR-12, NFR-6.
+# Liveness: /health  |  Readiness: /ready (DB + Redis pings)
+# Pod anti-affinity spreads replicas across nodes.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: event-ticketing
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/part-of: event-ticketing
+    app.kubernetes.io/component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gateway
+        app.kubernetes.io/part-of: event-ticketing
+        app.kubernetes.io/component: api
+    spec:
+      # Phase 5.2: Pod anti-affinity — spread across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: gateway
+                topologyKey: kubernetes.io/hostname
+
+      # FR-13: Alembic migration as init container (runs before app)
+      initContainers:
+        - name: migrate
+          image: event-ticketing:latest
+          imagePullPolicy: IfNotPresent
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - secretRef:
+                name: event-ticketing-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+
+      containers:
+        - name: gateway
+          image: event-ticketing:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+
+          # Phase 5.2: Explicit resource requests/limits
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+          # FR-12: Liveness probe — process alive
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # FR-12: Readiness probe — DB + Redis pings, returns 503 on failure
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          envFrom:
+            - secretRef:
+                name: event-ticketing-secrets
+
+          # Prevent K8s crash loop: exit 1 on OOM so K8s restarts the pod
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 5"]

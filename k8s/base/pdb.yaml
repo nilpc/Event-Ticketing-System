@@ -1,0 +1,14 @@
+# Phase 5.2: PodDisruptionBudget — ensure at least 1 gateway pod is always available.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gateway-pdb
+  namespace: event-ticketing
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/part-of: event-ticketing
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway

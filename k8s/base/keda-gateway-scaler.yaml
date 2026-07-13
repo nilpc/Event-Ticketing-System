@@ -1,0 +1,27 @@
+# Phase 5.4, NFR-2: KEDA ScaledObject — scale gateway on HTTP RPS.
+# Requires KEDA installed: kubectl apply -f https://github.com/kedacore/keda/releases/download/v2.14.0/keda-2.14.0.yaml
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: gateway-scaler
+  namespace: event-ticketing
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/part-of: event-ticketing
+spec:
+  scaleTargetRef:
+    name: gateway
+  minReplicaCount: 2
+  maxReplicaCount: 10
+  pollingInterval: 15
+  cooldownPeriod: 60
+  triggers:
+    - type: metrics-server
+      metadata:
+        # Placeholder: in Minikube, metrics-server provides CPU-based scaling.
+        # For real HTTP RPS, deploy an adapter (e.g., prometheus-adapter) and
+        # switch to type: prometheus with a query like:
+        #   sum(rate(http_requests_total[1m]))
+        metricName: cpu utilization
+        target: "70"
+        type: Utilization

@@ -1,0 +1,8 @@
+# Event Ticketing namespace — all services run here.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: event-ticketing
+  labels:
+    app.kubernetes.io/part-of: event-ticketing
+    istio-injection: disabled
