@@ -107,9 +107,6 @@ jobs:
     name: Container Build + Trivy Scan
     runs-on: ubuntu-latest
     needs: [lint, typecheck, test]
-    # FIX #4: Only run if a Dockerfile exists (not present until Phase 5)
-    # Remove this condition once Dockerfile is added to the repo.
-    if: hashFiles('Dockerfile') != ''
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image
