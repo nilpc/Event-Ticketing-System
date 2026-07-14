@@ -9,7 +9,6 @@ A high-concurrency event ticketing API built for flash-sale scenarios. Python 3.
 - **JWT auth (RS256)** — Access/refresh token rotation with reuse detection, Google OAuth2
 - **Stripe payments** — PaymentIntent flow with idempotent webhook processing
 - **Transactional outbox** — `FOR UPDATE SKIP LOCKED` relay for reliable async event publishing
-- **Kubernetes-ready** — Kustomize manifests, KEDA autoscaling, NetworkPolicies, PodDisruptionBudgets
 - **Observability** — structlog (JSON), Sentry, W3C traceparent, Grafana dashboard
 
 ## Architecture
@@ -110,14 +109,6 @@ python -m services.workers relay      # Publishes outbox events (5s cycle)
 python -m services.workers admitter   # Admits queued users (2s cycle)
 ```
 
-## Kubernetes Deployment
-
-```bash
-kubectl apply -k k8s/base/
-```
-
-Includes: Gateway (2 replicas), Sweeper, Relay (2 replicas), Admitter, Migration Job, KEDA scalers, NetworkPolicies, PDB, Grafana dashboard.
-
 ## Tech Stack
 
 | Layer | Technology |
@@ -130,7 +121,7 @@ Includes: Gateway (2 replicas), Sweeper, Relay (2 replicas), Admitter, Migration
 | Observability | structlog, Sentry, OpenTelemetry |
 | Testing | pytest, testcontainers, Locust |
 | CI/CD | GitHub Actions (lint, typecheck, test, Docker build + Trivy scan) |
-| Deploy | Docker, Kubernetes (Kustomize), KEDA |
+| Deploy | Docker (multi-stage build) |
 
 ## License
 
