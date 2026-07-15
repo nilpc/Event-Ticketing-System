@@ -5,12 +5,15 @@ A full-stack event ticketing platform built for flash-sale scenarios. React fron
 ## Features
 
 - **React frontend** — Vite + TypeScript, Tailwind CSS, TanStack Query, React Router
+- **Admin panel** — Unified form to create events/movies, venues, and showtimes in one step; catalog management with delete
 - **Five-layer concurrency control** — Redis hoarding locks, distributed locks, DB state checks, atomic transactions, and a background sweeper to prevent double-bookings
 - **Virtual waiting room** — Redis-backed queue with token-based admission and crash recovery
 - **JWT auth (RS256)** — Access/refresh token rotation with reuse detection, Google OAuth2
+- **Admin token auth** — Separate `X-Admin-Token` header for admin endpoints; validated on login
 - **Stripe payments** — PaymentIntent flow with idempotent webhook processing
 - **Transactional outbox** — `FOR UPDATE SKIP LOCKED` relay for reliable async event publishing
 - **Observability** — structlog (JSON), Sentry, W3C traceparent, Grafana dashboard
+- **Docker Compose** — Full stack (backend + frontend + Redis) in one command
 
 ## Architecture
 
@@ -20,7 +23,7 @@ Strict **Controller-Service-Repository** pattern across four domain modules:
 services/
   gateway/     # FastAPI app, middleware, routing
   identity/    # Users, auth, OAuth2, refresh tokens
-  booking/     # Venues, events, seats, queue, bookings
+  booking/     # Venues, events, seats, queue, bookings, admin CRUD
   payment/     # Stripe integration, webhook handling
   workers/     # Background: sweeper, outbox relay, queue admitter
 ```
@@ -29,26 +32,44 @@ Two PostgreSQL schemas (`identity`, `booking`) with cross-schema foreign keys.
 
 ## Quick Start
 
-### Prerequisites
+### Docker (Recommended)
 
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 16+ (or Neon cloud)
-- Redis 7+ (Docker recommended)
+```bash
+git clone https://github.com/<you>/Event-Ticketing-System.git
+cd Event-Ticketing-System
+
+# Configure environment
+cp .env.example .env
+# Edit .env — set DATABASE_URL, ADMIN_TOKEN, etc.
+
+# Start everything
+docker compose up --build
+```
+
+Services:
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **Redis**: localhost:6379
 
 ### Local Development
 
+#### Prerequisites
+
+- Python 3.11+
+- Node.js 20+
+- PostgreSQL 16+ (or Neon cloud)
+- Redis 7+ (Docker recommended)
+
+#### Backend
+
 ```bash
-# Clone and install
-git clone https://github.com/<you>/Event-Ticketing-System.git
-cd Event-Ticketing-System
 python -m venv venv
 venv\Scripts\activate          # Windows
 # source venv/bin/activate     # macOS/Linux
 pip install -e ".[dev]"
 
 # Configure environment
-cp .env.example .env           # edit DATABASE_URL, REDIS_URL, CORS_ORIGINS, etc.
+cp .env.example .env           # edit DATABASE_URL, REDIS_URL, CORS_ORIGINS, ADMIN_TOKEN
 
 # Generate RSA keys for JWT
 openssl genpkey -algorithm RSA -out certs/private.pem -pkeyopt rsa_keygen_bits:2048
@@ -64,7 +85,7 @@ python -m scripts.seed
 uvicorn services.gateway.app:create_app --factory --reload --port 8000
 ```
 
-### Frontend
+#### Frontend
 
 ```bash
 cd web
@@ -72,41 +93,72 @@ npm install
 npm run dev          # Vite dev server on :5173, proxies /v1 → backend :8000
 ```
 
-### Redis (Docker)
+#### Redis
 
 ```bash
 docker run -d --name redis -p 6379:6379 redis:7-alpine
 ```
 
-### Docker (Full Stack)
+## Admin Panel
 
-```bash
-docker build -t event-ticketing .
-docker run -p 8000:8000 --env-file .env event-ticketing
-```
+1. Navigate to `/admin` (or click "Admin" in navbar when logged in)
+2. Enter your admin token (the `ADMIN_TOKEN` value from `.env`)
+3. **Catalog tab** — view/delete events, venues, and showtimes
+4. **New Show tab** — unified form:
+   - Pick an existing event/movie or create a new one
+   - Pick an existing venue or create a new one
+   - Set base price (₹), start/end times
+   - Click "Create Show" — seats are auto-generated (VIP 10%, Premium 30%, Standard 60%)
 
 ## API Endpoints
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/v1/auth/signup` | — | Register with email/password |
-| POST | `/v1/auth/login` | — | Login, returns JWT pair |
-| POST | `/v1/auth/refresh` | — | Rotate refresh token |
-| GET | `/v1/venues` | — | List venues |
-| GET | `/v1/events` | — | List events |
-| GET | `/v1/showtimes/{id}` | — | Showtime details |
-| GET | `/v1/showtimes/{id}/seats` | — | Seat map |
-| POST | `/v1/queue/join` | JWT | Join virtual queue |
-| GET | `/v1/queue/status` | JWT | Poll queue position |
-| GET | `/v1/queue/recover` | JWT | Recover queue session |
-| POST | `/v1/seats/lock` | JWT | Lock a seat (600s TTL) |
-| POST | `/v1/book` | JWT + Queue Token | Atomic booking |
-| GET | `/v1/bookings` | JWT | List user's bookings |
-| POST | `/v1/payments/intent` | JWT | Create Stripe PaymentIntent |
-| POST | `/v1/webhooks/stripe` | — | Stripe webhook receiver |
-| POST | `/v1/book/{id}/mock-confirm` | JWT | Demo: confirm without payment |
-| GET | `/health` | — | Liveness probe |
-| GET | `/ready` | — | Readiness probe |
+### Public
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v1/auth/signup` | Register with email/password |
+| POST | `/v1/auth/login` | Login, returns JWT pair |
+| POST | `/v1/auth/refresh` | Rotate refresh token |
+| GET | `/v1/venues` | List venues |
+| GET | `/v1/events` | List events |
+| GET | `/v1/events/{id}/showtimes` | Showtimes for an event |
+| GET | `/v1/showtimes/{id}` | Showtime details |
+| GET | `/v1/showtimes/{id}/seats` | Seat map |
+
+### Authenticated (JWT)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v1/queue/join` | Join virtual queue |
+| GET | `/v1/queue/status` | Poll queue position |
+| GET | `/v1/queue/recover` | Recover queue session |
+| POST | `/v1/seats/lock` | Lock a seat (600s TTL, re-entrant) |
+| POST | `/v1/book` | Atomic booking (requires X-Queue-Token header) |
+| GET | `/v1/bookings` | List user's bookings |
+| POST | `/v1/payments/intent` | Create Stripe PaymentIntent |
+| POST | `/v1/book/{id}/mock-confirm` | Demo: confirm without payment |
+
+### Admin (X-Admin-Token)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/v1/admin/showtimes` | List all showtimes |
+| POST | `/v1/admin/events` | Create event/movie |
+| PUT | `/v1/admin/events/{id}` | Update event |
+| DELETE | `/v1/admin/events/{id}` | Delete event |
+| POST | `/v1/admin/venues` | Create venue |
+| PUT | `/v1/admin/venues/{id}` | Update venue |
+| DELETE | `/v1/admin/venues/{id}` | Delete venue |
+| POST | `/v1/admin/showtimes` | Create showtime (auto-generates seats) |
+| PUT | `/v1/admin/showtimes/{id}` | Update showtime |
+| DELETE | `/v1/admin/showtimes/{id}` | Delete showtime |
+
+### Health
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Liveness probe |
+| GET | `/ready` | Readiness probe |
 
 ## Booking Flow
 
@@ -120,6 +172,15 @@ Signup/Login → Join Queue → Admitted → Select Seat → Lock → Book → P
 4. **Book**: Atomic DB transaction transitions seat to PENDING, creates booking, emits outbox event
 5. **Pay**: Stripe PaymentIntent or mock-confirm for demo
 6. **Confirm**: Booking marked CONFIRMED, seat marked SOLD
+
+## Environment Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql+asyncpg://user:pass@host/db` |
+| `CORS_ORIGINS` | Comma-separated allowed origins | `http://localhost:5173` |
+| `CLIENT_ORIGIN` | Frontend URL for redirects | `http://localhost:5173` |
+| `ADMIN_TOKEN` | Shared secret for admin endpoints | `your-secret-token` |
 
 ## Running Tests
 
@@ -138,11 +199,11 @@ locust -f tests/load/locustfile.py --host http://localhost:8000
 
 ## Background Workers
 
-```bash
-python -m services.workers sweeper    # Reverts expired bookings (60s cycle)
-python -m services.workers relay      # Publishes outbox events (5s cycle)
-python -m services.workers admitter   # Admits queued users (2s cycle)
-```
+All run inside the backend container on startup:
+
+- **Sweeper** (60s) — Reverts expired bookings
+- **Outbox relay** (5s) — Publishes outbox events
+- **Queue admitter** (2s) — Admits queued users in FIFO order
 
 ## Tech Stack
 
@@ -157,7 +218,7 @@ python -m services.workers admitter   # Admits queued users (2s cycle)
 | Observability | structlog, Sentry, OpenTelemetry |
 | Testing | pytest, testcontainers, Locust |
 | CI/CD | GitHub Actions (ruff, mypy, eslint, tsc, pytest) |
-| Deploy | Docker (multi-stage build) |
+| Deploy | Docker Compose (multi-stage builds) |
 
 ## CI Checks
 
