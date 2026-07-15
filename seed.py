@@ -35,7 +35,10 @@ VENUES = [
 EVENTS = [
     {
         "name": "Dune: Part Three — World Premiere",
-        "description": "The epic conclusion to Denis Villeneuve's sci-fi saga. Red carpet premiere with cast Q&A.",
+        "description": (
+            "The epic conclusion to Denis Villeneuve's sci-fi saga. "
+            "Red carpet premiere with cast Q&A."
+        ),
         "event_type": "MOVIE",
         "venue_idx": 0,
         "base_price": 120.00,
@@ -44,7 +47,10 @@ EVENTS = [
     },
     {
         "name": "Interstellar: 10th Anniversary Screening",
-        "description": "Christopher Nolan's masterpiece returns to the big screen in IMAX with a live orchestral score.",
+        "description": (
+            "Christopher Nolan's masterpiece returns to the big screen "
+            "in IMAX with a live orchestral score."
+        ),
         "event_type": "MOVIE",
         "venue_idx": 1,
         "base_price": 85.00,
@@ -53,7 +59,10 @@ EVENTS = [
     },
     {
         "name": "Beyoncé — Renaissance World Tour",
-        "description": "The global superstar performs her chart-topping hits live in a spectacular production.",
+        "description": (
+            "The global superstar performs her chart-topping hits "
+            "live in a spectacular production."
+        ),
         "event_type": "EVENT",
         "venue_idx": 5,
         "base_price": 150.00,
@@ -62,7 +71,10 @@ EVENTS = [
     },
     {
         "name": "NBA Finals — Game 5",
-        "description": "The championship showdown. Can the underdogs force a Game 6?",
+        "description": (
+            "The championship showdown. "
+            "Can the underdogs force a Game 6?"
+        ),
         "event_type": "EVENT",
         "venue_idx": 7,
         "base_price": 95.00,
@@ -71,7 +83,10 @@ EVENTS = [
     },
     {
         "name": "Coldplay — Music of the Spheres Tour",
-        "description": "An immersive, sustainable concert experience with stunning visuals and fan-favorite anthems.",
+        "description": (
+            "An immersive, sustainable concert experience with "
+            "stunning visuals and fan-favorite anthems."
+        ),
         "event_type": "EVENT",
         "venue_idx": 3,
         "base_price": 110.00,
@@ -80,7 +95,10 @@ EVENTS = [
     },
     {
         "name": "The Beatles Tribute — Let It Be",
-        "description": "A multi-award-winning West End show recreating the magic of The Beatles' final years.",
+        "description": (
+            "A multi-award-winning West End show recreating "
+            "the magic of The Beatles' final years."
+        ),
         "event_type": "EVENT",
         "venue_idx": 6,
         "base_price": 65.00,
@@ -89,7 +107,10 @@ EVENTS = [
     },
     {
         "name": "Marvel Studios: Avengers Secret Wars Premiere",
-        "description": "The biggest crossover event in cinema history. First screening with surprise guest appearances.",
+        "description": (
+            "The biggest crossover event in cinema history. "
+            "First screening with surprise guest appearances."
+        ),
         "event_type": "MOVIE",
         "venue_idx": 0,
         "base_price": 130.00,
@@ -98,7 +119,10 @@ EVENTS = [
     },
     {
         "name": "Formula 1 — Monaco Grand Prix Viewing Party",
-        "description": "Watch the world's most prestigious race on the big screen with live commentary and food trucks.",
+        "description": (
+            "Watch the world's most prestigious race on the big "
+            "screen with live commentary and food trucks."
+        ),
         "event_type": "EVENT",
         "venue_idx": 2,
         "base_price": 45.00,
@@ -107,7 +131,10 @@ EVENTS = [
     },
     {
         "name": "Hamilton — Broadway Revival",
-        "description": "Lin-Manuel Miranda's revolutionary musical returns with a star-studded new cast.",
+        "description": (
+            "Lin-Manuel Miranda's revolutionary musical "
+            "returns with a star-studded new cast."
+        ),
         "event_type": "EVENT",
         "venue_idx": 4,
         "base_price": 175.00,
@@ -116,7 +143,10 @@ EVENTS = [
     },
     {
         "name": "Stand-Up Comedy Night — Dave Chappelle",
-        "description": "An evening of sharp, unfiltered comedy from one of the greatest of all time.",
+        "description": (
+            "An evening of sharp, unfiltered comedy from "
+            "one of the greatest of all time."
+        ),
         "event_type": "EVENT",
         "venue_idx": 1,
         "base_price": 90.00,
@@ -170,9 +200,15 @@ async def seed():
                 eid = _next_event_id(ev["event_type"], id_counters)
                 event_ids.append(eid)
                 await session.execute(text(
-                    "INSERT INTO booking.events (event_id, event_type, name, description) "
+                    "INSERT INTO booking.events "
+                    "(event_id, event_type, name, description) "
                     "VALUES (:eid, :etype, :name, :desc)"
-                ), {"eid": eid, "etype": ev["event_type"], "name": ev["name"], "desc": ev["description"]})
+                ), {
+                    "eid": eid,
+                    "etype": ev["event_type"],
+                    "name": ev["name"],
+                    "desc": ev["description"],
+                })
 
                 vid = venue_ids[ev["venue_idx"]]
                 sid = uuid4()
