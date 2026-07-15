@@ -22,6 +22,20 @@ else
 end
 """
 
+# Lua script for re-entrant seat lock acquisition.
+# Returns 1 if lock acquired or refreshed (same user), 0 if held by another user.
+_ACQUIRE_SEAT_LOCK_LUA = """
+local current = redis.call("GET", KEYS[1])
+if current == false then
+    return redis.call("SET", KEYS[1], ARGV[1], "EX", ARGV[2]) and 1 or 0
+elseif current == ARGV[1] then
+    redis.call("EXPIRE", KEYS[1], ARGV[2])
+    return 1
+else
+    return 0
+end
+"""
+
 
 class LockRepository:
     """Redis lock/state operations — SRP, NFR-6.
@@ -51,12 +65,14 @@ class LockRepository:
     async def acquire_seat_lock(
         self, show_id: UUID, seat_id: str, user_id: UUID, ttl: int = 600
     ) -> bool:
-        """FR-7: SETNX with TTL; returns False if already locked."""
+        """FR-7: Re-entrant lock — SET if free, refresh if same user, reject if another user."""
         if self.redis is None:
             raise RedisUnavailableError("Redis unavailable — cannot acquire seat lock.")
         key = f"seat_lock:{show_id}:{seat_id}"
-        result = await self.redis.set(key, str(user_id), nx=True, ex=ttl)
-        return bool(result)
+        result = await self.redis.eval(
+            _ACQUIRE_SEAT_LOCK_LUA, 1, key, str(user_id), ttl
+        )
+        return int(result) == 1
 
     async def get_seat_lock(self, show_id: UUID, seat_id: str) -> UUID | None:
         """FR-7: Read current lock holder."""

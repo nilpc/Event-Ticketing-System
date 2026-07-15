@@ -1,5 +1,7 @@
 ﻿import { createContext, useCallback, useContext, useState } from "react";
 
+const QUEUE_TOKEN_KEY = "ets_queue_token";
+
 interface BookingFlowState {
   showId: string | null;
   seatId: string | null;
@@ -19,11 +21,19 @@ interface BookingFlowContextValue extends BookingFlowState {
 
 const BookingFlowContext = createContext<BookingFlowContextValue | null>(null);
 
+function readPersistedQueueToken(): string | null {
+  try {
+    return localStorage.getItem(QUEUE_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
 export function BookingFlowProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<BookingFlowState>({
     showId: null,
     seatId: null,
-    queueToken: null,
+    queueToken: readPersistedQueueToken(),
     bookingId: null,
     paymentClientSecret: null,
   });
@@ -33,10 +43,20 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const setQueueToken = useCallback((token: string) => {
+    try {
+      localStorage.setItem(QUEUE_TOKEN_KEY, token);
+    } catch {
+      // storage unavailable
+    }
     setState((prev) => ({ ...prev, queueToken: token }));
   }, []);
 
   const selectSeat = useCallback((showId: string, seatId: string, queueToken: string) => {
+    try {
+      localStorage.setItem(QUEUE_TOKEN_KEY, queueToken);
+    } catch {
+      // storage unavailable
+    }
     setState((prev) => ({
       ...prev,
       showId,
@@ -54,6 +74,11 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const reset = useCallback(() => {
+    try {
+      localStorage.removeItem(QUEUE_TOKEN_KEY);
+    } catch {
+      // storage unavailable
+    }
     setState({
       showId: null,
       seatId: null,

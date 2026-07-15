@@ -123,6 +123,12 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (!showId || !seatId || stage !== "booking" || !localIdempotencyKey) return;
+
+    if (!queueToken) {
+      setError("Queue session expired. Please rejoin the queue.");
+      return;
+    }
+
     let cancelled = false;
 
     const book = async () => {
@@ -133,14 +139,16 @@ export default function CheckoutPage() {
             seat_id: seatId,
             idempotency_key: localIdempotencyKey,
           },
-          queueToken ?? undefined,
+          queueToken,
         );
         if (cancelled) return;
         setBookingResult(result.data.booking_id);
         setStage("payment");
-      } catch {
+      } catch (err) {
         if (!cancelled) {
-          setError("Failed to create booking.");
+          const axiosErr = err as AxiosError<{ detail?: string }>;
+          const detail = axiosErr.response?.data?.detail;
+          setError(detail ?? "Failed to create booking.");
         }
       }
     };
