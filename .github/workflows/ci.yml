@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build image
         run: docker build -t event-ticketing:scan .
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@0.24.0
         with:
           image-ref: event-ticketing:scan
           format: table
