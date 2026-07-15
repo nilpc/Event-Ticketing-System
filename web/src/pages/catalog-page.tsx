@@ -186,8 +186,7 @@ export default function CatalogPage() {
           className="max-w-6xl mx-auto px-6 pb-24"
           variants={containerVariants}
           initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
+          animate="visible"
         >
           {/* Tab Bar - pill design */}
           <motion.div variants={childVariants} className="flex items-center gap-4 mb-10">

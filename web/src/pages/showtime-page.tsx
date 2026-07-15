@@ -241,7 +241,7 @@ export default function ShowtimePage() {
                         <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">Base Price</p>
                         <p className="text-xl font-bold mt-1">
                           <span className="text-gradient">
-                            ${parseFloat(showtime.base_price).toFixed(2)}
+                            ₹{parseFloat(showtime.base_price).toFixed(2)}
                           </span>
                         </p>
                       </div>
@@ -360,7 +360,7 @@ export default function ShowtimePage() {
                         disabled={seat.status !== "AVAILABLE"}
                         title={
                           seat.status === "AVAILABLE"
-                            ? `${seat.seat_id} - $${parseFloat(seat.price).toFixed(2)}`
+                            ? `${seat.seat_id} - ₹${parseFloat(seat.price).toFixed(2)}`
                             : seat.status === "PENDING_PAYMENT"
                               ? `${seat.seat_id} - Pending`
                               : `${seat.seat_id} - Sold`

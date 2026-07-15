@@ -16,6 +16,7 @@ import {
   bookingApi,
   catalogApi,
   confirmApi,
+  queueApi,
 } from "@/lib/api-routes";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -44,9 +45,11 @@ export default function CheckoutPage() {
   const {
     bookingId,
     queueToken,
+    setQueueToken,
     setBookingResult,
   } = useBookingFlow();
   const [localIdempotencyKey, setLocalIdempotencyKey] = useState<string | null>(null);
+  const [queueValidated, setQueueValidated] = useState(false);
 
   const [stage, setStage] = useState<CheckoutStage>("locking");
   const [error, setError] = useState("");
@@ -88,7 +91,38 @@ export default function CheckoutPage() {
   }, [expiresAt, clearTimer, navigate, showId]);
 
   useEffect(() => {
-    if (!showId || !seatId || stage !== "locking") return;
+    if (!showId) return;
+    let cancelled = false;
+
+    const validate = async () => {
+      if (!queueToken) {
+        setQueueValidated(true);
+        return;
+      }
+      try {
+        const { data } = await queueApi.recoverQueue(showId);
+        if (cancelled) return;
+        if (data.status === "admitted" && data.queue_token) {
+          setQueueToken(data.queue_token);
+          setQueueValidated(true);
+        } else {
+          setQueueToken("");
+          toast.error("Queue session expired. Rejoining queue...");
+          navigate(`/queue/${showId}`);
+        }
+      } catch {
+        if (!cancelled) {
+          setQueueValidated(true);
+        }
+      }
+    };
+
+    validate();
+    return () => { cancelled = true; };
+  }, [showId, queueToken, setQueueToken, navigate]);
+
+  useEffect(() => {
+    if (!showId || !seatId || stage !== "locking" || !queueValidated) return;
     let cancelled = false;
 
     const lock = async () => {
@@ -119,7 +153,7 @@ export default function CheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [showId, seatId, stage]);
+  }, [showId, seatId, stage, queueValidated]);
 
   useEffect(() => {
     if (!showId || !seatId || stage !== "booking" || !localIdempotencyKey) return;
@@ -345,7 +379,7 @@ export default function CheckoutPage() {
 
                 {seatPrice !== null && (
                   <p className="text-3xl font-bold text-gradient">
-                    ${(seatPrice / 100).toFixed(2)}
+                    ₹{(seatPrice / 100).toFixed(2)}
                   </p>
                 )}
 
@@ -395,7 +429,7 @@ export default function CheckoutPage() {
                 >
                   Pay{" "}
                   {seatPrice !== null
-                    ? `$${(seatPrice / 100).toFixed(2)}`
+                    ? `₹${(seatPrice / 100).toFixed(2)}`
                     : "Now"}
                 </Button>
               </motion.div>

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config.settings import settings
 from core.db.session import get_db_session
-from core.security.auth import get_current_user_id
 from services.booking.schemas.admin import (
     EventCreate,
     EventUpdate,
@@ -42,11 +41,9 @@ def _get_admin_service(session: AsyncSession = Depends(get_db_session)) -> Admin
 @router.post("/events", response_model=EventResponse, status_code=201)
 async def create_event(
     data: EventCreate,
-    request: Request,
     _admin: None = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> EventResponse:
-    get_current_user_id(request)
     event = await svc.create_event(data)
     return EventResponse.model_validate(event)
 
@@ -55,11 +52,9 @@ async def create_event(
 async def update_event(
     event_id: str,
     data: EventUpdate,
-    request: Request,
     _admin: None = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> EventResponse:
-    get_current_user_id(request)
     try:
         event = await svc.update_event(event_id, data)
     except LookupError as exc:
@@ -70,11 +65,9 @@ async def update_event(
 @router.delete("/events/{event_id}", status_code=204)
 async def delete_event(
     event_id: str,
-    request: Request,
     _admin: None = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> None:
-    get_current_user_id(request)
     try:
         await svc.delete_event(event_id)
     except LookupError as exc:
@@ -87,11 +80,9 @@ async def delete_event(
 @router.post("/venues", response_model=VenueResponse, status_code=201)
 async def create_venue(
     data: VenueCreate,
-    request: Request,
     _admin: None = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> VenueResponse:
-    get_current_user_id(request)
     venue = await svc.create_venue(data)
     return VenueResponse.model_validate(venue)
 
@@ -100,11 +91,9 @@ async def create_venue(
 async def update_venue(
     venue_id: str,
     data: VenueUpdate,
-    request: Request,
     _admin: None = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> VenueResponse:
-    get_current_user_id(request)
     try:
         venue = await svc.update_venue(venue_id, data)
     except LookupError as exc:
@@ -115,11 +104,9 @@ async def update_venue(
 @router.delete("/venues/{venue_id}", status_code=204)
 async def delete_venue(
     venue_id: str,
-    request: Request,
     _admin: None = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> None:
-    get_current_user_id(request)
     try:
         await svc.delete_venue(venue_id)
     except LookupError as exc:
@@ -129,14 +116,21 @@ async def delete_venue(
 # ── Showtimes ──────────────────────────────────────────────────────────
 
 
+@router.get("/showtimes", response_model=list[ShowtimeResponse])
+async def list_showtimes(
+    _admin: None = Depends(_require_admin),
+    svc: AdminService = Depends(_get_admin_service),
+) -> list[ShowtimeResponse]:
+    showtimes = await svc.list_showtimes()
+    return [ShowtimeResponse.model_validate(s) for s in showtimes]
+
+
 @router.post("/showtimes", response_model=ShowtimeResponse, status_code=201)
 async def create_showtime(
     data: ShowtimeCreate,
-    request: Request,
     _admin: None = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> ShowtimeResponse:
-    get_current_user_id(request)
     showtime = await svc.create_showtime(data)
     return ShowtimeResponse.model_validate(showtime)
 
@@ -145,11 +139,9 @@ async def create_showtime(
 async def update_showtime(
     show_id: str,
     data: ShowtimeUpdate,
-    request: Request,
     _admin: None = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> ShowtimeResponse:
-    get_current_user_id(request)
     try:
         showtime = await svc.update_showtime(show_id, data)
     except LookupError as exc:
@@ -160,11 +152,9 @@ async def update_showtime(
 @router.delete("/showtimes/{show_id}", status_code=204)
 async def delete_showtime(
     show_id: str,
-    request: Request,
     _admin: None = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> None:
-    get_current_user_id(request)
     try:
         await svc.delete_showtime(show_id)
     except LookupError as exc:

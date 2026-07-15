@@ -182,7 +182,7 @@ export default function AccountPage() {
                       )}
                       <span className="flex items-center gap-1">
                         <span className="text-primary font-medium">
-                          ${parseFloat(b.amount).toFixed(2)}
+                          ₹{parseFloat(b.amount).toFixed(2)}
                         </span>
                       </span>
                     </div>

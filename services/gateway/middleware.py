@@ -19,6 +19,7 @@ _PUBLIC_PREFIXES: tuple[str, ...] = (
     "/v1/venues",
     "/v1/events",
     "/v1/showtimes/",
+    "/v1/admin/",
     "/v1/webhooks/",
     "/docs",
     "/openapi.json",

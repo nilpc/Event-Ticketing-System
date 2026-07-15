@@ -44,7 +44,8 @@ RUN apt-get update && \
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH="/app"
 
 # Create a non-root user
 RUN groupadd -r app && useradd -r -g app -d /app -s /sbin/nologin app
@@ -72,9 +73,5 @@ USER app
 
 # FR-12: Default to the gateway entrypoint
 EXPOSE 8000
-CMD ["gunicorn", "services.gateway.app:create_app", \
-     "--worker-class", "uvicorn.workers.UvicornWorker", \
-     "--workers", "2", \
-     "--bind", "0.0.0.0:8000", \
-     "--timeout", "120", \
-     "--access-logfile", "-"]
+COPY entrypoint.sh /app/entrypoint.sh
+CMD ["/app/entrypoint.sh"]

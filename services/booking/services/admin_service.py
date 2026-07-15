@@ -89,6 +89,9 @@ class AdminService:
         await self.repo.delete_venue(uuid.UUID(venue_id))
 
     # ── Showtimes ──────────────────────────────────────────────────
+    async def list_showtimes(self) -> list[Showtime]:
+        return await self.repo.list_showtimes()
+
     async def create_showtime(self, data: ShowtimeCreate) -> Showtime:
         showtime = Showtime(
             show_id=uuid.uuid4(),

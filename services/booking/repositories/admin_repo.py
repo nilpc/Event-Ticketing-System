@@ -60,6 +60,10 @@ class AdminRepository:
         await self.session.execute(delete(Venue).where(Venue.venue_id == venue_id))
 
     # ── Showtimes ──────────────────────────────────────────────────
+    async def list_showtimes(self) -> list[Showtime]:
+        result = await self.session.execute(select(Showtime).order_by(Showtime.start_time))
+        return list(result.scalars().all())
+
     async def create_showtime(self, showtime: Showtime) -> Showtime:
         self.session.add(showtime)
         await self.session.flush()

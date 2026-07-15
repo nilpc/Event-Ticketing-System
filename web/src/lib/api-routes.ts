@@ -22,6 +22,9 @@ import type {
   PaymentIntentResponse,
   MockConfirmResponse,
   BookingListItem,
+  EventCreateRequest,
+  VenueCreateRequest,
+  ShowtimeCreateRequest,
 } from "../types/api";
 
 export const authApi = {
@@ -106,5 +109,56 @@ export const paymentApi = {
 export const confirmApi = {
   mockConfirm(bookingId: string) {
     return api.post<MockConfirmResponse>(`/book/${bookingId}/mock-confirm`);
+  },
+};
+
+export const adminApi = {
+  getAdminToken(): string | null {
+    return localStorage.getItem("admin_token");
+  },
+  setAdminToken(token: string) {
+    localStorage.setItem("admin_token", token);
+  },
+  createEvent(data: EventCreateRequest) {
+    const headers: Record<string, string> = {};
+    const t = localStorage.getItem("admin_token");
+    if (t) headers["X-Admin-Token"] = t;
+    return api.post<EventResponse>("/admin/events", data, { headers });
+  },
+  deleteEvent(eventId: string) {
+    const headers: Record<string, string> = {};
+    const t = localStorage.getItem("admin_token");
+    if (t) headers["X-Admin-Token"] = t;
+    return api.delete<void>(`/admin/events/${eventId}`, { headers });
+  },
+  createVenue(data: VenueCreateRequest) {
+    const headers: Record<string, string> = {};
+    const t = localStorage.getItem("admin_token");
+    if (t) headers["X-Admin-Token"] = t;
+    return api.post<VenueResponse>("/admin/venues", data, { headers });
+  },
+  deleteVenue(venueId: string) {
+    const headers: Record<string, string> = {};
+    const t = localStorage.getItem("admin_token");
+    if (t) headers["X-Admin-Token"] = t;
+    return api.delete<void>(`/admin/venues/${venueId}`, { headers });
+  },
+  getAllShowtimes() {
+    const headers: Record<string, string> = {};
+    const t = localStorage.getItem("admin_token");
+    if (t) headers["X-Admin-Token"] = t;
+    return api.get<ShowtimeResponse[]>("/admin/showtimes", { headers });
+  },
+  createShowtime(data: ShowtimeCreateRequest) {
+    const headers: Record<string, string> = {};
+    const t = localStorage.getItem("admin_token");
+    if (t) headers["X-Admin-Token"] = t;
+    return api.post<ShowtimeResponse>("/admin/showtimes", data, { headers });
+  },
+  deleteShowtime(showId: string) {
+    const headers: Record<string, string> = {};
+    const t = localStorage.getItem("admin_token");
+    if (t) headers["X-Admin-Token"] = t;
+    return api.delete<void>(`/admin/showtimes/${showId}`, { headers });
   },
 };

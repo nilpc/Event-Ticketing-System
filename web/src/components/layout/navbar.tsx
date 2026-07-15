@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
-import { Ticket, LogOut } from "lucide-react";
+import { Ticket, LogOut, Key } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/stores/auth-store";
 
 export default function Navbar() {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, isAdmin, logout } = useAuth();
 
   return (
     <motion.header
@@ -37,6 +37,14 @@ export default function Navbar() {
               <Button variant="ghost" asChild className="rounded-full">
                 <Link to="/">Events</Link>
               </Button>
+              {isAdmin && (
+                <Button variant="ghost" asChild className="rounded-full">
+                  <Link to="/admin">
+                    <Key className="h-4 w-4 mr-1.5" />
+                    Admin
+                  </Link>
+                </Button>
+              )}
               <Button variant="ghost" asChild className="rounded-full">
                 <Link to="/account">Account</Link>
               </Button>

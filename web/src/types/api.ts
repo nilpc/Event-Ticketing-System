@@ -137,3 +137,23 @@ export interface BookingListItem {
   event_name: string;
   venue_name: string;
 }
+
+export interface EventCreateRequest {
+  event_type: EventType;
+  name: string;
+  description?: string;
+}
+
+export interface VenueCreateRequest {
+  name: string;
+  capacity: number;
+}
+
+export interface ShowtimeCreateRequest {
+  event_id: string;
+  venue_id: string;
+  base_price: number;
+  start_time: string;
+  end_time: string;
+  auto_seats?: boolean;
+}

@@ -17,6 +17,7 @@ const ShowtimePage = React.lazy(() => import("@/pages/showtime-page"));
 const QueuePage = React.lazy(() => import("@/pages/queue-page"));
 const CheckoutPage = React.lazy(() => import("@/pages/checkout-page"));
 const AccountPage = React.lazy(() => import("@/pages/account-page"));
+const AdminPage = React.lazy(() => import("@/pages/admin-page"));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -51,6 +52,7 @@ export default function App() {
                         <Route path="/checkout/:showId/:seatId" element={<CheckoutPage />} />
                         <Route path="/queue/:showId" element={<QueuePage />} />
                         <Route path="/account" element={<AccountPage />} />
+                        <Route path="/admin" element={<AdminPage />} />
                       </Route>
                     </Routes>
                   </Suspense>
