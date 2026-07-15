@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 async def _setup_test_data(session: AsyncSession, show_id: str, seat_ids: list[str]) -> None:
     """Seed venue, event, showtime, and seats for testing."""
     venue_id = str(uuid.uuid4())
-    event_id = str(uuid.uuid4())
+    event_id = "STE01"
     await session.execute(
         text(
             f"INSERT INTO booking.venues (venue_id, name, capacity) "
@@ -26,8 +26,9 @@ async def _setup_test_data(session: AsyncSession, show_id: str, seat_ids: list[s
     )
     await session.execute(
         text(
-            f"INSERT INTO booking.events (event_id, name, description) "
-            f"VALUES ('{event_id}', 'Concurrency Test Event', 'Test') ON CONFLICT DO NOTHING"
+            f"INSERT INTO booking.events (event_id, event_type, name, description) "
+            f"VALUES ('{event_id}', 'EVENT', "
+            f"'Concurrency Test Event', 'Test') ON CONFLICT DO NOTHING"
         )
     )
     await session.execute(

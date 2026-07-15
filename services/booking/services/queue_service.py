@@ -43,10 +43,11 @@ class QueueService:
         return QueueJoinResponse(position=position, status="waiting")
 
     async def status(self, show_id: UUID, user_id: UUID) -> QueueStatusResponse:
-        """FR-6: Get queue position with Retry-After header."""
-        # Check if admitted
+        """FR-6: Get queue position with Retry-After header and queue token."""
+        # Check if admitted — return the token so the frontend can use it
         if await self.lock_repo.is_user_admitted(show_id, user_id):
-            return QueueStatusResponse(position=0, status="admitted")
+            token = await self.lock_repo.get_admitted_token(show_id, user_id)
+            return QueueStatusResponse(position=0, status="admitted", queue_token=token)
 
         position = await self.lock_repo.get_queue_position(show_id, user_id)
         if position is None:

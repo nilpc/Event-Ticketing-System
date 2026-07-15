@@ -3,6 +3,13 @@
 import enum
 
 
+class EventType(enum.StrEnum):
+    """booking.events.event_type — differentiates movies from live events."""
+
+    MOVIE = "MOVIE"
+    EVENT = "EVENT"
+
+
 class SeatStatus(enum.StrEnum):
     """booking.seats.status — FR-7 seat lifecycle."""
 

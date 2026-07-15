@@ -35,8 +35,8 @@ def create_access_token(user_id: str, extra_claims: dict | None = None) -> str:
     claims = {
         "sub": user_id,
         "jti": str(uuid.uuid4()),
-        "iat": now,
-        "exp": now + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)).timestamp()),
         "type": "access",
     }
     if extra_claims:

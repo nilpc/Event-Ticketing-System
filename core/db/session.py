@@ -24,9 +24,12 @@ def _on_connect(dbapi_conn, connection_record) -> None:
 
 def _on_checkout(dbapi_conn, connection_record, connection_proxy) -> None:
     """FR-10: Re-set search_path on every checkout (safe against pool recycling)."""
-    cursor = dbapi_conn.cursor()
-    cursor.execute("SET search_path TO booking,identity,public")
-    cursor.close()
+    try:
+        cursor = dbapi_conn.cursor()
+        cursor.execute("SET search_path TO booking,identity,public")
+        cursor.close()
+    except Exception:
+        pass
 
 
 engine = create_async_engine(
@@ -61,7 +64,9 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     async with async_session_factory() as session:
         try:
             yield session
-            await session.commit()
+            if session.in_transaction():
+                await session.commit()
         except Exception:
-            await session.rollback()
+            if session.in_transaction():
+                await session.rollback()
             raise

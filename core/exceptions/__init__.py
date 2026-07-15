@@ -31,3 +31,7 @@ class PaymentProviderError(OSError):
 
 class WeakPasswordError(ValueError):
     """Raised when a password fails zxcvbn strength validation (FR-1)."""
+
+
+class RedisUnavailableError(OSError):
+    """Raised when Redis is unavailable and a lock operation cannot proceed."""

@@ -1,0 +1,34 @@
+﻿@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: #0f172a;
+  --color-foreground: #f1f5f9;
+  --color-muted: #1e293b;
+  --color-muted-foreground: #94a3b8;
+  --color-card: #0f172a;
+  --color-card-foreground: #f1f5f9;
+  --color-border: #1e293b;
+  --color-input: #1e293b;
+  --color-primary: #10b981;
+  --color-primary-foreground: #022c22;
+  --color-secondary: #1e293b;
+  --color-secondary-foreground: #e2e8f0;
+  --color-accent: #1e293b;
+  --color-accent-foreground: #e2e8f0;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #fef2f2;
+  --color-ring: #10b981;
+  --color-popover: #0f172a;
+  --color-popover-foreground: #f1f5f9;
+  --color-chart-1: #10b981;
+  --color-chart-2: #3b82f6;
+  --color-chart-3: #f59e0b;
+  --color-chart-4: #d946ef;
+  --color-chart-5: #e2e8f0;
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --radius: 0.625rem;
+  --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}

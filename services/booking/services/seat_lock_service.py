@@ -51,7 +51,7 @@ class SeatLockService:
 
         # Layer 3: Non-locking DB read to verify seat is AVAILABLE
         try:
-            await self.seat_repo.get_seat_price(show_id, seat_id)
+            await self.seat_repo.verify_seat_available(show_id, seat_id)
         except SeatUnavailableError:
             # Seat doesn't exist — release locks
             await self.lock_repo.release_seat_lock_safe(show_id, seat_id, user_id)

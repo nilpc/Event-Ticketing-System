@@ -1,22 +1,24 @@
 """NFR-6: booking.events ORM model."""
 
-import uuid
-
-from sqlalchemy import String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Enum, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.db.base import Base
+from core.enums import EventType
 
 
 class Event(Base):
-    """booking.events — event catalog."""
+    """booking.events — event catalog with STE/STM prefixed IDs."""
 
     __tablename__ = "events"
     __table_args__ = {"schema": "booking"}
 
-    event_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    event_id: Mapped[str] = mapped_column(
+        String(10), primary_key=True
+    )
+    event_type: Mapped[EventType] = mapped_column(
+        Enum(EventType, name="event_type", create_type=False),
+        nullable=False,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -51,6 +51,22 @@ class SeatRepository:
             raise SeatUnavailableError(f"Seat {seat_id} for show {show_id} not found.")
         return price
 
+    async def verify_seat_available(self, show_id: UUID, seat_id: str) -> None:
+        """FR-7: Verify seat exists and is AVAILABLE — used by seat lock Layer 3."""
+        from sqlalchemy import select
+
+        result = await self.session.execute(
+            select(Seat.price).where(
+                Seat.show_id == show_id,
+                Seat.seat_id == seat_id,
+                Seat.status == SeatStatus.AVAILABLE,
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            raise SeatUnavailableError(
+                f"Seat {seat_id} for show {show_id} is not available."
+            )
+
     async def finalize_sold_seat(self, show_id: UUID, seat_id: str) -> None:
         """FR-8: Transition PENDING_PAYMENT to SOLD after payment confirmation."""
         await self.session.execute(

@@ -38,8 +38,17 @@ async def list_venues(
 async def list_events(
     svc: CatalogService = Depends(_get_catalog_service),
 ) -> list[EventResponse]:
-    """FR-4: List all events."""
+    """FR-4: List all events and movies."""
     return await svc.list_events()
+
+
+@router.get("/events/{event_id}/showtimes", response_model=list[ShowtimeResponse])
+async def list_showtimes_for_event(
+    event_id: str,
+    svc: CatalogService = Depends(_get_catalog_service),
+) -> list[ShowtimeResponse]:
+    """FR-4: List showtimes for an event (by STE/STM prefixed ID)."""
+    return await svc.list_showtimes_by_event(event_id)
 
 
 @router.get("/showtimes/{show_id}", response_model=ShowtimeResponse)

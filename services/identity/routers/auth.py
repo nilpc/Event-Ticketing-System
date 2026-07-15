@@ -99,11 +99,9 @@ async def google_authorize(
     session: AsyncSession = Depends(get_db_session),
 ) -> OAuthAuthorizeResponse:
     """FR-2: Get Google OAuth2 authorization URL."""
-    from urllib.parse import urlparse, urlunparse
+    from core.config.settings import settings
 
-    parsed = urlparse(str(request.url))
-    callback_path = parsed.path.replace("/authorize", "/callback")
-    redirect_uri = urlunparse(parsed._replace(path=callback_path, query="", fragment=""))
+    redirect_uri = f"{settings.CLIENT_ORIGIN}/auth/callback"
     svc = OAuthService(session)
     # C2: Generate cryptographic random state, store in Redis for 10 min
     state = secrets.token_urlsafe(32)

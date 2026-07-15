@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.session import get_db_session
-from core.exceptions import BookingConflictError
+from core.exceptions import BookingConflictError, SeatUnavailableError
 from core.redis import get_redis
 from services.booking.repositories.lock_repo import LockRepository
 from services.booking.repositories.seat_repo import SeatRepository
@@ -41,4 +41,6 @@ async def lock_seat(
     try:
         return await svc.lock_seat(payload.show_id, payload.seat_id, user_id)
     except BookingConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except SeatUnavailableError as exc:
         raise HTTPException(status_code=409, detail=str(exc))

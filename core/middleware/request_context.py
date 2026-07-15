@@ -13,13 +13,12 @@ from starlette.responses import Response
 class RequestContextMiddleware(BaseHTTPMiddleware):
     """NFR-4: Bind request_id, trace_id, user_id into structlog context.
 
-    Runs AFTER IdentityMiddleware so request.state.user_id is already set.
-    Every ``structlog.get_logger()`` call downstream will automatically
-    include these fields without manual pass-through.
+    Runs BEFORE IdentityMiddleware in the middleware stack (LIFO order),
+    so we read user_id from the response headers that IdentityMiddleware
+    sets (X-User-Id) after call_next returns.
     """
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        # Extract from response headers set by IdentityMiddleware
         request_id = request.headers.get("x-request-id", "") or str(uuid.uuid4())
         traceparent = request.headers.get("traceparent", "")
         trace_id = ""
@@ -28,20 +27,21 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             if len(parts) >= 3:
                 trace_id = parts[1]
 
-        user_id = getattr(request.state, "user_id", "")
-
-        # Bind to structlog contextvars — all downstream log calls inherit these
+        # Bind request metadata before downstream processing
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(
             request_id=request_id,
             trace_id=trace_id,
-            user_id=user_id,
             service="gateway",
             method=request.method,
             path=request.url.path,
         )
 
         response = await call_next(request)
+
+        # IdentityMiddleware has now run and set X-User-Id on the response
+        user_id = response.headers.get("X-User-Id", "")
+        structlog.contextvars.bind_contextvars(user_id=user_id)
 
         # Ensure response headers carry the request_id
         response.headers["X-Request-ID"] = request_id

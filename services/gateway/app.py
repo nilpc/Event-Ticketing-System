@@ -76,20 +76,23 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # FR-11: Gateway identity enforcement — JWT validation, header stripping,
-    # X-Request-ID + traceparent injection. Must be added AFTER CORS so
-    # preflight OPTIONS requests pass through unauthenticated.
-    from services.gateway.middleware import IdentityMiddleware
-
-    app.add_middleware(IdentityMiddleware)
-
     # NFR-4: Request context — binds request_id, trace_id, user_id
     # into structlog contextvars for all downstream log calls.
+    # Added FIRST so it runs AFTER IdentityMiddleware (LIFO order).
     from core.middleware import RequestContextMiddleware
 
     app.add_middleware(RequestContextMiddleware)
 
+    # FR-11: Gateway identity enforcement — JWT validation, header stripping,
+    # X-Request-ID + traceparent injection. Must be added AFTER CORS so
+    # preflight OPTIONS requests pass through unauthenticated.
+    # Added SECOND so it runs BEFORE RequestContextMiddleware (LIFO order).
+    from services.gateway.middleware import IdentityMiddleware
+
+    app.add_middleware(IdentityMiddleware)
+
     # --- Routers ---
+    from services.booking.routers.admin import router as admin_router
     from services.booking.routers.booking import router as booking_router
     from services.booking.routers.catalog import router as catalog_router
     from services.booking.routers.queue import router as queue_router
@@ -105,6 +108,7 @@ def create_app() -> FastAPI:
     app.include_router(seats_router)
     app.include_router(booking_router)
     app.include_router(webhook_router)
+    app.include_router(admin_router)
 
     # --- Health endpoints (FR-12) ---
     @app.get("/health", tags=["ops"])

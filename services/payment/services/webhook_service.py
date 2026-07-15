@@ -107,7 +107,6 @@ class WebhookService:
                         await self.booking_repo.update_booking_status(
                             booking_id,
                             BookingStatus.CONFIRMED,
-                            correlation_id=event.data.object.id,
                             source="webhook",
                         )
                         await self.booking_repo.add_outbox_event(

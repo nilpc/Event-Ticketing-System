@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
 
+    # --- Frontend ---
+    CLIENT_ORIGIN: str = "http://localhost:3000"
+
+    # --- Admin ---
+    ADMIN_TOKEN: str = ""
+
     # --- CORS ---
     CORS_ORIGINS: str = "http://localhost:3000"
 

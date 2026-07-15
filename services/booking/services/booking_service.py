@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.enums import BookingStatus
+from core.enums import BookingStatus, SeatStatus
 from core.exceptions import (
     BookingConflictError,
     InvalidTokenError,
@@ -19,7 +19,7 @@ from services.booking.repositories.booking_repo import BookingRepository
 from services.booking.repositories.cache_repo import CacheRepository
 from services.booking.repositories.lock_repo import LockRepository
 from services.booking.repositories.seat_repo import SeatRepository
-from services.booking.schemas.booking import BookResponse
+from services.booking.schemas.booking import BookingListItem, BookResponse, MockConfirmResponse
 
 logger = structlog.get_logger()
 
@@ -157,3 +157,42 @@ class BookingService:
             status=BookingStatus.PENDING.value,
             expires_at=expires_at,
         )
+
+    async def mock_confirm_booking(self, booking_id: uuid.UUID) -> MockConfirmResponse:
+        """Demo-only: flip PENDING→CONFIRMED and PENDING_PAYMENT→SOLD.
+
+        Uses the autobegun transaction from the initial SELECT —
+        get_db_session commits on success, rolls back on error.
+        """
+        booking = await self.booking_repo.get_booking_by_id(booking_id)
+        if booking is None:
+            raise BookingConflictError("Booking not found.")
+
+        if booking.status != BookingStatus.PENDING:
+            raise BookingConflictError(
+                f"Booking is {booking.status.value}, expected PENDING.",
+            )
+
+        await self.booking_repo.update_booking_status(
+            booking_id, BookingStatus.CONFIRMED, source="mock-confirm",
+        )
+        await self.seat_repo.finalize_sold_seat(booking.show_id, booking.seat_id)
+
+        try:
+            await self.cache_repo.invalidate(f"seatmap:{booking.show_id}")
+        except Exception:
+            logger.warning(
+                "cache_invalidation_failed",
+                show_id=str(booking.show_id),
+            )
+
+        return MockConfirmResponse(
+            booking_id=booking_id,
+            status=BookingStatus.CONFIRMED.value,
+            seat_status=SeatStatus.SOLD.value,
+        )
+
+    async def list_user_bookings(self, user_id: uuid.UUID) -> list[BookingListItem]:
+        """List all bookings for a user with joined event/venue details."""
+        rows = await self.booking_repo.list_bookings_for_user(user_id)
+        return [BookingListItem(**row) for row in rows]

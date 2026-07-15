@@ -32,20 +32,25 @@ async def run_admitter() -> None:
 
 
 async def admit_batch() -> None:
-    """Pop oldest users from queue sorted sets and admit them."""
-    lock_repo = LockRepository()
+    """Pop oldest users from queue sorted sets and admit them.
 
+    FR-6: Uses LockRepository with only Redis (no DB session) since
+    queue admission is purely a Redis operation. Session is explicitly
+    None — acceptable for this worker per Phase 2 trade-off.
+    """
     try:
         from core.redis import get_redis
 
-        redis = get_redis()
+        redis_client = get_redis()
     except Exception:
         return
+
+    lock_repo = LockRepository(session=None, redis_client=redis_client)
 
     # Find all queue sorted sets
     cursor = 0
     while True:
-        cursor, keys = await redis.scan(cursor, match="queue:*", count=100)
+        cursor, keys = await redis_client.scan(cursor, match="queue:*", count=100)
         for key in keys:
             if isinstance(key, bytes):
                 key = key.decode()
@@ -57,7 +62,7 @@ async def admit_batch() -> None:
 
             # Pop oldest users from sorted set
             for _ in range(ADMIT_BATCH_SIZE):
-                entries = await redis.zpopmin(key, count=1)
+                entries = await redis_client.zpopmin(key, count=1)
                 if not entries:
                     break
                 raw_id = entries[0][0]

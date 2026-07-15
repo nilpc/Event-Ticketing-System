@@ -8,7 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from core.enums import SeatStatus
+from core.enums import EventType, SeatStatus
 
 
 class VenueResponse(BaseModel):
@@ -20,7 +20,8 @@ class VenueResponse(BaseModel):
 
 
 class EventResponse(BaseModel):
-    event_id: UUID
+    event_id: str
+    event_type: EventType
     name: str
     description: str | None = None
 
@@ -38,7 +39,7 @@ class SeatResponse(BaseModel):
 
 class ShowtimeResponse(BaseModel):
     show_id: UUID
-    event_id: UUID
+    event_id: str
     venue_id: UUID
     base_price: Decimal
     start_time: datetime

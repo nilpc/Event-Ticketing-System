@@ -32,7 +32,9 @@ def _setup_database():
     from services.booking import models as _booking_models  # noqa: F401
     from services.identity import models as _identity_models  # noqa: F401
 
-    sync_url = settings.DATABASE_URL.replace("+asyncpg", "")
+    sync_url = settings.DATABASE_URL.replace("+asyncpg", "").replace(
+        "ssl=require", "sslmode=require"
+    )
     sync_engine = create_engine(sync_url)
 
     with sync_engine.begin() as conn:

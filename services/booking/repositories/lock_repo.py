@@ -7,6 +7,7 @@ from uuid import UUID
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.exceptions import RedisUnavailableError
 from core.redis import get_redis
 
 logger = structlog.get_logger()
@@ -14,15 +15,6 @@ logger = structlog.get_logger()
 # Lua CAS script for safe seat lock release.
 # Only deletes if the current value matches the expected user_id.
 _RELEASE_SEAT_LOCK_LUA = """
-if redis.call("GET", KEYS[1]) == ARGV[1] then
-    return redis.call("DEL", KEYS[1])
-else
-    return 0
-end
-"""
-
-# Lua CAS script for safe seat lock release (returns ok even if not held).
-_RELEASE_SEAT_LOCK_SAFE_LUA = """
 if redis.call("GET", KEYS[1]) == ARGV[1] then
     return redis.call("DEL", KEYS[1])
 else
@@ -61,7 +53,7 @@ class LockRepository:
     ) -> bool:
         """FR-7: SETNX with TTL; returns False if already locked."""
         if self.redis is None:
-            return True
+            raise RedisUnavailableError("Redis unavailable — cannot acquire seat lock.")
         key = f"seat_lock:{show_id}:{seat_id}"
         result = await self.redis.set(key, str(user_id), nx=True, ex=ttl)
         return bool(result)
@@ -92,20 +84,20 @@ class LockRepository:
     # --- User Hold Limit (FR-7) ---
 
     async def acquire_user_hold(self, show_id: UUID, user_id: UUID, ttl: int = 600) -> bool:
-        """FR-7: Enforce 10-min per-user hold limit.
+        """FR-7: Enforce per-user hold limit.
 
-        Uses a Redis set per (show_id, user_id) to track held seats.
+        Uses a Redis counter per (show_id, user_id) to track held seats.
         Returns False if user already holds the max (5 seats).
         """
         if self.redis is None:
-            return True
+            raise RedisUnavailableError("Redis unavailable — cannot enforce hold limit.")
         hold_key = f"user_hold:{show_id}:{user_id}"
-        current_count = await self.redis.scard(hold_key)
-        if current_count >= 5:
+        current_count = await self.redis.incr(hold_key)
+        if current_count == 1:
+            await self.redis.expire(hold_key, ttl)
+        if current_count > 5:
+            await self.redis.decr(hold_key)
             return False
-        # Add a placeholder; the actual seat_id is stored by the caller.
-        # We use a sorted set scored by timestamp for TTL management.
-        await self.redis.set(hold_key, "1", ex=ttl)
         return True
 
     async def release_user_hold_limit(self, show_id: UUID, user_id: UUID) -> None:
@@ -123,7 +115,7 @@ class LockRepository:
     async def validate_queue_session(self, queue_token: str, user_id: UUID) -> bool:
         """FR-6: Verify queue session token belongs to user and is active."""
         if self.redis is None:
-            return True
+            raise RedisUnavailableError("Redis unavailable — cannot validate queue session.")
         key = f"queue:session:{queue_token}"
         stored = await self.redis.get(key)
         if stored is None:
@@ -142,7 +134,7 @@ class LockRepository:
     async def is_idempotency_key_available(self, idempotency_key: str) -> bool:
         """FR-8: Redis SET NX; returns True if key was newly created."""
         if self.redis is None:
-            return True
+            raise RedisUnavailableError("Redis unavailable — cannot check idempotency key.")
         key = f"idempotency:{idempotency_key}"
         result = await self.redis.set(key, "1", nx=True, ex=900)
         return bool(result)

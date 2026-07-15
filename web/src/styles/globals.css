@@ -1,0 +1,78 @@
+﻿@import "tailwindcss";
+@plugin "tailwindcss-animate";
+@import "./theme.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "ss01" on, "cv01" on, "cv02" on;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Premium glass utilities */
+@utility glass-panel {
+  @apply bg-card/60 backdrop-blur-2xl border border-white/[0.06] shadow-lg;
+}
+
+@utility glass-card {
+  @apply bg-card/50 backdrop-blur-xl border border-white/[0.06] rounded-2xl shadow-2xl;
+}
+
+/* Double-bezel card: outer shell + inner core */
+@utility bezel-card {
+  @apply relative rounded-2xl border border-white/[0.06] bg-muted/20 p-[1px];
+}
+
+@utility bezel-card-inner {
+  @apply rounded-[calc(var(--radius)-1px)] bg-card/80 backdrop-blur-xl;
+}
+
+/* Premium text gradient - single accent, no purple */
+@utility text-gradient {
+  @apply bg-gradient-to-br from-primary via-primary to-primary/70 bg-clip-text text-transparent;
+}
+
+/* Motion utilities */
+@utility hover-lift {
+  @apply transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl;
+}
+
+@utility hover-glow {
+  @apply transition-all duration-300 hover:shadow-lg hover:shadow-primary/10;
+}
+
+/* Grain noise overlay - apply via class on parent */
+.grain-overlay::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* Pill button base */
+@utility pill {
+  @apply rounded-full;
+}
+
+/* Premium focus ring */
+@utility focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+}

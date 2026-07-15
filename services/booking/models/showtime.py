@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Numeric
+from sqlalchemy import DateTime, ForeignKey, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -28,8 +28,8 @@ class Showtime(Base):
     show_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    event_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    event_id: Mapped[str] = mapped_column(
+        String(10),
         ForeignKey("booking.events.event_id", ondelete="CASCADE"),
         nullable=False,
     )

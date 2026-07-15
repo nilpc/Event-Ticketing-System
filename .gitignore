@@ -61,3 +61,8 @@ postman_collection.json
 
 # Docker
 docker-compose.override.yml
+
+# Frontend
+node_modules/
+web/node_modules/
+web/dist/

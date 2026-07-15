@@ -10,9 +10,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from alembic import context
-from sqlalchemy import pool, text
-from sqlalchemy.ext.asyncio import async_engine_from_config
+from alembic import context  # noqa: E402
+from sqlalchemy import pool, text  # noqa: E402
+from sqlalchemy.ext.asyncio import async_engine_from_config  # noqa: E402
 
 from core.db.base import Base  # noqa: E402, F401
 from services.booking.models import (  # noqa: E402, F401

@@ -27,6 +27,7 @@ class QueueStatusResponse(BaseModel):
     position: int | None
     status: str  # "waiting" | "admitted" | "expired"
     retry_after: int | None = None  # seconds
+    queue_token: str | None = None
 
 
 class QueueRecoverResponse(BaseModel):

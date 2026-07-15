@@ -60,6 +60,50 @@ class BookingRepository:
         )
         return result.scalar_one_or_none()
 
+    async def list_bookings_for_user(self, user_id: UUID) -> list[dict]:
+        """List all bookings for a user with event/venue/showtime details."""
+        from services.booking.models.event import Event
+        from services.booking.models.showtime import Showtime
+        from services.booking.models.venue import Venue
+
+        result = await self.session.execute(
+            select(
+                Booking.booking_id,
+                Booking.status,
+                Booking.seat_id,
+                Booking.amount,
+                Booking.currency,
+                Booking.created_at,
+                Showtime.show_id,
+                Showtime.start_time,
+                Showtime.end_time,
+                Event.name.label("event_name"),
+                Venue.name.label("venue_name"),
+            )
+            .join(Showtime, Booking.show_id == Showtime.show_id)
+            .join(Event, Showtime.event_id == Event.event_id)
+            .join(Venue, Showtime.venue_id == Venue.venue_id)
+            .where(Booking.user_id == user_id)
+            .order_by(Booking.created_at.desc())
+        )
+        rows = result.all()
+        return [
+            {
+                "booking_id": str(row.booking_id),
+                "status": row.status.value if hasattr(row.status, "value") else row.status,
+                "seat_id": row.seat_id,
+                "amount": str(row.amount),
+                "currency": row.currency,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+                "show_id": str(row.show_id),
+                "start_time": row.start_time.isoformat() if row.start_time else None,
+                "end_time": row.end_time.isoformat() if row.end_time else None,
+                "event_name": row.event_name,
+                "venue_name": row.venue_name,
+            }
+            for row in rows
+        ]
+
     async def update_booking_status(
         self,
         booking_id: UUID,
@@ -85,9 +129,19 @@ class BookingRepository:
             from_status=current_status,
             to_status=new_status,
             source=source,
-            correlation_id=(UUID(correlation_id) if correlation_id else None),
+            correlation_id=self._safe_uuid(correlation_id),
         )
         self.session.add(event)
+
+    @staticmethod
+    def _safe_uuid(value: str | None) -> UUID | None:
+        """FR-9: Safely parse correlation_id — returns None for non-UUID strings."""
+        if not value:
+            return None
+        try:
+            return UUID(value)
+        except (ValueError, TypeError):
+            return None
 
     async def get_zombie_bookings(self, cutoff: datetime) -> list[Booking]:
         """FR-9: Sweeper query — PENDING bookings older than cutoff."""
