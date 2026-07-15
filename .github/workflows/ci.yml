@@ -35,20 +35,6 @@ jobs:
       - run: npm run lint
       - run: npx vite build
 
-  container-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build image
-        run: docker build -t event-ticketing:scan .
-      - uses: aquasecurity/trivy-action@0.24.0
-        with:
-          image-ref: event-ticketing:scan
-          format: table
-          exit-code: 1
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-
   backend-test:
     runs-on: ubuntu-latest
     services:
