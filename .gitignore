@@ -1,78 +1,67 @@
-# Python
+# ── Python ──────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
 *.egg
-dist/
-build/
 *.whl
 
-# Virtual environments
+# ── Virtual environments ────────────────────────────────────────────────
 venv/
 .venv/
 ENV/
 
-# Environment variables
+# ── Environment / secrets ───────────────────────────────────────────────
 .env
 .env.*
 !.env.example
-
-# Secrets / keys
 certs/
 *.pem
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Testing
+# ── Testing ─────────────────────────────────────────────────────────────
 .pytest_cache/
 .coverage
 htmlcov/
 .hypothesis/
 test-results.xml
 
-# Type checking
+# ── Type checking / linting ────────────────────────────────────────────
 .mypy_cache/
-
-# Linting
 .ruff_cache/
 
-# Alembic
-migrations/versions/__pycache__/
+# ── Alembic ─────────────────────────────────────────────────────────────
+**/migrations/versions/__pycache__/
 
-# OS
+# ── Node / JS ───────────────────────────────────────────────────────────
+node_modules/
+dist/
+.turbo/
+
+# ── Frontend build / AI agent artifacts ─────────────────────────────────
+apps/web/dist/
+apps/web/node_modules/
+apps/web/.agents/
+apps/web/skills-lock.json
+
+# ── Logs ────────────────────────────────────────────────────────────────
+*.log
+
+# ── Checkpoint / test scripts ──────────────────────────────────────────
+_ckpt_*.py
+
+# ── IDE ─────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS ──────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-
-# Checkpoint / test scripts
-_ckpt_*.py
-
-# Local dev / test utilities
+# ── Misc ────────────────────────────────────────────────────────────────
 *.tmp
 *.bak
-
-# Docker
 docker-compose.override.yml
-
-# Frontend
-node_modules/
-web/node_modules/
-web/dist/
-web/.agents/
-web/skills-lock.json
-
-# AI tools
 .opencode/
-package.json
-package-lock.json
-
-# Kubernetes (use cloud-specific manifests when needed)
-k8s/

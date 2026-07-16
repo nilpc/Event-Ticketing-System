@@ -1,5 +1,5 @@
 {
-  "name": "event-ticketing-web",
+  "name": "@event-ticketing/web",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -8,9 +8,11 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
+    "@event-ticketing/shared": "workspace:*",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-dialog": "^1.1.4",
     "@radix-ui/react-label": "^2.1.1",
