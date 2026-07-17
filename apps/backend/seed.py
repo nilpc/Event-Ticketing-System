@@ -2,6 +2,7 @@
 import asyncio
 import hashlib
 import os
+from typing import TypedDict
 from uuid import uuid4
 
 from dotenv import load_dotenv
@@ -39,7 +40,7 @@ def _next_event_id(event_type: str, counter: dict[str, int]) -> str:
     prefix = "STM" if event_type == "MOVIE" else "STE"
     return f"{prefix}{counter[event_type]:02d}"
 
-VENUES = [
+VENUES: list[tuple[str, int]] = [
     ("Madison Square Garden", 20789),
     ("The O2 Arena", 20000),
     ("Red Rocks Amphitheatre", 9525),
@@ -50,7 +51,18 @@ VENUES = [
     ("Bridgestone Arena", 19395),
 ]
 
-EVENTS = [
+
+class _EventDef(TypedDict):
+    name: str
+    description: str
+    event_type: str
+    venue_idx: int
+    base_price: float
+    hours_from_now: int
+    duration_hours: int
+
+
+EVENTS: list[_EventDef] = [
     {
         "name": "Dune: Part Three — World Premiere",
         "description": (
@@ -190,7 +202,10 @@ SEATS = [
 
 
 async def seed(reset: bool = False):
-    engine = create_async_engine(os.getenv("DATABASE_URL"))
+    db_url = os.getenv("DATABASE_URL", "")
+    if not db_url:
+        raise RuntimeError("DATABASE_URL is not set")
+    engine = create_async_engine(db_url)
     factory = async_sessionmaker(engine, class_=AsyncSession)
 
     async with factory() as session:
@@ -213,7 +228,7 @@ async def seed(reset: bool = False):
                 )
 
             venue_count_result = await session.execute(text("SELECT COUNT(*) FROM booking.venues"))
-            venue_count = venue_count_result.scalar()
+            venue_count: int = venue_count_result.scalar() or 0
 
             if venue_count > 0 and not reset:
                 print("Seed data already exists — skipping.")

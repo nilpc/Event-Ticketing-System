@@ -95,11 +95,17 @@ async def _dispose_pool():
 
 @pytest_asyncio.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Provide a DB session from the app's session factory."""
+    """Provide a DB session wrapped in a rollback-only transaction.
+
+    Every change made through this session is rolled back at the end of the
+    test so that tests never pollute each other.
+    """
     from core.db.session import async_session_factory
 
     async with async_session_factory() as session:
+        trans = await session.begin()
         yield session
+        await trans.rollback()
 
 
 @pytest_asyncio.fixture

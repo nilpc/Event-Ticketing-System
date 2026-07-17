@@ -1,162 +1,221 @@
 """NFR-1: Concurrency verification — zero double-bookings under interleaved requests.
 
-Uses Hypothesis to generate randomized sequences of concurrent booking attempts
-and asserts that no two PENDING/CONFIRMED bookings exist for the same user+show.
+Launches multiple concurrent booking attempts against the same set of seats
+using the ORM and asserts that no two PENDING bookings exist for the same seat.
 """
 
 from __future__ import annotations
 
 import asyncio
 import uuid
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
-import pytest
-from sqlalchemy import text
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from core.enums import BookingStatus, EventType, SeatStatus
+from services.booking.models.booking import Booking, BookingSeat
+from services.booking.models.event import Event
+from services.booking.models.seat import Seat
+from services.booking.models.showtime import Showtime
+from services.booking.models.venue import Venue
+from services.identity.models.user import User
 
-async def _setup_test_data(session: AsyncSession, show_id: str, seat_ids: list[str]) -> None:
-    """Seed venue, event, showtime, and seats for testing."""
-    venue_id = str(uuid.uuid4())
-    event_id = "STE01"
-    await session.execute(
-        text(
-            f"INSERT INTO booking.venues (venue_id, name, capacity) "
-            f"VALUES ('{venue_id}', 'Concurrency Test Venue', 100) ON CONFLICT DO NOTHING"
-        )
+
+async def _seed_user(session: AsyncSession) -> uuid.UUID:
+    """Create a test user in identity.users to satisfy FK constraints."""
+    user_id = uuid.uuid4()
+    user = User(
+        user_id=user_id,
+        email=f"concurrency_{user_id.hex[:8]}@test.com",
+        password_hash="dummy-hash",
     )
-    await session.execute(
-        text(
-            f"INSERT INTO booking.events (event_id, event_type, name, description) "
-            f"VALUES ('{event_id}', 'EVENT', "
-            f"'Concurrency Test Event', 'Test') ON CONFLICT DO NOTHING"
-        )
+    session.add(user)
+    await session.flush()
+    return user_id
+
+
+async def _seed_show(session: AsyncSession, seat_ids: list[str]) -> uuid.UUID:
+    """Seed venue, event, showtime, and seats via ORM. Returns the show_id."""
+    venue = Venue(name="Concurrency Test Venue", capacity=100)
+    session.add(venue)
+    await session.flush()
+
+    event = Event(
+        event_id=f"STE{uuid.uuid4().hex[:6].upper()}",
+        event_type=EventType.EVENT,
+        name="Concurrency Test Event",
+        description="Test",
     )
-    await session.execute(
-        text(
-            f"INSERT INTO booking.showtimes "
-            f"(show_id, event_id, venue_id, base_price, start_time, end_time) "
-            f"VALUES ('{show_id}', '{event_id}', '{venue_id}', 50.00, "
-            f"NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours') ON CONFLICT DO NOTHING"
-        )
+    session.add(event)
+    await session.flush()
+
+    show_id = uuid.uuid4()
+    showtime = Showtime(
+        show_id=show_id,
+        event_id=event.event_id,
+        venue_id=venue.venue_id,
+        base_price=Decimal("50.00"),
+        start_time=datetime.now(UTC) + timedelta(hours=1),
+        end_time=datetime.now(UTC) + timedelta(hours=3),
     )
+    session.add(showtime)
+    await session.flush()
+
     for sid in seat_ids:
-        await session.execute(
-            text(
-                f"INSERT INTO booking.seats (show_id, seat_id, tier, price, status) "
-                f"VALUES ('{show_id}', '{sid}', 'standard', 50.00, 'AVAILABLE') "
-                f"ON CONFLICT DO NOTHING"
-            )
+        seat = Seat(
+            show_id=show_id,
+            seat_id=sid,
+            tier="standard",
+            price=Decimal("50.00"),
+            status=SeatStatus.AVAILABLE,
         )
-    await session.commit()
+        session.add(seat)
+    await session.flush()
+
+    return show_id
 
 
 async def _attempt_booking(
     session_factory: async_sessionmaker,
-    show_id: str,
+    show_id: uuid.UUID,
     seat_id: str,
-    user_id: str,
+    user_id: uuid.UUID,
 ) -> bool:
-    """Attempt to book a seat. Returns True if booking was created (PENDING)."""
-    idempotency_key = str(uuid.uuid4())
+    """Attempt to book a single seat using ORM.
+
+    Returns True if the booking was created (PENDING), False if the seat was
+    already taken or the transaction failed.
+    """
     async with session_factory() as session:
-        try:
-            async with session.begin():
-                # Transition seat to PENDING_PAYMENT
-                result = await session.execute(
-                    text(
-                        f"UPDATE booking.seats SET status = 'PENDING_PAYMENT' "
-                        f"WHERE show_id = '{show_id}' AND seat_id = '{seat_id}' "
-                        f"AND status = 'AVAILABLE'"
-                    )
+        async with session.begin():
+            # NFR-1: Atomic seat transition — only succeeds if status is AVAILABLE.
+            result = await session.execute(
+                update(Seat)
+                .where(
+                    Seat.show_id == show_id,
+                    Seat.seat_id == seat_id,
+                    Seat.status == SeatStatus.AVAILABLE,
                 )
-                if result.rowcount == 0:
-                    return False  # Seat already taken
-
-                booking_id = str(uuid.uuid4())
-                await session.execute(
-                    text(
-                        f"INSERT INTO booking.bookings "
-                        f"(booking_id, user_id, show_id, seat_id, status, "
-                        f"idempotency_key, amount, currency, expires_at) "
-                        f"VALUES ('{booking_id}', '{user_id}', '{show_id}', "
-                        f"'{seat_id}', 'PENDING', '{idempotency_key}', 50.00, "
-                        f"'USD', NOW() + INTERVAL '10 minutes')"
-                    )
+                .values(status=SeatStatus.PENDING_PAYMENT)
+            )
+            if result.rowcount > 0:
+                booking = Booking(
+                    user_id=user_id,
+                    show_id=show_id,
+                    seat_id=seat_id,
+                    status=BookingStatus.PENDING,
+                    idempotency_key=str(uuid.uuid4()),
+                    amount=Decimal("50.00"),
+                    currency="USD",
+                    expires_at=datetime.now(UTC) + timedelta(minutes=10),
                 )
-            return True
-        except Exception:
-            await session.rollback()
-            return False
+                session.add(booking)
+                await session.flush()
+
+                junction = BookingSeat(
+                    booking_id=booking.booking_id,
+                    seat_id=seat_id,
+                    show_id=show_id,
+                    price=Decimal("50.00"),
+                )
+                session.add(junction)
+
+        return result.rowcount > 0
 
 
-@pytest.mark.asyncio
 async def test_zero_double_bookings_under_concurrency() -> None:
     """NFR-1: Under concurrent booking attempts, no seat is double-booked."""
     from core.db.session import async_session_factory
 
-    show_id = str(uuid.uuid4())
-    seat_ids = [f"S{i}" for i in range(5)]  # 5 seats
-    user_ids = [str(uuid.uuid4()) for _ in range(20)]  # 20 users
+    seat_ids = [f"S{i}" for i in range(5)]
+    num_users = 20
 
-    # Seed data
     async with async_session_factory() as session:
-        await _setup_test_data(session, show_id, seat_ids)
+        show_id = await _seed_show(session, seat_ids)
+        user_ids = [await _seed_user(session) for _ in range(num_users)]
+        await session.commit()
 
-    # Launch 20 concurrent booking attempts across 5 seats
-    tasks = []
-    for i in range(20):
-        seat_id = seat_ids[i % len(seat_ids)]  # Round-robin seats
-        user_id = user_ids[i]
-        tasks.append(_attempt_booking(async_session_factory, show_id, seat_id, user_id))
-
+    # Launch 20 concurrent booking attempts across 5 seats (4 users per seat).
+    tasks = [
+        _attempt_booking(
+            async_session_factory,
+            show_id,
+            seat_ids[i % len(seat_ids)],
+            user_ids[i],
+        )
+        for i in range(num_users)
+    ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Count successful bookings
+    # Every task must complete without raising an exception.
+    for i, r in enumerate(results):
+        assert not isinstance(r, Exception), f"Task {i} raised an exception: {r}"
+
     successes = sum(1 for r in results if r is True)
-    # With 5 seats, at most 5 bookings should succeed
+    # With 5 seats, at most 5 bookings should succeed.
     assert successes <= 5, f"Expected at most 5 bookings, got {successes}"
 
-    # Verify no double-bookings in DB
+    # NFR-1: Verify no double-bookings in DB — each seat has at most 1 PENDING booking.
     async with async_session_factory() as session:
-        result = await session.execute(
-            text(
-                f"SELECT seat_id, COUNT(*) as cnt FROM booking.bookings "
-                f"WHERE show_id = '{show_id}' AND status = 'PENDING' "
-                f"GROUP BY seat_id HAVING COUNT(*) > 1"
-            )
+        dupes = await session.execute(
+            select(Booking.seat_id, func.count())
+            .where(Booking.show_id == show_id, Booking.status == BookingStatus.PENDING)
+            .group_by(Booking.seat_id)
+            .having(func.count() > 1)
         )
-        duplicates = result.fetchall()
-        assert len(duplicates) == 0, f"Double-booked seats: {duplicates}"
+        rows = dupes.fetchall()
+        assert len(rows) == 0, f"Double-booked seats: {rows}"
 
 
-@pytest.mark.asyncio
 async def test_seat_status_consistency() -> None:
     """NFR-1: After concurrent attempts, seat statuses are consistent."""
     from core.db.session import async_session_factory
 
-    show_id = str(uuid.uuid4())
     seat_ids = [f"C{i}" for i in range(3)]
-    user_ids = [str(uuid.uuid4()) for _ in range(10)]
+    num_users = 10
 
     async with async_session_factory() as session:
-        await _setup_test_data(session, show_id, seat_ids)
+        show_id = await _seed_show(session, seat_ids)
+        user_ids = [await _seed_user(session) for _ in range(num_users)]
+        await session.commit()
 
     tasks = [
-        _attempt_booking(async_session_factory, show_id, seat_ids[i % 3], user_ids[i])
-        for i in range(10)
+        _attempt_booking(
+            async_session_factory,
+            show_id,
+            seat_ids[i % len(seat_ids)],
+            user_ids[i],
+        )
+        for i in range(num_users)
     ]
     await asyncio.gather(*tasks, return_exceptions=True)
 
     async with async_session_factory() as session:
-        # All booked seats should be PENDING_PAYMENT
         result = await session.execute(
-            text(
-                f"SELECT seat_id, status FROM booking.seats "
-                f"WHERE show_id = '{show_id}' ORDER BY seat_id"
-            )
+            select(Seat.seat_id, Seat.status)
+            .where(Seat.show_id == show_id)
+            .order_by(Seat.seat_id)
         )
         rows = result.fetchall()
         for seat_id, status in rows:
-            assert status in ("AVAILABLE", "PENDING_PAYMENT", "SOLD"), (
+            assert status in (SeatStatus.AVAILABLE, SeatStatus.PENDING_PAYMENT, SeatStatus.SOLD), (
                 f"Unexpected status {status} for seat {seat_id}"
             )
+
+    # Cross-check: number of PENDING bookings must equal the number of PENDING_PAYMENT seats.
+    async with async_session_factory() as session:
+        booked_count = await session.scalar(
+            select(func.count())
+            .select_from(Booking)
+            .where(Booking.show_id == show_id, Booking.status == BookingStatus.PENDING)
+        )
+        pending_seats = await session.scalar(
+            select(func.count())
+            .select_from(Seat)
+            .where(Seat.show_id == show_id, Seat.status == SeatStatus.PENDING_PAYMENT)
+        )
+        assert booked_count == pending_seats, (
+            f"Mismatch: {booked_count} bookings vs {pending_seats} pending seats"
+        )
