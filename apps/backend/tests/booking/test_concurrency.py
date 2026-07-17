@@ -15,7 +15,8 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.enums import BookingStatus, EventType, SeatStatus
-from services.booking.models.booking import Booking, BookingSeat
+from services.booking.models.booking import Booking
+from services.booking.models.booking_seat import BookingSeat
 from services.booking.models.event import Event
 from services.booking.models.seat import Seat
 from services.booking.models.showtime import Showtime
