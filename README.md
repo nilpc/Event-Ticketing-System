@@ -193,6 +193,38 @@ docker run -d --name redis -p 6379:6379 redis:7-alpine
 - **Email**: `admin@event-ticketing.dev`
 - **Password**: `Admin123!`
 
+### Grant Admin Access to an Existing User
+
+There is no API endpoint to promote a user — `is_admin` must be set directly in the database.
+
+#### Docker
+
+```bash
+# Promote by email
+docker compose exec -T backend python -c "
+import asyncio
+from sqlalchemy import text
+from core.db.session import async_session_factory
+
+async def promote(email):
+    async with async_session_factory() as session:
+        await session.execute(
+            text('UPDATE identity.users SET is_admin = true WHERE email = :email'),
+            {'email': email},
+        )
+        await session.commit()
+    print(f'{email} is now an admin')
+
+asyncio.run(promote('user@example.com'))
+"
+```
+
+#### Local (psql)
+
+```sql
+UPDATE identity.users SET is_admin = true WHERE email = 'user@example.com';
+```
+
 ## API Endpoints
 
 ### Public
@@ -362,6 +394,29 @@ pytest tests/ -v
 pnpm --filter @event-ticketing/web lint
 pnpm --filter @event-ticketing/web typecheck
 ```
+
+### GitHub Actions Workflow (`.github/workflows/ci.yml`)
+
+Runs on every push to `main` and on all pull requests.
+
+| Job | Trigger | What it does |
+|-----|---------|--------------|
+| `backend-lint` | push + PR | `ruff check` + `mypy` |
+| `backend-test` | push + PR | `pytest` with Postgres 16 + Redis 7 services |
+| `frontend-check` | push + PR | `typecheck` + `lint` + `build` for React app |
+| `turbo-build` | push + PR | Full Turborepo build |
+| `docker-build` | push to main only | Builds backend Docker image, pushes to GHCR with SHA + `main` tags |
+| `smoke-test` | after docker-build | Pulls the built image, starts it with Postgres/Redis, curls `/health` |
+| `cleanup-ghcr` | after docker-build | Deletes old GHCR images, keeps only the last 3 |
+
+### Docker Images
+
+Published to `ghcr.io/<owner>/backend` on every merge to `main`.
+
+- `main` tag — always the latest production image
+- `<sha>` tag — specific commit (for rollback)
+
+Only the **last 3 images** are kept to stay within the free tier (500 MB).
 
 ## License
 
