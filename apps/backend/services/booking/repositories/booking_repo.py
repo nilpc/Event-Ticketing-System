@@ -78,7 +78,9 @@ class BookingRepository:
         )
         return result.scalar_one_or_none()
 
-    async def get_active_booking_for_user_show(self, user_id: UUID, show_id: UUID) -> Booking | None:
+    async def get_active_booking_for_user_show(
+        self, user_id: UUID, show_id: UUID
+    ) -> Booking | None:
         """NFR-1: Find existing PENDING booking for a user+show (unique index guard)."""
         result = await self.session.execute(
             select(Booking).where(
@@ -89,7 +91,9 @@ class BookingRepository:
         )
         return result.scalar_one_or_none()
 
-    async def cancel_active_booking_for_user_show(self, user_id: UUID, show_id: UUID) -> tuple[list[str], str]:
+    async def cancel_active_booking_for_user_show(
+        self, user_id: UUID, show_id: UUID
+    ) -> tuple[list[str], str]:
         """NFR-1: Cancel stale PENDING booking so a new one can be created.
 
         Returns (old_seat_ids, status) where status is 'replaced' if a PENDING was cancelled,
@@ -101,7 +105,9 @@ class BookingRepository:
         # Get seat_ids from junction table
         seats = await self.get_booking_seats(booking.booking_id)
         seat_ids = [s.seat_id for s in seats]
-        await self.update_booking_status(booking.booking_id, BookingStatus.FAILED, source="checkout-replace")
+        await self.update_booking_status(
+            booking.booking_id, BookingStatus.FAILED, source="checkout-replace"
+        )
         return seat_ids, "replaced"
 
     async def list_bookings_for_user(self, user_id: UUID) -> list[dict]:

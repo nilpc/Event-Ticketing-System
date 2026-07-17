@@ -138,7 +138,12 @@ class LockRepository:
             return False
         return stored == str(user_id)
 
-    async def consume_queue_session(self, queue_token: str, show_id: UUID | None = None, user_id: UUID | None = None) -> None:
+    async def consume_queue_session(
+        self,
+        queue_token: str,
+        show_id: UUID | None = None,
+        user_id: UUID | None = None,
+    ) -> None:
         """FR-6: Invalidate queue token and admitted marker after successful checkout."""
         if self.redis is None:
             return

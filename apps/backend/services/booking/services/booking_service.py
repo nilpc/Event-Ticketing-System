@@ -9,7 +9,7 @@ from decimal import Decimal
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.enums import BookingStatus, SeatStatus
+from core.enums import BookingStatus
 from core.exceptions import (
     BookingConflictError,
     InvalidTokenError,
@@ -83,7 +83,9 @@ class BookingService:
         for seat_id in seat_ids:
             lock_holder = await self.lock_repo.get_seat_lock(show_id, seat_id)
             if lock_holder != user_id:
-                raise BookingConflictError(f"Seat {seat_id} lock expired or assigned to another user.")
+                raise BookingConflictError(
+                    f"Seat {seat_id} lock expired or assigned to another user."
+                )
 
         booking_id = uuid.uuid4()
         expires_at = datetime.now(UTC) + timedelta(minutes=BOOKING_EXPIRY_MINUTES)
@@ -162,7 +164,9 @@ class BookingService:
 
         # Consume queue session after successful checkout
         try:
-            await self.lock_repo.consume_queue_session(queue_token, show_id=show_id, user_id=user_id)
+            await self.lock_repo.consume_queue_session(
+                queue_token, show_id=show_id, user_id=user_id
+            )
         except Exception:
             logger.warning("queue_session_consume_failed", queue_token=queue_token[:8])
 

@@ -33,7 +33,9 @@ class SeatRepository:
         if result.rowcount == 0:  # type: ignore[attr-defined]
             raise SeatUnavailableError(f"Seat {seat_id} for show {show_id} is not available.")
 
-    async def transition_seats_to_pending(self, show_id: UUID, seat_ids: list[str]) -> dict[str, str]:
+    async def transition_seats_to_pending(
+        self, show_id: UUID, seat_ids: list[str]
+    ) -> dict[str, str]:
         """Bulk: transition multiple seats from AVAILABLE to PENDING_PAYMENT.
 
         Returns dict mapping seat_id -> 'ok' | 'unavailable'.

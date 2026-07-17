@@ -190,7 +190,7 @@ docker run -d --name redis -p 6379:6379 redis:7-alpine
 
 ### Default Admin Credentials
 
-- **Email**: `admin@event-ticketing.local`
+- **Email**: `admin@event-ticketing.dev`
 - **Password**: `Admin123!`
 
 ## API Endpoints

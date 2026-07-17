@@ -1,7 +1,7 @@
 """Seed script — populate catalog with 10 events for manual testing."""
 import asyncio
-import os
 import hashlib
+import os
 from uuid import uuid4
 
 from dotenv import load_dotenv
@@ -11,14 +11,21 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 load_dotenv()
 
 
-ADMIN_EMAIL = "admin@event-ticketing.local"
+ADMIN_EMAIL = "admin@event-ticketing.dev"
 ADMIN_PASSWORD = "Admin123!"
 
 
 def _hash_password(password: str) -> str:
-    """Hash password with PBKDF2 (same fallback as auth_service)."""
-    salt = b"event-ticketing-fallback-salt"
-    return hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations=600_000).hex()
+    """Hash password using the same algorithm as auth_service.
+
+    Tries bcrypt first (production dependency), falls back to PBKDF2.
+    """
+    try:
+        import bcrypt
+        return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    except ImportError:
+        salt = b"event-ticketing-fallback-salt"
+        return hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations=600_000).hex()
 
 
 def _next_event_id(event_type: str, counter: dict[str, int]) -> str:
@@ -195,10 +202,15 @@ async def seed(reset: bool = False):
             admin_id = existing.scalar_one_or_none()
             if admin_id is None:
                 admin_id = uuid4()
-                await session.execute(text(
-                    "INSERT INTO identity.users (user_id, email, password_hash, is_active, is_admin) "
-                    "VALUES (:uid, :email, :pw, true, true)"
-                ), {"uid": admin_id, "email": ADMIN_EMAIL, "pw": _hash_password(ADMIN_PASSWORD)})
+                await session.execute(
+                    text(
+                        "INSERT INTO identity.users"
+                        " (user_id, email, password_hash, is_active, is_admin)"
+                        " VALUES (:uid, :email, :pw, true, true)"
+                    ),
+                    {"uid": admin_id, "email": ADMIN_EMAIL,
+                     "pw": _hash_password(ADMIN_PASSWORD)},
+                )
 
             venue_count_result = await session.execute(text("SELECT COUNT(*) FROM booking.venues"))
             venue_count = venue_count_result.scalar()
@@ -210,13 +222,18 @@ async def seed(reset: bool = False):
             if venue_count > 0 and reset:
                 print("Resetting catalog data...")
                 await session.execute(text("DELETE FROM booking.booking_events"))
+                await session.execute(text("DELETE FROM booking.booking_seats"))
                 await session.execute(text("DELETE FROM booking.bookings"))
                 await session.execute(text("DELETE FROM booking.seats"))
                 await session.execute(text("DELETE FROM booking.showtimes"))
                 await session.execute(text("DELETE FROM booking.events"))
                 await session.execute(text("DELETE FROM booking.venues"))
-                await session.execute(text("ALTER SEQUENCE booking.event_serial_seq RESTART WITH 1"))
-                await session.execute(text("ALTER SEQUENCE booking.movie_serial_seq RESTART WITH 1"))
+                await session.execute(text(
+                    "ALTER SEQUENCE booking.event_serial_seq RESTART WITH 1"
+                ))
+                await session.execute(text(
+                    "ALTER SEQUENCE booking.movie_serial_seq RESTART WITH 1"
+                ))
 
             venue_ids = []
             for name, capacity in VENUES:
@@ -270,9 +287,15 @@ async def seed(reset: bool = False):
             event_count = sum(1 for e in EVENTS if e["event_type"] == "EVENT")
             movie_count = sum(1 for e in EVENTS if e["event_type"] == "MOVIE")
             if event_count > 0:
-                await session.execute(text("SELECT setval('booking.event_serial_seq', :n)"), {"n": event_count})
+                await session.execute(
+                    text("SELECT setval('booking.event_serial_seq', :n)"),
+                    {"n": event_count},
+                )
             if movie_count > 0:
-                await session.execute(text("SELECT setval('booking.movie_serial_seq', :n)"), {"n": movie_count})
+                await session.execute(
+                    text("SELECT setval('booking.movie_serial_seq', :n)"),
+                    {"n": movie_count},
+                )
 
     await engine.dispose()
 
