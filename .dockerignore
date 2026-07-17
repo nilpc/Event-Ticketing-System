@@ -13,7 +13,8 @@ node_modules/
 docs/
 k8s/
 tools/
-packages/
+packages/ui/
+packages/sdk/
 
 apps/
 !apps/backend/

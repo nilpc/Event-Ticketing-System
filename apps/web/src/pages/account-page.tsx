@@ -172,7 +172,7 @@ export default function AccountPage() {
                       </span>
                       <span className="flex items-center gap-1">
                         <Ticket className="h-3 w-3" />
-                        Seat {b.seat_id}
+                        {b.seats.map((s) => s.seat_id).join(", ")}
                       </span>
                       {b.start_time && (
                         <span className="flex items-center gap-1">

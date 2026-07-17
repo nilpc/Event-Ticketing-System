@@ -9,10 +9,10 @@ from pydantic import BaseModel
 
 
 class SeatLockRequest(BaseModel):
-    """FR-7: Request to lock a seat."""
+    """FR-7: Request to lock one or more seats."""
 
     show_id: UUID
-    seat_id: str
+    seat_ids: list[str]
 
 
 class SeatLockResponse(BaseModel):
@@ -20,3 +20,4 @@ class SeatLockResponse(BaseModel):
 
     idempotency_key: str
     expires_at: datetime
+    locked_seat_ids: list[str]

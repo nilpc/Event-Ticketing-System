@@ -29,17 +29,17 @@ def _get_seat_lock_service(
     response_model=SeatLockResponse,
     responses={409: {"model": dict}},
 )
-async def lock_seat(
+async def lock_seats(
     payload: SeatLockRequest,
     request: Request,
     svc: SeatLockService = Depends(_get_seat_lock_service),
 ) -> SeatLockResponse:
-    """FR-7: Lock a seat. Server generates the idempotency key."""
+    """FR-7: Lock one or more seats. Server generates the idempotency key."""
     from uuid import UUID
 
     user_id = UUID(request.state.user_id)
     try:
-        return await svc.lock_seat(payload.show_id, payload.seat_id, user_id)
+        return await svc.lock_seats(payload.show_id, payload.seat_ids, user_id)
     except BookingConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     except SeatUnavailableError as exc:

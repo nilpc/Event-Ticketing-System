@@ -49,9 +49,11 @@ export default function App() {
                       <Route path="/" element={<CatalogPage />} />
                       <Route path="/events/:showId" element={<ShowtimePage />} />
                       <Route element={<ProtectedRoute />}>
-                        <Route path="/checkout/:showId/:seatId" element={<CheckoutPage />} />
+                        <Route path="/checkout/:showId" element={<CheckoutPage />} />
                         <Route path="/queue/:showId" element={<QueuePage />} />
                         <Route path="/account" element={<AccountPage />} />
+                      </Route>
+                      <Route element={<ProtectedRoute adminOnly />}>
                         <Route path="/admin" element={<AdminPage />} />
                       </Route>
                     </Routes>

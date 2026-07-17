@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2, Mail, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,8 +41,6 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { login: storeLogin } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [isAdminLogin, setIsAdminLogin] = useState(false);
-  const [adminToken, setAdminToken] = useState("");
 
   const {
     register,
@@ -55,8 +53,8 @@ export default function LoginPage() {
   const loginMutation = useMutation({
     mutationFn: (data: LoginForm) => authApi.login(data).then((r) => r.data),
     onSuccess: (data) => {
-      storeLogin(data.access_token, data.refresh_token, isAdminLogin && adminToken ? adminToken : undefined);
-      if (isAdminLogin && adminToken) {
+      storeLogin(data.access_token, data.refresh_token, data.is_admin);
+      if (data.is_admin) {
         navigate("/admin");
       } else {
         navigate("/");
@@ -160,50 +158,6 @@ export default function LoginPage() {
               </div>
               {errors.password && (
                 <p className="text-xs text-destructive">{errors.password.message}</p>
-              )}
-            </motion.div>
-
-            <motion.div variants={childVariants} className="space-y-3">
-              <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isAdminLogin}
-                  onChange={(e) => {
-                    setIsAdminLogin(e.target.checked);
-                    if (!e.target.checked) setAdminToken("");
-                  }}
-                  className="sr-only peer"
-                />
-                <div className="h-4 w-4 rounded border border-white/[0.12] bg-muted/30 peer-checked:bg-primary peer-checked:border-primary flex items-center justify-center transition-colors">
-                  {isAdminLogin && (
-                    <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground/60" />
-                  <span className="text-sm text-muted-foreground">Admin access</span>
-                </div>
-              </label>
-
-              {isAdminLogin && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-2"
-                >
-                  <Label className="text-xs font-medium text-muted-foreground">Admin Token</Label>
-                  <Input
-                    type="password"
-                    placeholder="Enter admin token"
-                    value={adminToken}
-                    onChange={(e) => setAdminToken(e.target.value)}
-                    className="rounded-xl"
-                    disabled={loginMutation.isPending}
-                  />
-                </motion.div>
               )}
             </motion.div>
 

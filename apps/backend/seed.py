@@ -1,6 +1,7 @@
 """Seed script — populate catalog with 10 events for manual testing."""
 import asyncio
 import os
+import hashlib
 from uuid import uuid4
 
 from dotenv import load_dotenv
@@ -8,6 +9,16 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 load_dotenv()
+
+
+ADMIN_EMAIL = "admin@event-ticketing.local"
+ADMIN_PASSWORD = "Admin123!"
+
+
+def _hash_password(password: str) -> str:
+    """Hash password with PBKDF2 (same fallback as auth_service)."""
+    salt = b"event-ticketing-fallback-salt"
+    return hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations=600_000).hex()
 
 
 def _next_event_id(event_type: str, counter: dict[str, int]) -> str:
@@ -171,18 +182,41 @@ SEATS = [
 ]
 
 
-async def seed():
+async def seed(reset: bool = False):
     engine = create_async_engine(os.getenv("DATABASE_URL"))
     factory = async_sessionmaker(engine, class_=AsyncSession)
 
     async with factory() as session:
         async with session.begin():
-            await session.execute(text("DELETE FROM booking.booking_events"))
-            await session.execute(text("DELETE FROM booking.bookings"))
-            await session.execute(text("DELETE FROM booking.seats"))
-            await session.execute(text("DELETE FROM booking.showtimes"))
-            await session.execute(text("DELETE FROM booking.events"))
-            await session.execute(text("DELETE FROM booking.venues"))
+            existing = await session.execute(
+                text("SELECT user_id FROM identity.users WHERE email = :email"),
+                {"email": ADMIN_EMAIL},
+            )
+            admin_id = existing.scalar_one_or_none()
+            if admin_id is None:
+                admin_id = uuid4()
+                await session.execute(text(
+                    "INSERT INTO identity.users (user_id, email, password_hash, is_active, is_admin) "
+                    "VALUES (:uid, :email, :pw, true, true)"
+                ), {"uid": admin_id, "email": ADMIN_EMAIL, "pw": _hash_password(ADMIN_PASSWORD)})
+
+            venue_count_result = await session.execute(text("SELECT COUNT(*) FROM booking.venues"))
+            venue_count = venue_count_result.scalar()
+
+            if venue_count > 0 and not reset:
+                print("Seed data already exists — skipping.")
+                return
+
+            if venue_count > 0 and reset:
+                print("Resetting catalog data...")
+                await session.execute(text("DELETE FROM booking.booking_events"))
+                await session.execute(text("DELETE FROM booking.bookings"))
+                await session.execute(text("DELETE FROM booking.seats"))
+                await session.execute(text("DELETE FROM booking.showtimes"))
+                await session.execute(text("DELETE FROM booking.events"))
+                await session.execute(text("DELETE FROM booking.venues"))
+                await session.execute(text("ALTER SEQUENCE booking.event_serial_seq RESTART WITH 1"))
+                await session.execute(text("ALTER SEQUENCE booking.movie_serial_seq RESTART WITH 1"))
 
             venue_ids = []
             for name, capacity in VENUES:
@@ -233,10 +267,20 @@ async def seed():
                         "VALUES (:sid, :seat_id, :tier, :price, 'AVAILABLE')"
                     ), {"sid": sid, "seat_id": seat_id, "tier": tier, "price": price})
 
+            event_count = sum(1 for e in EVENTS if e["event_type"] == "EVENT")
+            movie_count = sum(1 for e in EVENTS if e["event_type"] == "MOVIE")
+            if event_count > 0:
+                await session.execute(text("SELECT setval('booking.event_serial_seq', :n)"), {"n": event_count})
+            if movie_count > 0:
+                await session.execute(text("SELECT setval('booking.movie_serial_seq', :n)"), {"n": movie_count})
+
     await engine.dispose()
 
     print("=" * 60)
     print("SEED COMPLETE — 10 events created")
+    print("=" * 60)
+    print(f"  Admin user: {ADMIN_EMAIL}")
+    print(f"  Admin pass: {ADMIN_PASSWORD}")
     print("=" * 60)
     for i, ev in enumerate(EVENTS):
         print(f"  {i + 1}. [{ev['event_type']}] {ev['name']}")
@@ -248,4 +292,6 @@ async def seed():
 
 
 if __name__ == "__main__":
-    asyncio.run(seed())
+    import sys
+    reset_mode = "--reset" in sys.argv
+    asyncio.run(seed(reset=reset_mode))

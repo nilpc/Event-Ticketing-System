@@ -2,6 +2,7 @@
 
 from .booking import Booking
 from .booking_event import BookingEvent
+from .booking_seat import BookingSeat
 from .event import Event
 from .outbox_event import OutboxEvent
 from .payment import Payment
@@ -13,6 +14,7 @@ from .venue import Venue
 __all__ = [
     "Booking",
     "BookingEvent",
+    "BookingSeat",
     "Event",
     "OutboxEvent",
     "Payment",

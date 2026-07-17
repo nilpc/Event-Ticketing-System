@@ -8,66 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EventType, EventResponse, VenueResponse } from "@/types/api";
-import api from "@/lib/api";
-import type { ShowtimeResponse } from "@/types/api";
 
 type Tab = "catalog" | "newshow";
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("catalog");
-  const [adminTokenInput, setAdminTokenInput] = useState(adminApi.getAdminToken() ?? "");
-  const [hasToken, setHasToken] = useState(!!adminApi.getAdminToken());
-  const [validating, setValidating] = useState(false);
-
-  const saveToken = async () => {
-    setValidating(true);
-    try {
-      await api.get<ShowtimeResponse[]>("/admin/showtimes", {
-        headers: { "X-Admin-Token": adminTokenInput },
-      });
-      adminApi.setAdminToken(adminTokenInput);
-      setHasToken(true);
-      toast.success("Admin token verified.");
-    } catch {
-      toast.error("Invalid admin token. Please check and try again.");
-    } finally {
-      setValidating(false);
-    }
-  };
-
-  if (!hasToken) {
-    return (
-      <PageTransition>
-        <div className="min-h-screen flex items-center justify-center px-4">
-          <div className="p-8 w-full max-w-md space-y-6 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl">
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10">
-                <Key className="h-4 w-4 text-primary" />
-              </div>
-              <h1 className="text-xl font-semibold tracking-tight">Admin Access</h1>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Enter your admin token to manage events, venues, and showtimes.
-            </p>
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-xs font-medium">Admin Token</Label>
-              <Input
-                type="password"
-                placeholder="X-Admin-Token value"
-                value={adminTokenInput}
-                onChange={(e) => setAdminTokenInput(e.target.value)}
-                className="rounded-xl"
-              />
-            </div>
-            <Button onClick={saveToken} disabled={!adminTokenInput.trim() || validating} className="w-full rounded-full">
-              {validating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              {validating ? "Verifying…" : "Continue"}
-            </Button>
-          </div>
-        </div>
-      </PageTransition>
-    );
-  }
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: "catalog", label: "Catalog", icon: <Film className="h-4 w-4" /> },
@@ -78,16 +23,11 @@ export default function AdminPage() {
     <PageTransition>
       <div className="min-h-screen px-4 py-16 md:py-24">
         <div className="max-w-3xl mx-auto space-y-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10">
-                <Key className="h-4 w-4 text-primary" />
-              </div>
-              <h1 className="text-xl font-semibold tracking-tight">Admin Dashboard</h1>
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10">
+              <Key className="h-4 w-4 text-primary" />
             </div>
-            <Button variant="ghost" size="sm" onClick={() => { setHasToken(false); }} className="rounded-full text-xs">
-              Change Token
-            </Button>
+            <h1 className="text-xl font-semibold tracking-tight">Admin Dashboard</h1>
           </div>
 
           <div className="flex gap-1 p-1 rounded-xl bg-muted/30">

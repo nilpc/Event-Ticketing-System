@@ -48,23 +48,19 @@ def _get_booking_service(
         422: {"model": dict},
     },
 )
-async def book_seat(
+async def book_seats(
     payload: BookRequest,
     request: Request,
     svc: BookingService = Depends(_get_booking_service),
 ) -> BookResponse:
-    """FR-8, FR-10: Atomic booking initialization.
-
-    Single transaction: seat transition, server-side price lookup,
-    booking insert, outbox event -- §6 Layer 1.
-    """
+    """FR-8, FR-10: Atomic multi-seat booking initialization."""
     user_id = UUID(request.state.user_id)
     queue_token = request.headers.get("X-Queue-Token", "")
     request_id = request.headers.get("X-Request-ID", "")
     try:
         return await svc.initialize_checkout(
             show_id=payload.show_id,
-            seat_id=payload.seat_id,
+            seat_ids=payload.seat_ids,
             user_id=user_id,
             idempotency_key=payload.idempotency_key,
             queue_token=queue_token,

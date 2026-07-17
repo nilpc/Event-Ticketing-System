@@ -106,7 +106,7 @@ class AdminService:
         if data.auto_seats:
             venue = await self.repo.get_venue(uuid.UUID(data.venue_id))
             if venue:
-                seats = _generate_seats(result.show_id, venue.capacity)
+                seats = _generate_seats(result.show_id, venue.capacity, float(data.base_price))
                 await self.repo.create_seats(seats)
 
         return result
@@ -132,11 +132,12 @@ class AdminService:
         await self.repo.delete_showtime(uuid.UUID(show_id))
 
 
-def _generate_seats(show_id: uuid.UUID, capacity: int) -> list[Seat]:
-    """Generate seat rows/tiers based on venue capacity.
+def _generate_seats(show_id: uuid.UUID, capacity: int, base_price: float) -> list[Seat]:
+    """Generate seat rows/tiers based on venue capacity and base price.
 
     Tiers: VIP (10%), Premium (30%), Standard (60%).
     Rows: A-Z, seats per row based on capacity.
+    Prices derived from showtime base_price.
     """
     vip_count = max(1, int(capacity * 0.10))
     premium_count = max(1, int(capacity * 0.30))
@@ -146,11 +147,12 @@ def _generate_seats(show_id: uuid.UUID, capacity: int) -> list[Seat]:
     seat_num = 0
     row_idx = 0
 
-    for tier, count, tier_price in [
-        ("vip", vip_count, 150.00),
-        ("premium", premium_count, 100.00),
-        ("standard", standard_count, 75.00),
+    for tier, count, multiplier in [
+        ("vip", vip_count, 1.5),
+        ("premium", premium_count, 1.0),
+        ("standard", standard_count, 0.75),
     ]:
+        tier_price = round(base_price * multiplier, 2)
         for _ in range(count):
             row = chr(ord("A") + row_idx % 26)
             seat_num += 1

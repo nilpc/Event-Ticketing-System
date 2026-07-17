@@ -45,6 +45,7 @@ COPY core/         ./core/
 COPY services/     ./services/
 COPY migrations/   ./migrations/
 COPY alembic.ini   ./
+COPY seed.py       ./
 
 RUN mkdir -p certs && \
     if [ ! -f certs/private.pem ]; then \
@@ -54,8 +55,10 @@ RUN mkdir -p certs && \
 
 RUN chown -R app:app /app
 
+COPY --chmod=755 entrypoint.sh /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh
+
 USER app
 
 EXPOSE 8000
-COPY entrypoint.sh /app/entrypoint.sh
 CMD ["/app/entrypoint.sh"]

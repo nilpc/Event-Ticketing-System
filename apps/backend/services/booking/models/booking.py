@@ -11,7 +11,6 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
-    ForeignKeyConstraint,
     Numeric,
     String,
 )
@@ -23,34 +22,26 @@ from core.enums import BookingStatus
 
 if TYPE_CHECKING:
     from .booking_event import BookingEvent
+    from .booking_seat import BookingSeat
     from .payment import Payment
-    from .seat import Seat
 
 
 class Booking(Base):
     """booking.bookings — FR-8 atomic init, FR-9 sweeper, NFR-1 unique constraint."""
 
     __tablename__ = "bookings"
-    __table_args__ = (
-        ForeignKeyConstraint(
-            ["show_id", "seat_id"],
-            ["booking.seats.show_id", "booking.seats.seat_id"],
-            ondelete="RESTRICT",
-        ),
-        {"schema": "booking"},
-    )
+    __table_args__ = {"schema": "booking"}
 
     booking_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    # FR-1: cross-schema FK to identity.users
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("identity.users.user_id", ondelete="RESTRICT"),
         nullable=False,
     )
     show_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    seat_id: Mapped[str] = mapped_column(String(10), nullable=False)
+    seat_id: Mapped[str | None] = mapped_column(String(10), nullable=True)
     status: Mapped[BookingStatus] = mapped_column(
         Enum(BookingStatus, name="booking_status", create_type=False),
         nullable=False,
@@ -71,6 +62,6 @@ class Booking(Base):
     )
 
     # Relationships
-    seat: Mapped[Seat] = relationship()
+    booking_seats: Mapped[list[BookingSeat]] = relationship(back_populates="booking")
     payments: Mapped[list[Payment]] = relationship(back_populates="booking")
     events: Mapped[list[BookingEvent]] = relationship(back_populates="booking")

@@ -27,7 +27,7 @@ export default function GoogleCallbackPage() {
       .handleGoogleCallback(code, state)
       .then((res) => {
         if (cancelled) return;
-        storeLogin(res.data.access_token, res.data.refresh_token);
+        storeLogin(res.data.access_token, res.data.refresh_token, res.data.is_admin);
         navigate("/");
       })
       .catch(() => {

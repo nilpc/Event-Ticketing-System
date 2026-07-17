@@ -5,7 +5,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isAdmin: boolean;
   userId: string | null;
-  login: (accessToken: string, refreshToken: string, adminToken?: string) => void;
+  login: (accessToken: string, refreshToken: string, is_admin?: boolean) => void;
   logout: () => void;
 }
 
@@ -13,7 +13,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
-const ADMIN_TOKEN_KEY = "admin_token";
+const IS_ADMIN_KEY = "is_admin";
 
 function parseJwtSub(token: string): string | null {
   try {
@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return !!localStorage.getItem(ADMIN_TOKEN_KEY);
+    return localStorage.getItem(IS_ADMIN_KEY) === "true";
   });
 
   const [userId, setUserId] = useState<string | null>(() => {
@@ -48,18 +48,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserId(parseJwtSub(token));
     } else {
       setIsAuthenticated(false);
+      setIsAdmin(false);
       setUserId(null);
     }
   }, []);
 
-  const login = useCallback((accessToken: string, refreshToken: string, adminToken?: string) => {
+  const login = useCallback((accessToken: string, refreshToken: string, is_admin?: boolean) => {
     localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     setIsAuthenticated(true);
     setUserId(parseJwtSub(accessToken));
-    if (adminToken) {
-      localStorage.setItem(ADMIN_TOKEN_KEY, adminToken);
+    if (is_admin) {
+      localStorage.setItem(IS_ADMIN_KEY, "true");
       setIsAdmin(true);
+    } else {
+      localStorage.removeItem(IS_ADMIN_KEY);
+      setIsAdmin(false);
     }
   }, []);
 
@@ -70,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
-    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    localStorage.removeItem(IS_ADMIN_KEY);
     setIsAuthenticated(false);
     setIsAdmin(false);
     setUserId(null);

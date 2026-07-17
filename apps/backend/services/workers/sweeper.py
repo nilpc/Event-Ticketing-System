@@ -21,7 +21,7 @@ GRACE_PERIOD_MINUTES = 15
 
 
 async def sweep_zombie_bookings() -> None:
-    """FR-9: Find and revert expired PENDING bookings."""
+    """FR-9: Find and revert expired PENDING bookings (multi-seat)."""
     cutoff = datetime.now(UTC) - timedelta(minutes=GRACE_PERIOD_MINUTES)
 
     async with async_session_factory() as session:
@@ -35,7 +35,13 @@ async def sweep_zombie_bookings() -> None:
                 booking_repo = BookingRepository(session)
 
                 async with session.begin():
-                    await seat_repo.revert_seat_to_available(booking.show_id, booking.seat_id)
+                    # Get all seats from junction table
+                    booking_seats = await booking_repo.get_booking_seats(booking.booking_id)
+                    seat_ids = [bs.seat_id for bs in booking_seats]
+
+                    for seat_id in seat_ids:
+                        await seat_repo.revert_seat_to_available(booking.show_id, seat_id)
+
                     await booking_repo.revert_booking_to_failed(booking.booking_id)
                     await booking_repo.add_outbox_event(
                         aggregate_type="Booking",
@@ -49,9 +55,10 @@ async def sweep_zombie_bookings() -> None:
 
             async with async_session_factory() as session:
                 lock_repo = LockRepository(session, redis_client=get_redis())
-                await lock_repo.release_seat_lock_safe(
-                    booking.show_id, booking.seat_id, booking.user_id
-                )
+                for seat_id in seat_ids:
+                    await lock_repo.release_seat_lock_safe(
+                        booking.show_id, seat_id, booking.user_id
+                    )
                 await lock_repo.release_user_hold_limit(booking.show_id, booking.user_id)
 
             logger.info(

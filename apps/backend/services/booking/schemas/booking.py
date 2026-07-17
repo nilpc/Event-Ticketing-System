@@ -9,10 +9,10 @@ from pydantic import BaseModel
 
 
 class BookRequest(BaseModel):
-    """FR-8: Request to initialize a booking."""
+    """FR-8: Request to initialize a booking for one or more seats."""
 
     show_id: UUID
-    seat_id: str
+    seat_ids: list[str]
     idempotency_key: str  # server-generated from /seats/lock
 
 
@@ -29,7 +29,15 @@ class MockConfirmResponse(BaseModel):
 
     booking_id: UUID
     status: str
-    seat_status: str
+    seat_ids: list[str]
+
+
+class BookingSeatInfo(BaseModel):
+    """A single seat in a booking."""
+
+    seat_id: str
+    tier: str
+    price: str
 
 
 class BookingListItem(BaseModel):
@@ -37,7 +45,7 @@ class BookingListItem(BaseModel):
 
     booking_id: str
     status: str
-    seat_id: str
+    seats: list[BookingSeatInfo]
     amount: str
     currency: str
     created_at: str | None = None

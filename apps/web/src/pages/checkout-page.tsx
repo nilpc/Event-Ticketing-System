@@ -7,6 +7,7 @@ import {
   CreditCard,
   Clock,
   AlertCircle,
+  Ticket,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { AxiosError } from "axios";
@@ -22,13 +23,14 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { SeatResponse } from "@/types/api";
 
 type CheckoutStage = "locking" | "booking" | "payment" | "complete";
 
 const PREMIUM_EASE = [0.32, 0.72, 0, 1] as const;
 
 const STAGES = [
-  { key: "locking" as const, label: "Locking Seat" },
+  { key: "locking" as const, label: "Locking Seats" },
   { key: "booking" as const, label: "Creating Booking" },
   { key: "payment" as const, label: "Payment" },
 ];
@@ -40,13 +42,16 @@ function formatTime(totalSeconds: number): string {
 }
 
 export default function CheckoutPage() {
-  const { showId, seatId } = useParams<{ showId: string; seatId: string }>();
+  const { showId } = useParams<{ showId: string }>();
   const navigate = useNavigate();
   const {
     bookingId,
+    selectedSeatIds,
     queueToken,
     setQueueToken,
+    setLockedSeats,
     setBookingResult,
+    reset: resetBookingFlow,
   } = useBookingFlow();
   const [localIdempotencyKey, setLocalIdempotencyKey] = useState<string | null>(null);
   const [queueValidated, setQueueValidated] = useState(false);
@@ -55,7 +60,7 @@ export default function CheckoutPage() {
   const [error, setError] = useState("");
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [seatPrice, setSeatPrice] = useState<number | null>(null);
+  const [seatPrices, setSeatPrices] = useState<SeatResponse[]>([]);
   const [processing, setProcessing] = useState(false);
   const [cardNumber, setCardNumber] = useState("");
   const [expiry, setExpiry] = useState("");
@@ -90,6 +95,7 @@ export default function CheckoutPage() {
     return clearTimer;
   }, [expiresAt, clearTimer, navigate, showId]);
 
+  // Validate queue session
   useEffect(() => {
     if (!showId) return;
     let cancelled = false;
@@ -103,10 +109,10 @@ export default function CheckoutPage() {
         const { data } = await queueApi.recoverQueue(showId);
         if (cancelled) return;
         if (data.status === "admitted" && data.queue_token) {
-          setQueueToken(data.queue_token);
+          setQueueToken(data.queue_token, showId);
           setQueueValidated(true);
         } else {
-          setQueueToken("");
+          setQueueToken("", undefined);
           toast.error("Queue session expired. Rejoining queue...");
           navigate(`/queue/${showId}`);
         }
@@ -121,18 +127,20 @@ export default function CheckoutPage() {
     return () => { cancelled = true; };
   }, [showId, queueToken, setQueueToken, navigate]);
 
+  // Lock all selected seats
   useEffect(() => {
-    if (!showId || !seatId || stage !== "locking" || !queueValidated) return;
+    if (!showId || selectedSeatIds.length === 0 || stage !== "locking" || !queueValidated) return;
     let cancelled = false;
 
     const lock = async () => {
       try {
-        const { data } = await bookingApi.lockSeat({
+        const { data } = await bookingApi.lockSeats({
           show_id: showId,
-          seat_id: seatId,
+          seat_ids: selectedSeatIds,
         });
         if (cancelled) return;
 
+        setLockedSeats(data.locked_seat_ids, data.idempotency_key, showId);
         setLocalIdempotencyKey(data.idempotency_key);
         setExpiresAt(new Date(data.expires_at).getTime());
         setStage("booking");
@@ -141,9 +149,9 @@ export default function CheckoutPage() {
           const axiosErr = err as AxiosError;
           const status = axiosErr.response?.status ?? (err as { status?: number }).status;
           if (status === 409) {
-            setError("Seat no longer available.");
+            setError("One or more seats are no longer available.");
           } else {
-            setError("Failed to lock seat.");
+            setError("Failed to lock seats.");
           }
         }
       }
@@ -153,10 +161,11 @@ export default function CheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [showId, seatId, stage, queueValidated]);
+  }, [showId, selectedSeatIds, stage, queueValidated, setLockedSeats]);
 
+  // Create booking
   useEffect(() => {
-    if (!showId || !seatId || stage !== "booking" || !localIdempotencyKey) return;
+    if (!showId || selectedSeatIds.length === 0 || stage !== "booking" || !localIdempotencyKey) return;
 
     if (!queueToken) {
       setError("Queue session expired. Please rejoin the queue.");
@@ -167,10 +176,10 @@ export default function CheckoutPage() {
 
     const book = async () => {
       try {
-        const result = await bookingApi.book(
+        const result = await bookingApi.bookSeats(
           {
             show_id: showId,
-            seat_id: seatId,
+            seat_ids: selectedSeatIds,
             idempotency_key: localIdempotencyKey,
           },
           queueToken,
@@ -194,22 +203,27 @@ export default function CheckoutPage() {
   }, [
     stage,
     showId,
-    seatId,
+    selectedSeatIds,
     localIdempotencyKey,
     queueToken,
     setBookingResult,
   ]);
 
+  // Fetch seat prices for display
   useEffect(() => {
-    if (!showId || !seatId || stage !== "payment") return;
+    if (!showId || selectedSeatIds.length === 0 || stage !== "payment") return;
     catalogApi
       .getSeatMap(showId)
       .then((r) => {
-        const seat = r.data.seats.find((s) => s.seat_id === seatId);
-        if (seat?.price) setSeatPrice(parseFloat(seat.price) * 100);
+        const selected = r.data.seats.filter((s) =>
+          selectedSeatIds.includes(s.seat_id),
+        );
+        setSeatPrices(selected);
       })
       .catch(() => {});
-  }, [showId, seatId, stage]);
+  }, [showId, selectedSeatIds, stage]);
+
+  const totalPrice = seatPrices.reduce((sum, s) => sum + parseFloat(s.price), 0);
 
   const formatCardNumber = (val: string) => {
     const digits = val.replace(/\D/g, "").slice(0, 16);
@@ -236,6 +250,7 @@ export default function CheckoutPage() {
       await new Promise((r) => setTimeout(r, 2000));
       await confirmApi.mockConfirm(bookingId);
       setStage("complete");
+      resetBookingFlow();
     } catch (err) {
       const axiosErr = err as AxiosError<{ detail?: string }>;
       const status = axiosErr.response?.status ?? (err as { status?: number }).status;
@@ -292,7 +307,7 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {/* Stepper - premium pill design */}
+          {/* Stepper */}
           <div className="p-6 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl">
             <div className="flex items-center justify-between">
               {STAGES.map((s, i) => (
@@ -331,6 +346,18 @@ export default function CheckoutPage() {
             </div>
           </div>
 
+          {/* Selected seats summary */}
+          {selectedSeatIds.length > 0 && stage !== "complete" && (
+            <div className="p-4 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl">
+              <div className="flex items-center gap-2 mb-2">
+                <Ticket className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">
+                  {selectedSeatIds.length} seat{selectedSeatIds.length !== 1 ? "s" : ""}: {selectedSeatIds.join(", ")}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Stage Content */}
           <AnimatePresence mode="wait">
             {stage === "locking" && (
@@ -342,7 +369,7 @@ export default function CheckoutPage() {
                 className="p-8 text-center space-y-4 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl"
               >
                 <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-                <p className="text-muted-foreground">Securing your seat...</p>
+                <p className="text-muted-foreground">Securing your seats...</p>
               </motion.div>
             )}
 
@@ -377,10 +404,25 @@ export default function CheckoutPage() {
                   </h2>
                 </div>
 
-                {seatPrice !== null && (
-                  <p className="text-3xl font-bold text-gradient">
-                    ₹{(seatPrice / 100).toFixed(2)}
-                  </p>
+                {seatPrices.length > 0 && (
+                  <div className="space-y-2">
+                    {seatPrices.map((s) => (
+                      <div key={s.seat_id} className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          Seat {s.seat_id}
+                          <span className="ml-1 text-[10px] uppercase text-muted-foreground/60">
+                            {s.tier}
+                          </span>
+                        </span>
+                        <span className="font-mono">₹{parseFloat(s.price).toFixed(2)}</span>
+                      </div>
+                    ))}
+                    <div className="h-px bg-white/[0.06] my-2" />
+                    <div className="flex justify-between font-bold">
+                      <span>Total</span>
+                      <span className="text-gradient text-lg">₹{totalPrice.toFixed(2)}</span>
+                    </div>
+                  </div>
                 )}
 
                 <div className="space-y-4">
@@ -427,10 +469,7 @@ export default function CheckoutPage() {
                   size="lg"
                   disabled={processing}
                 >
-                  Pay{" "}
-                  {seatPrice !== null
-                    ? `₹${(seatPrice / 100).toFixed(2)}`
-                    : "Now"}
+                  Pay ₹{totalPrice.toFixed(2)}
                 </Button>
               </motion.div>
             )}

@@ -138,12 +138,16 @@ class LockRepository:
             return False
         return stored == str(user_id)
 
-    async def consume_queue_session(self, queue_token: str) -> None:
-        """FR-6: Invalidate queue token after successful checkout."""
+    async def consume_queue_session(self, queue_token: str, show_id: UUID | None = None, user_id: UUID | None = None) -> None:
+        """FR-6: Invalidate queue token and admitted marker after successful checkout."""
         if self.redis is None:
             return
         key = f"queue:session:{queue_token}"
         await self.redis.delete(key)
+        # Also remove the admitted marker so recover() doesn't return this stale token
+        if show_id is not None and user_id is not None:
+            admitted_key = f"admitted:{show_id}:{user_id}"
+            await self.redis.delete(admitted_key)
 
     # --- Idempotency (FR-8) ---
 

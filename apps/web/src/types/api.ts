@@ -17,6 +17,7 @@ export interface LoginResponse {
   access_token: string;
   refresh_token: string;
   token_type: string;
+  is_admin: boolean;
 }
 
 export interface RefreshRequest {
@@ -88,17 +89,18 @@ export interface QueueRecoverResponse {
 
 export interface SeatLockRequest {
   show_id: string;
-  seat_id: string;
+  seat_ids: string[];
 }
 
 export interface SeatLockResponse {
   idempotency_key: string;
   expires_at: string;
+  locked_seat_ids: string[];
 }
 
 export interface BookRequest {
   show_id: string;
-  seat_id: string;
+  seat_ids: string[];
   idempotency_key: string;
 }
 
@@ -121,13 +123,19 @@ export interface PaymentIntentResponse {
 export interface MockConfirmResponse {
   booking_id: string;
   status: string;
-  seat_status: string;
+  seat_ids: string[];
+}
+
+export interface BookingSeatInfo {
+  seat_id: string;
+  tier: string;
+  price: string;
 }
 
 export interface BookingListItem {
   booking_id: string;
   status: string;
-  seat_id: string;
+  seats: BookingSeatInfo[];
   amount: string;
   currency: string;
   created_at: string | null;

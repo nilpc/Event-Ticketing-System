@@ -36,7 +36,7 @@ export default function QueuePage() {
           const { data: status } = await queueApi.getQueueStatus(sid);
           if (status.status === "admitted") {
             clearPolling();
-            if (status.queue_token) setQueueToken(status.queue_token);
+            if (status.queue_token) setQueueToken(status.queue_token, sid);
             setState("admitted");
             toast.success("You've been admitted!");
             setTimeout(() => navigate(`/events/${sid}`), 1500);
@@ -73,7 +73,7 @@ export default function QueuePage() {
         if (cancelled) return;
 
         if (recovered.status === "admitted") {
-          if (recovered.queue_token) setQueueToken(recovered.queue_token);
+          if (recovered.queue_token) setQueueToken(recovered.queue_token, showId);
           toast.info("Resuming your session...");
           navigate(`/events/${showId}`);
           return;
@@ -81,7 +81,7 @@ export default function QueuePage() {
 
         const { data: result } = await queueApi.joinQueue({ show_id: showId });
         if (cancelled) return;
-        if (result.queue_token) setQueueToken(result.queue_token);
+        if (result.queue_token) setQueueToken(result.queue_token, showId);
         setPosition(result.position);
         setState("waiting");
         intervalRef.current = setInterval(() => pollStatus(showId), QUEUE_POLL_MS);

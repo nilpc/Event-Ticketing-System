@@ -1,5 +1,5 @@
 ﻿import { useParams, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   XCircle,
   Users,
+  ShoppingCart,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import { useBookingFlow } from "@/stores/booking-store";
 import type { SeatResponse } from "@/types/api";
 
 const PREMIUM_EASE = [0.32, 0.72, 0, 1] as const;
+const MAX_SEATS = 8;
 
 const containerVariants = {
   hidden: { opacity: 0, y: 32 },
@@ -89,7 +91,13 @@ function groupSeatsByTier(seats: SeatResponse[]): Record<string, SeatResponse[]>
   return sorted;
 }
 
-function seatButtonClasses(status: SeatResponse["status"]): string {
+function seatButtonClasses(
+  status: SeatResponse["status"],
+  isSelected: boolean,
+): string {
+  if (isSelected) {
+    return "bg-primary border-2 border-primary text-primary-foreground shadow-lg shadow-primary/30 ring-2 ring-primary/20";
+  }
   switch (status) {
     case "AVAILABLE":
       return "bg-primary/15 border border-primary/25 text-primary hover:bg-primary/30 hover:border-primary/40 cursor-pointer hover:shadow-lg hover:shadow-primary/10";
@@ -100,7 +108,8 @@ function seatButtonClasses(status: SeatResponse["status"]): string {
   }
 }
 
-function SeatIcon({ status }: { status: SeatResponse["status"] }) {
+function SeatIcon({ status, isSelected }: { status: SeatResponse["status"]; isSelected: boolean }) {
+  if (isSelected) return <CheckCircle2 className="h-3 w-3" />;
   switch (status) {
     case "AVAILABLE":
       return <CheckCircle2 className="h-3 w-3" />;
@@ -115,7 +124,7 @@ export default function ShowtimePage() {
   const { showId } = useParams<{ showId: string }>();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const { queueToken, selectSeat } = useBookingFlow();
+  const { queueToken, queueShowId, selectedSeatIds, toggleSeat } = useBookingFlow();
 
   const {
     data: showtime,
@@ -148,18 +157,28 @@ export default function ShowtimePage() {
       navigate("/login");
       return;
     }
-    if (!queueToken) {
-      toast.error("Please join the queue first before selecting a seat.");
+    if (!queueToken || queueShowId !== showId) {
+      toast.error("Please join the queue for this show first.");
       return;
     }
-    selectSeat(showId!, seat.seat_id, queueToken);
-    navigate(`/checkout/${showId}/${seat.seat_id}`);
+    toggleSeat(showId!, seat.seat_id);
+  };
+
+  const handleProceedToCheckout = () => {
+    if (selectedSeatIds.length === 0) return;
+    navigate(`/checkout/${showId}`);
   };
 
   const groupedSeats = seatMap ? groupSeatsByTier(seatMap.seats) : {};
   const availableCount = seatMap?.seats.filter((s) => s.status === "AVAILABLE").length ?? 0;
   const soldCount = seatMap?.seats.filter((s) => s.status === "SOLD").length ?? 0;
   const pendingCount = seatMap?.seats.filter((s) => s.status === "PENDING_PAYMENT").length ?? 0;
+
+  const selectedSeatsTotal = seatMap
+    ? seatMap.seats
+        .filter((s) => selectedSeatIds.includes(s.seat_id))
+        .reduce((sum, s) => sum + parseFloat(s.price), 0)
+    : 0;
 
   return (
     <PageTransition>
@@ -256,14 +275,14 @@ export default function ShowtimePage() {
             <motion.div variants={childVariants} className="mb-10">
               <Card className="overflow-hidden">
                 <CardContent className="py-6">
-                  {queueToken ? (
+                  {queueToken && queueShowId === showId ? (
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                       <div>
                         <h3 className="text-lg font-semibold text-primary">
                           You&apos;re admitted!
                         </h3>
                         <p className="text-sm text-muted-foreground">
-                          Select an available seat below to proceed to checkout.
+                          Select available seats below (up to {MAX_SEATS}) to proceed to checkout.
                         </p>
                       </div>
                       <CheckCircle2 className="h-6 w-6 text-primary shrink-0" />
@@ -298,6 +317,45 @@ export default function ShowtimePage() {
               </Card>
             </motion.div>
           )}
+
+          {/* Selected seats bar */}
+          <AnimatePresence>
+            {selectedSeatIds.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="mb-8"
+              >
+                <Card className="overflow-hidden border-primary/20 bg-primary/5">
+                  <CardContent className="py-4">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <ShoppingCart className="h-5 w-5 text-primary" />
+                        <span className="text-sm font-medium">
+                          {selectedSeatIds.length} seat{selectedSeatIds.length !== 1 ? "s" : ""} selected
+                          <span className="text-muted-foreground ml-2">
+                            ({selectedSeatIds.join(", ")})
+                          </span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-lg font-bold text-gradient">
+                          ₹{selectedSeatsTotal.toFixed(2)}
+                        </span>
+                        <Button
+                          onClick={handleProceedToCheckout}
+                          disabled={selectedSeatIds.length === 0}
+                        >
+                          Proceed to Checkout
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <motion.div variants={childVariants}>
             <div className="flex items-center gap-3 mb-8">
@@ -349,27 +407,35 @@ export default function ShowtimePage() {
                     <span className="h-px flex-1 bg-white/[0.04]" />
                   </h3>
                   <div className="flex flex-wrap gap-2 justify-center">
-                    {seats.map((seat) => (
-                      <motion.button
-                        key={seat.seat_id}
-                        variants={seatVariants}
-                        whileHover={seat.status === "AVAILABLE" ? { scale: 1.08, y: -2 } : {}}
-                        whileTap={seat.status === "AVAILABLE" ? { scale: 0.95 } : {}}
-                        className={`relative flex flex-col items-center justify-center h-11 w-12 rounded-xl text-xs font-mono transition-all duration-200 ${seatButtonClasses(seat.status)}`}
-                        onClick={() => handleSeatClick(seat)}
-                        disabled={seat.status !== "AVAILABLE"}
-                        title={
-                          seat.status === "AVAILABLE"
-                            ? `${seat.seat_id} - ₹${parseFloat(seat.price).toFixed(2)}`
-                            : seat.status === "PENDING_PAYMENT"
-                              ? `${seat.seat_id} - Pending`
-                              : `${seat.seat_id} - Sold`
-                        }
-                      >
-                        <SeatIcon status={seat.status} />
-                        <span className="mt-0.5 text-[9px] leading-none">{seat.seat_id}</span>
-                      </motion.button>
-                    ))}
+                    {seats.map((seat) => {
+                      const isSelected = selectedSeatIds.includes(seat.seat_id);
+                      const isDisabled =
+                        seat.status !== "AVAILABLE" ||
+                        (!isSelected && selectedSeatIds.length >= MAX_SEATS);
+                      return (
+                        <motion.button
+                          key={seat.seat_id}
+                          variants={seatVariants}
+                          whileHover={!isDisabled ? { scale: 1.08, y: -2 } : {}}
+                          whileTap={!isDisabled ? { scale: 0.95 } : {}}
+                          className={`relative flex flex-col items-center justify-center h-11 w-12 rounded-xl text-xs font-mono transition-all duration-200 ${seatButtonClasses(seat.status, isSelected)}`}
+                          onClick={() => handleSeatClick(seat)}
+                          disabled={isDisabled}
+                          title={
+                            isSelected
+                              ? `${seat.seat_id} - ₹${parseFloat(seat.price).toFixed(2)} (selected)`
+                              : seat.status === "AVAILABLE"
+                                ? `${seat.seat_id} - ₹${parseFloat(seat.price).toFixed(2)}`
+                                : seat.status === "PENDING_PAYMENT"
+                                  ? `${seat.seat_id} - Pending`
+                                  : `${seat.seat_id} - Sold`
+                          }
+                        >
+                          <SeatIcon status={seat.status} isSelected={isSelected} />
+                          <span className="mt-0.5 text-[9px] leading-none">{seat.seat_id}</span>
+                        </motion.button>
+                      );
+                    })}
                   </div>
                 </motion.div>
               ))}
@@ -387,6 +453,10 @@ export default function ShowtimePage() {
                   <div className="flex items-center gap-2">
                     <span className="h-3 w-3 rounded-lg bg-primary/20 border border-primary/30" />
                     <span>Available</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-lg bg-primary border-2 border-primary shadow shadow-primary/30" />
+                    <span>Selected</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="h-3 w-3 rounded-lg bg-amber-500/20 border border-amber-500/30" />

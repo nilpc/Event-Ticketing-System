@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config.settings import settings
 from core.db.session import get_db_session
+from core.security.auth import get_current_user_id
 from services.booking.schemas.admin import (
     EventCreate,
     EventUpdate,
@@ -21,27 +24,34 @@ from services.booking.schemas.catalog import (
     VenueResponse,
 )
 from services.booking.services.admin_service import AdminService
+from services.identity.models.user import User
 
 router = APIRouter(prefix="/v1/admin", tags=["admin"])
 
 
-def _require_admin(x_admin_token: str = Header(...)) -> None:
-    """Simple admin gate — FR-4: only holders of the admin secret can mutate."""
-    if not settings.ADMIN_TOKEN or x_admin_token != settings.ADMIN_TOKEN:
-        raise HTTPException(status_code=403, detail="Invalid admin token.")
+async def _require_admin(
+    user_id: UUID = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db_session),
+) -> UUID:
+    """JWT + is_admin gate — FR-4: only admin users can mutate."""
+    result = await session.execute(select(User).where(User.user_id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None or not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+    return user_id
+
+
+# ── Events ─────────────────────────────────────────────────────────────
 
 
 def _get_admin_service(session: AsyncSession = Depends(get_db_session)) -> AdminService:
     return AdminService(session)
 
 
-# ── Events ─────────────────────────────────────────────────────────────
-
-
 @router.post("/events", response_model=EventResponse, status_code=201)
 async def create_event(
     data: EventCreate,
-    _admin: None = Depends(_require_admin),
+    _admin: UUID = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> EventResponse:
     event = await svc.create_event(data)
@@ -52,7 +62,7 @@ async def create_event(
 async def update_event(
     event_id: str,
     data: EventUpdate,
-    _admin: None = Depends(_require_admin),
+    _admin: UUID = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> EventResponse:
     try:
@@ -65,7 +75,7 @@ async def update_event(
 @router.delete("/events/{event_id}", status_code=204)
 async def delete_event(
     event_id: str,
-    _admin: None = Depends(_require_admin),
+    _admin: UUID = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> None:
     try:
@@ -80,7 +90,7 @@ async def delete_event(
 @router.post("/venues", response_model=VenueResponse, status_code=201)
 async def create_venue(
     data: VenueCreate,
-    _admin: None = Depends(_require_admin),
+    _admin: UUID = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> VenueResponse:
     venue = await svc.create_venue(data)
@@ -91,7 +101,7 @@ async def create_venue(
 async def update_venue(
     venue_id: str,
     data: VenueUpdate,
-    _admin: None = Depends(_require_admin),
+    _admin: UUID = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> VenueResponse:
     try:
@@ -104,7 +114,7 @@ async def update_venue(
 @router.delete("/venues/{venue_id}", status_code=204)
 async def delete_venue(
     venue_id: str,
-    _admin: None = Depends(_require_admin),
+    _admin: UUID = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> None:
     try:
@@ -118,7 +128,7 @@ async def delete_venue(
 
 @router.get("/showtimes", response_model=list[ShowtimeResponse])
 async def list_showtimes(
-    _admin: None = Depends(_require_admin),
+    _admin: UUID = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> list[ShowtimeResponse]:
     showtimes = await svc.list_showtimes()
@@ -128,7 +138,7 @@ async def list_showtimes(
 @router.post("/showtimes", response_model=ShowtimeResponse, status_code=201)
 async def create_showtime(
     data: ShowtimeCreate,
-    _admin: None = Depends(_require_admin),
+    _admin: UUID = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> ShowtimeResponse:
     showtime = await svc.create_showtime(data)
@@ -139,7 +149,7 @@ async def create_showtime(
 async def update_showtime(
     show_id: str,
     data: ShowtimeUpdate,
-    _admin: None = Depends(_require_admin),
+    _admin: UUID = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> ShowtimeResponse:
     try:
@@ -152,7 +162,7 @@ async def update_showtime(
 @router.delete("/showtimes/{show_id}", status_code=204)
 async def delete_showtime(
     show_id: str,
-    _admin: None = Depends(_require_admin),
+    _admin: UUID = Depends(_require_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> None:
     try:
