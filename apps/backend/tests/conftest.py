@@ -73,6 +73,8 @@ def _setup_database():
         conn.execute(text("CREATE SCHEMA identity"))
         conn.execute(text("CREATE SCHEMA booking"))
         Base.metadata.create_all(bind=conn)
+        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS booking.event_serial_seq START 1"))
+        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS booking.movie_serial_seq START 1"))
 
     yield
 
