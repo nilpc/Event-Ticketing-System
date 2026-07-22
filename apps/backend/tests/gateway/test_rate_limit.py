@@ -6,23 +6,39 @@ Tests that the rate limiter is properly configured and returns
 
 from __future__ import annotations
 
-import os
+from collections.abc import AsyncGenerator
+from unittest.mock import patch
 
 import pytest
 from httpx import AsyncClient
 
 
 @pytest.fixture(autouse=True)
-def _set_rate_limit_env():
-    """Set low rate limits for testing."""
-    os.environ["RATE_LIMIT_PUBLIC"] = "5/second"
-    os.environ["RATE_LIMIT_AUTH"] = "3/second"
-    os.environ["RATE_LIMIT_BOOKING"] = "2/second"
-    yield
-    # Restore defaults
-    os.environ["RATE_LIMIT_PUBLIC"] = "60/minute"
-    os.environ["RATE_LIMIT_AUTH"] = "10/minute"
-    os.environ["RATE_LIMIT_BOOKING"] = "5/minute"
+def _low_rate_limits():
+    """Override rate limit settings to low values for testing."""
+    from core.config.settings import Settings, get_settings
+
+    test_settings = Settings(
+        RATE_LIMIT_PUBLIC="5/second",
+        RATE_LIMIT_AUTH="3/second",
+        RATE_LIMIT_BOOKING="2/second",
+    )
+    get_settings.cache_clear()
+    with patch("core.config.settings", test_settings), \
+         patch("core.middleware.rate_limit.settings", test_settings):
+        yield
+
+
+@pytest.fixture
+async def client() -> AsyncGenerator[AsyncClient, None]:
+    """Async HTTP client wired to the FastAPI app via ASGI transport."""
+    from httpx import ASGITransport
+    from services.gateway.app import create_app
+
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
+        yield ac
 
 
 class TestRateLimiting:

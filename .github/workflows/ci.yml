@@ -105,6 +105,33 @@ jobs:
     defaults:
       run:
         working-directory: apps/backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: event_ticketing
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://testuser:testpass@localhost:5432/event_ticketing
+      REDIS_URL: redis://localhost:6379/0
+      LOG_FORMAT: console
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -120,6 +147,33 @@ jobs:
     defaults:
       run:
         working-directory: apps/backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: event_ticketing
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://testuser:testpass@localhost:5432/event_ticketing
+      REDIS_URL: redis://localhost:6379/0
+      LOG_FORMAT: console
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

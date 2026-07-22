@@ -91,6 +91,16 @@ def create_app() -> FastAPI:
 
     app.add_middleware(IdentityMiddleware)
 
+    # NFR-4: Rate limiting via slowapi
+    from slowapi import _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+
+    from core.middleware.rate_limit import create_limiter
+
+    limiter = create_limiter()
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
     # --- Routers ---
     from services.booking.routers.admin import router as admin_router
     from services.booking.routers.booking import router as booking_router

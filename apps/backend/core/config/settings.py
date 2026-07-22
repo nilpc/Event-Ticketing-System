@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     # --- CORS ---
     CORS_ORIGINS: str = "http://localhost:3000"
 
+    # --- Rate limiting ---
+    RATE_LIMIT_PUBLIC: str = "60/minute"
+    RATE_LIMIT_AUTH: str = "10/minute"
+    RATE_LIMIT_BOOKING: str = "5/minute"
+
     # --- Observability ---
     SENTRY_DSN: str = ""
     SENTRY_ENVIRONMENT: str = "development"
