@@ -4,17 +4,10 @@ RUN corepack enable && corepack prepare pnpm@9 --activate
 WORKDIR /app
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc ./
-COPY packages/shared/package.json ./packages/shared/
 COPY apps/web/package.json ./apps/web/
-
-# Stub excluded workspace packages so pnpm install resolves
-RUN mkdir -p packages/sdk packages/ui && \
-    echo '{"name":"@event-ticketing/sdk","private":true,"version":"0.0.0"}' > packages/sdk/package.json && \
-    echo '{"name":"@event-ticketing/ui","private":true,"version":"0.0.0"}' > packages/ui/package.json
 
 RUN pnpm install --frozen-lockfile || pnpm install
 
-COPY packages/shared/ ./packages/shared/
 COPY apps/web/ ./apps/web/
 
 ENV PATH="/app/node_modules/.bin:$PATH"

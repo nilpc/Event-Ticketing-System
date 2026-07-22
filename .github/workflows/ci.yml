@@ -81,25 +81,6 @@ jobs:
       - run: pnpm --filter @event-ticketing/web lint
       - run: pnpm --filter @event-ticketing/web build
 
-  openapi-generate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @event-ticketing/sdk generate
-      - name: Check for uncommitted generated types
-        run: |
-          if ! git diff --quiet packages/sdk/src/generated/; then
-            echo "::error::Generated SDK types are out of date. Run 'pnpm --filter @event-ticketing/sdk generate' and commit."
-            git diff packages/sdk/src/generated/
-            exit 1
-          fi
-
   rate-limit-cache-tests:
     runs-on: ubuntu-latest
     defaults:
@@ -187,7 +168,7 @@ jobs:
   # ── Gate: all checks pass ──────────────────────────────────────────
   turbo-build:
     runs-on: ubuntu-latest
-    needs: [backend-lint, backend-test, frontend-check, openapi-generate, rate-limit-cache-tests, websocket-tests]
+    needs: [backend-lint, backend-test, frontend-check, rate-limit-cache-tests, websocket-tests]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

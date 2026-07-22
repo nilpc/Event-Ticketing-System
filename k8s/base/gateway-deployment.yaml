@@ -61,7 +61,7 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
-              containerPort: 8000
+              containerPort: 8080
               protocol: TCP
 
           # Phase 5.2: Explicit resource requests/limits

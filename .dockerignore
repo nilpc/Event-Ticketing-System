@@ -13,16 +13,10 @@ node_modules/
 docs/
 k8s/
 tools/
-packages/ui/
-packages/sdk/
 
 apps/
 !apps/backend/
 !apps/web/
-
-*.md
-!apps/backend/README.md
-!apps/web/README.md
 
 .env
 .env.*

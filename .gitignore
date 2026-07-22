@@ -36,6 +36,7 @@ test-results.xml
 node_modules/
 dist/
 .turbo/
+package-lock.json
 
 # ── Frontend build / AI agent artifacts ─────────────────────────────────
 apps/web/dist/

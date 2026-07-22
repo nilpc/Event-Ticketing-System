@@ -21,15 +21,12 @@ Event-Ticketing-System/
 ├── apps/
 │   ├── backend/              # Python FastAPI (core, services, migrations, tests)
 │   └── web/                  # React + Vite frontend
-├── packages/
-│   ├── shared/               # Shared TypeScript types and utils
-│   ├── ui/                   # Shared React components
-│   └── sdk/                  # Generated API client (OpenAPI → TS)
-├── tools/scripts/            # Build and dev scripts
 ├── turbo.json                # Turborepo task pipeline + caching
 ├── pnpm-workspace.yaml       # Workspace package resolution
 ├── package.json              # Root scripts (dev, build, lint, test, typecheck)
-└── docker-compose.yml        # Redis + backend + frontend
+├── Dockerfile                # Monolithic multi-stage build (nginx + gunicorn)
+├── supervisord.conf          # Process manager for nginx + backend
+└── docker-compose.yml        # Postgres + Redis + app
 ```
 
 ### Backend Services
@@ -71,8 +68,7 @@ On first boot the entrypoint automatically:
 3. Seeds default data (10 events, 10 showtimes, 120 seats, admin user)
 
 Services:
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:8000
+- **App (frontend + API)**: http://localhost
 - **Redis**: localhost:6379
 
 ### Database Management
@@ -82,7 +78,7 @@ Services:
 Truncates all booking schema tables (events, showtimes, seats, bookings, etc.) while preserving identity data (users, refresh tokens). The entrypoint will automatically re-seed events on next container restart.
 
 ```bash
-docker compose exec -T backend python -c "
+docker compose exec -T app python -c "
 import asyncio
 from sqlalchemy import text
 from core.db.session import async_session_factory
@@ -100,7 +96,7 @@ asyncio.run(reset())
 #### Check table counts
 
 ```bash
-docker compose exec -T backend python -c "
+docker compose exec -T app python -c "
 import asyncio
 from sqlalchemy import text
 from core.db.session import async_session_factory
@@ -118,7 +114,7 @@ asyncio.run(check())
 #### Re-seed manually
 
 ```bash
-docker compose exec -T backend python seed.py --reset
+docker compose exec -T app python seed.py --reset
 ```
 
 ### Local Development
@@ -201,7 +197,7 @@ There is no API endpoint to promote a user — `is_admin` must be set directly i
 
 ```bash
 # Promote by email
-docker compose exec -T backend python -c "
+docker compose exec -T app python -c "
 import asyncio
 from sqlalchemy import text
 from core.db.session import async_session_factory
@@ -312,12 +308,19 @@ A partial unique index (`unique_pending_booking_per_user_show`) prevents users f
 
 ## Environment Variables
 
-| Variable | Description | Example |
+| Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql+asyncpg://user:pass@host/db` |
+| `DATABASE_URL` | PostgreSQL connection string | — (required) |
+| `REDIS_URL` | Redis connection string | `redis://localhost:6379/0` |
 | `CORS_ORIGINS` | Comma-separated allowed origins | `http://localhost:5173` |
 | `CLIENT_ORIGIN` | Frontend URL for redirects | `http://localhost:5173` |
-| `ADMIN_TOKEN` | (Legacy, unused) Previously used for admin auth | — |
+| `STRIPE_SECRET_KEY` | Stripe secret key (optional) | — |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook secret (optional) | — |
+| `GOOGLE_CLIENT_ID` | Google OAuth2 client ID (optional) | — |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth2 client secret (optional) | — |
+| `SENTRY_DSN` | Sentry error tracking DSN (optional) | — |
+| `LOG_LEVEL` | Logging level | `INFO` |
+| `LOG_FORMAT` | `json` or `console` | `json` |
 
 ## Running Tests
 
@@ -405,13 +408,13 @@ Runs on every push to `main` and on all pull requests.
 | `backend-test` | push + PR | `pytest` with Postgres 16 + Redis 7 services |
 | `frontend-check` | push + PR | `typecheck` + `lint` + `build` for React app |
 | `turbo-build` | push + PR | Full Turborepo build |
-| `docker-build` | push to main only | Builds backend Docker image, pushes to GHCR with SHA + `main` tags |
+| `docker-build` | push to main only | Builds monolithic Docker image, pushes to GHCR with SHA + `main` tags |
 | `smoke-test` | after docker-build | Pulls the built image, starts it with Postgres/Redis, curls `/health` |
 | `cleanup-ghcr` | after docker-build | Deletes old GHCR images, keeps only the last 3 |
 
 ### Docker Images
 
-Published to `ghcr.io/<owner>/backend` on every merge to `main`.
+Published to `ghcr.io/<owner>` on every merge to `main`.
 
 - `main` tag — always the latest production image
 - `<sha>` tag — specific commit (for rollback)

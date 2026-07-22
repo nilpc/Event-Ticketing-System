@@ -32,13 +32,10 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = ""
 
     # --- Frontend ---
-    CLIENT_ORIGIN: str = "http://localhost:3000"
-
-    # --- Admin ---
-    ADMIN_TOKEN: str = ""
+    CLIENT_ORIGIN: str = "http://localhost:5173"
 
     # --- CORS ---
-    CORS_ORIGINS: str = "http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost:5173"
 
     # --- Rate limiting ---
     RATE_LIMIT_PUBLIC: str = "60/minute"

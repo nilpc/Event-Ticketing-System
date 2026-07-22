@@ -22,9 +22,6 @@
     "typecheck": {
       "dependsOn": ["^build"],
       "inputs": ["src/**"]
-    },
-    "generate": {
-      "outputs": ["src/api.ts"]
     }
   }
 }
