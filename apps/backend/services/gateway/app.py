@@ -109,6 +109,7 @@ def create_app() -> FastAPI:
     from services.booking.routers.catalog import router as catalog_router
     from services.booking.routers.queue import router as queue_router
     from services.booking.routers.seats import router as seats_router
+    from services.gateway.websocket import ws_router
     from services.identity.routers.auth import router as auth_router
     from services.payment.routers.payment import router as payment_router
     from services.payment.routers.webhooks import router as webhook_router
@@ -121,6 +122,7 @@ def create_app() -> FastAPI:
     app.include_router(booking_router)
     app.include_router(webhook_router)
     app.include_router(admin_router)
+    app.include_router(ws_router)
 
     # --- Health endpoints (FR-12) ---
     @app.get("/health", tags=["ops"])
