@@ -363,6 +363,7 @@ jobs:
       packages: write
     steps:
       - uses: actions/delete-package-versions@v5
+        continue-on-error: true
         with:
           package-name: ${{ github.repository }}/backend
           package-type: container
@@ -370,6 +371,7 @@ jobs:
           delete-only-pre-release-versions: false
 
       - uses: actions/delete-package-versions@v5
+        continue-on-error: true
         with:
           package-name: ${{ github.repository }}/frontend
           package-type: container
