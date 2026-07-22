@@ -11,7 +11,7 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "dev": "tsc --watch --project tsconfig.json",
-    "generate": "openapi-typescript ./openapi.json -o src/api.ts",
+    "generate": "openapi-typescript ./openapi.json -o src/generated/api.d.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },

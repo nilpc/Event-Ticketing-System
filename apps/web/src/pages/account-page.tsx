@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Shield, User, LogOut, Ticket, MapPin, Clock } from "lucide-react";
+import { Loader2, Shield, User, LogOut, Ticket, MapPin, Clock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { PageTransition } from "@/components/layout/page-transition";
 import { useAuth } from "@/stores/auth-store";
@@ -42,9 +42,10 @@ export default function AccountPage() {
     null,
   );
 
-  const { data: bookings, isLoading: bookingsLoading } = useQuery({
+  const { data: bookings, isLoading: bookingsLoading, isError: bookingsError, refetch: refetchBookings } = useQuery({
     queryKey: ["userBookings"],
     queryFn: () => bookingApi.getUserBookings().then((r) => r.data),
+    retry: 1,
   });
 
   const handleDelete = async () => {
@@ -137,6 +138,21 @@ export default function AccountPage() {
             {bookingsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : bookingsError ? (
+              <div className="flex flex-col items-center gap-3 py-8">
+                <p className="text-sm text-muted-foreground/50">
+                  Failed to load bookings.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchBookings()}
+                  className="rounded-full"
+                >
+                  <RefreshCw className="mr-2 h-3 w-3" />
+                  Retry
+                </Button>
               </div>
             ) : !bookings || bookings.length === 0 ? (
               <p className="text-sm text-muted-foreground/50 py-4 text-center">
