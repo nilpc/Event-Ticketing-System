@@ -10,6 +10,7 @@ from collections.abc import AsyncGenerator
 from unittest.mock import patch
 
 import pytest
+import redis.asyncio as aioredis
 from httpx import AsyncClient
 
 
@@ -19,14 +20,30 @@ def _low_rate_limits():
     from core.config.settings import Settings, get_settings
 
     test_settings = Settings(
-        RATE_LIMIT_PUBLIC="5/second",
-        RATE_LIMIT_AUTH="3/second",
-        RATE_LIMIT_BOOKING="2/second",
+        RATE_LIMIT_PUBLIC="1/second",
+        RATE_LIMIT_AUTH="1/second",
+        RATE_LIMIT_BOOKING="1/second",
     )
     get_settings.cache_clear()
     with patch("core.config.settings", test_settings), \
          patch("core.middleware.rate_limit.settings", test_settings):
         yield
+
+
+@pytest.fixture(autouse=True)
+async def _flush_rate_limit_keys():
+    """Flush slowapi rate limit keys before each test."""
+    from core.config import settings
+
+    r = aioredis.from_url(settings.REDIS_URL, protocol=2)
+    try:
+        keys = await r.keys("slowapi/*")
+        if keys:
+            await r.delete(*keys)
+    except Exception:
+        pass
+    finally:
+        await r.aclose()
 
 
 @pytest.fixture
@@ -54,9 +71,8 @@ class TestRateLimiting:
 
     async def test_rate_limit_exceeded_returns_429(self, client: AsyncClient) -> None:
         """Exceeding the rate limit should return 429."""
-        # Fire requests rapidly to exceed the 5/second limit
         responses = []
-        for _ in range(10):
+        for _ in range(3):
             r = await client.get("/v1/venues")
             responses.append(r.status_code)
 
@@ -66,12 +82,11 @@ class TestRateLimiting:
 
     async def test_rate_limit_headers_present(self, client: AsyncClient) -> None:
         """Rate-limited responses should include Retry-After header."""
-        # Exhaust the limit
-        for _ in range(6):
+        for _ in range(3):
             r = await client.get("/v1/venues")
 
-        if r.status_code == 429:
-            assert "retry-after" in r.headers or "Retry-After" in r.headers
+        assert r.status_code == 429
+        assert "retry-after" in r.headers or "Retry-After" in r.headers
 
 
 class TestRateLimitConfig:
