@@ -35,10 +35,12 @@ class CacheRepository:
         if self.redis is None:
             return 0
         try:
-            count = 0
+            keys: list[bytes] = []
             async for key in self.redis.scan_iter(match=pattern):
-                count += await self.redis.delete(key)
-            return count
+                keys.append(key)
+            if not keys:
+                return 0
+            return await self.redis.delete(*keys)
         except Exception:
             logger.warning("invalidate_pattern_failed", pattern=pattern)
             return 0
