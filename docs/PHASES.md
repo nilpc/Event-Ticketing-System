@@ -18,7 +18,7 @@ Event Ticketing Backend - Phased Build Plan
 
 _Before writing application logic, establish the stateful backends, ORM models, and strict transactional boundaries._
 
-**1\. Provision Cloud PostgreSQL & PgBouncer:** Create a Neon database. Create two schemas: identity and booking. Deploy PgBouncer in transaction mode.
+**1\. Provision Cloud PostgreSQL & PgBouncer:** Create a PostgreSQL database. Create two schemas: identity and booking. Deploy PgBouncer in transaction mode.
 
 **2\. Scaffold Repositories (SRP, NFR-6):** Set up Python project structures using SQLAlchemy 2.0 ORM models (no raw SQL). Separate SeatRepository, BookingRepository, LockRepository, PaymentRepository, and CacheRepository.
 

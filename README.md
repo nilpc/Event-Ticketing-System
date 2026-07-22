@@ -1,6 +1,6 @@
 # Event Ticketing System
 
-A full-stack event ticketing platform built for flash-sale scenarios. Turborepo monorepo with React frontend + FastAPI backend + PostgreSQL (Neon) + Redis (Docker).
+A full-stack event ticketing platform built for flash-sale scenarios. Turborepo monorepo with React frontend + FastAPI backend + PostgreSQL + Redis.
 
 ## Features
 
@@ -124,7 +124,7 @@ docker compose exec -T app python seed.py --reset
 - Python 3.11+
 - Node.js 22+
 - pnpm 9+
-- PostgreSQL 16+ (or Neon cloud)
+- PostgreSQL 16+
 - Redis 7+ (Docker recommended)
 
 #### Install All Dependencies
@@ -370,7 +370,7 @@ All run inside the backend container on startup:
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, TanStack Query, Framer Motion |
 | Framework | FastAPI, Pydantic v2 |
 | ORM | SQLAlchemy 2.0 (async) |
-| Database | PostgreSQL (Neon cloud, asyncpg), Redis 7 (Docker) |
+| Database | PostgreSQL 16 (asyncpg), Redis 7 |
 | Auth | python-jose (RS256), bcrypt, Google OAuth2 |
 | Payments | Stripe SDK (mock-confirm for demo) |
 | Observability | structlog, Sentry, OpenTelemetry |

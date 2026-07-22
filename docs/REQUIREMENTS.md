@@ -15,7 +15,7 @@ Event Ticketing Backend - Requirements & Architecture Specification
 
 # 1\. Executive Summary
 
-This project is a high-concurrency, cloud-native event ticketing backend built in Python (FastAPI). It operates across a local Minikube cluster for continuous development and an Amazon EKS cluster for demonstration. To handle massive flash-sale traffic spikes, the system utilizes a highly available PostgreSQL database (Neon) behind PgBouncer for transactional integrity, and an in-cluster Redis instance for distributed locking, caching, and queuing. The architecture enforces strict transactional boundaries, outbox-based event publishing, zero-trust network policies, and comprehensive observability.
+This project is a high-concurrency, cloud-native event ticketing backend built in Python (FastAPI). It operates across a local Minikube cluster for continuous development and an Amazon EKS cluster for demonstration. To handle massive flash-sale traffic spikes, the system utilizes a highly available PostgreSQL database behind PgBouncer for transactional integrity, and an in-cluster Redis instance for distributed locking, caching, and queuing. The architecture enforces strict transactional boundaries, outbox-based event publishing, zero-trust network policies, and comprehensive observability.
 
 # 2\. Requirements Catalog
 
@@ -49,7 +49,7 @@ This project is a high-concurrency, cloud-native event ticketing backend built i
 
 - **Framework:** FastAPI (Python 3.11+) + Pydantic v2
 - **Server Stack:** Uvicorn + Gunicorn
-- **Relational Layer:** PostgreSQL (Neon) via PgBouncer (transaction mode), SQLAlchemy 2.0, Alembic
+- **Relational Layer:** PostgreSQL via PgBouncer (transaction mode), SQLAlchemy 2.0, Alembic
 - **Cache & Locks:** Ephemeral Redis (redis.asyncio) with Lua scripts
 - **Observability:** OpenTelemetry, Prometheus, Grafana, Loki, Sentry (NFR-5)
 - **Deployment:** Kubernetes (Minikube / EKS), KEDA, ArgoCD, GitHub Actions
@@ -657,6 +657,6 @@ await self.booking_repo.mark_outbox_published(event.event_id)
 - **CI/CD & GitOps:** GitHub Actions enforces ruff, mypy, pytest (unit + integration via testcontainers), and trivy container scanning. ArgoCD handles declarative K8s deployments.
 - **Database Migrations:** Alembic runs as a K8s Init Job before rolling out new FastAPI pods to prevent race conditions.
 - **Network Policies (Zero-Trust):** K8s NetworkPolicies restrict ingress to backend services so they only accept traffic from the API Gateway, preventing header spoofing.
-- **Connection Pooling:** PgBouncer runs in front of Neon Postgres in transaction mode to prevent connection exhaustion during flash sales.
+- **Connection Pooling:** PgBouncer runs in front of Postgres in transaction mode to prevent connection exhaustion during flash sales.
 - **Error Tracking (NFR-5):** Sentry SDK is initialized in every service; captured exceptions are tagged with request_id and trace_id so they can be correlated with Loki logs and OpenTelemetry traces.
 - **Testing:** Property-based tests (Hypothesis) verify zero double-bookings under randomized concurrent interleavings. E2E Locust tests verify queue dynamics and 409 rejection rates.
