@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: migrate
+  name: migrate-setup
   namespace: event-ticketing
   labels:
     app.kubernetes.io/name: migrate

@@ -30,7 +30,7 @@ Write-Host "==> Waiting for Redis to be ready..." -ForegroundColor Cyan
 kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=redis -n event-ticketing --timeout=60s
 
 Write-Host "==> Waiting for migration job to complete..." -ForegroundColor Cyan
-kubectl wait --for=condition=complete job/migrate -n event-ticketing --timeout=120s
+kubectl wait --for=condition=complete job/migrate-setup -n event-ticketing --timeout=120s
 
 Write-Host "==> Waiting for gateway pods..." -ForegroundColor Cyan
 kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=gateway -n event-ticketing --timeout=120s

@@ -48,9 +48,9 @@ spec:
           livenessProbe:
             exec:
               command:
-                - sh
+                - python
                 - -c
-                - "pgrep -f 'services.workers sweeper' || exit 1"
+                - "import os; os.kill(1, 0)"
             initialDelaySeconds: 10
             periodSeconds: 30
             timeoutSeconds: 5

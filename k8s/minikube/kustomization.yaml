@@ -3,36 +3,76 @@
 #
 # Prerequisites:
 #   minikube start
-#   minikube docker build -t event-ticketing:latest .
+#   eval $(minikube docker-env)
+#   docker build -t event-ticketing:latest .
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 namespace: event-ticketing
 
 resources:
-  # Infrastructure
+  # Everything from base
+  - ../base
+
+  # Local infrastructure
   - secrets.yaml
   - postgres.yaml
   - redis.yaml
   - ingress.yaml
 
-  # App (from base, excluding KEDA + NetworkPolicies)
-  - ../base/namespace.yaml
-  - ../base/gateway-deployment.yaml
-  - ../base/gateway-service.yaml
-  - ../base/pdb.yaml
-  - ../base/sweeper-deployment.yaml
-  - ../base/relay-deployment.yaml
-  - ../base/admitter-deployment.yaml
+  # Migration job (no Helm hooks — works with kubectl apply)
   - migration-job.yaml
 
-# Scale down for local dev (1 replica each)
-# Remove init container from gateway (migration-job handles it)
 patches:
+  # ── Delete resources not needed in Minikube ──
+  - patch: |-
+      apiVersion: keda.sh/v1alpha1
+      kind: ScaledObject
+      metadata:
+        name: gateway-scaler
+        namespace: event-ticketing
+      $patch: delete
+  - patch: |-
+      apiVersion: keda.sh/v1alpha1
+      kind: ScaledObject
+      metadata:
+        name: queue-scaler
+        namespace: event-ticketing
+      $patch: delete
+  - patch: |-
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: allow-gateway-only
+        namespace: event-ticketing
+      $patch: delete
+  - patch: |-
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: gateway-external-access
+        namespace: event-ticketing
+      $patch: delete
+  - patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: grafana-dashboard-event-ticketing
+        namespace: monitoring
+      $patch: delete
+  - patch: |-
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: migrate
+        namespace: event-ticketing
+      $patch: delete
+
+  # ── Scale down for local dev ──
   - target:
       kind: Deployment
       name: gateway
-    patch: |
+    patch: |-
       - op: replace
         path: /spec/replicas
         value: 1
@@ -41,7 +81,7 @@ patches:
   - target:
       kind: Deployment
       name: relay
-    patch: |
+    patch: |-
       - op: replace
         path: /spec/replicas
         value: 1
