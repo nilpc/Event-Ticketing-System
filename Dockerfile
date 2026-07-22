@@ -85,10 +85,9 @@ RUN chown -R app:app /app && \
     chown -R app:app /usr/share/nginx/html && \
     chown -R app:app /var/log/nginx && \
     chown -R app:app /var/lib/nginx && \
+    chown -R app:app /var/cache/nginx && \
     touch /var/run/nginx.pid && chown app:app /var/run/nginx.pid
 
-USER app
-
-EXPOSE 80
+EXPOSE 8080
 
 CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
