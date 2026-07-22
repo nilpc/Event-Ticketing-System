@@ -33,6 +33,7 @@ def _low_rate_limits():
 async def client() -> AsyncGenerator[AsyncClient, None]:
     """Async HTTP client wired to the FastAPI app via ASGI transport."""
     from httpx import ASGITransport
+
     from services.gateway.app import create_app
 
     app = create_app()

@@ -178,3 +178,9 @@ class CatalogService:
             await self.cache.invalidate(f"seatmap:{show_id}")
         except Exception:
             logger.warning("cache_invalidation_failed", key=f"seatmap:{show_id}")
+        try:
+            await self.cache.publish_invalidation(
+                "cache:invalidate", {"keys": [f"seatmap:{show_id}"]}
+            )
+        except Exception:
+            logger.warning("publish_invalidation_failed", key=f"seatmap:{show_id}")
