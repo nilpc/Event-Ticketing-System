@@ -1,0 +1,34 @@
+# FR-13: Migration job for Minikube (no Helm hooks).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: event-ticketing
+  labels:
+    app.kubernetes.io/name: migrate
+    app.kubernetes.io/part-of: event-ticketing
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: migrate
+        app.kubernetes.io/part-of: event-ticketing
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: event-ticketing:latest
+          imagePullPolicy: IfNotPresent
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - secretRef:
+                name: event-ticketing-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

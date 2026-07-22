@@ -1,0 +1,47 @@
+# Minikube overlay — local K8s testing.
+# Apply via:  kubectl apply -k k8s/minikube/
+#
+# Prerequisites:
+#   minikube start
+#   minikube docker build -t event-ticketing:latest .
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: event-ticketing
+
+resources:
+  # Infrastructure
+  - secrets.yaml
+  - postgres.yaml
+  - redis.yaml
+  - ingress.yaml
+
+  # App (from base, excluding KEDA + NetworkPolicies)
+  - ../base/namespace.yaml
+  - ../base/gateway-deployment.yaml
+  - ../base/gateway-service.yaml
+  - ../base/pdb.yaml
+  - ../base/sweeper-deployment.yaml
+  - ../base/relay-deployment.yaml
+  - ../base/admitter-deployment.yaml
+  - migration-job.yaml
+
+# Scale down for local dev (1 replica each)
+# Remove init container from gateway (migration-job handles it)
+patches:
+  - target:
+      kind: Deployment
+      name: gateway
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+      - op: remove
+        path: /spec/template/spec/initContainers
+  - target:
+      kind: Deployment
+      name: relay
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
