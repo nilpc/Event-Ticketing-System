@@ -1,0 +1,823 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Event Ticketing System API",
+    "version": "0.1.0"
+  },
+  "servers": [
+    { "url": "/v1" }
+  ],
+  "paths": {
+    "/auth/signup": {
+      "post": {
+        "operationId": "signup",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SignupRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SignupResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "login",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "refreshToken",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token refreshed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Logged out" }
+        }
+      }
+    },
+    "/auth/google/authorize": {
+      "get": {
+        "operationId": "getGoogleAuthUrl",
+        "tags": ["Auth"],
+        "responses": {
+          "200": {
+            "description": "Google OAuth URL",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OAuthAuthorizeResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/google/callback": {
+      "get": {
+        "operationId": "handleGoogleCallback",
+        "tags": ["Auth"],
+        "parameters": [
+          { "name": "code", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "state", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Google login successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/venues": {
+      "get": {
+        "operationId": "getVenues",
+        "tags": ["Catalog"],
+        "responses": {
+          "200": {
+            "description": "List of venues",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/VenueResponse" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "operationId": "getEvents",
+        "tags": ["Catalog"],
+        "responses": {
+          "200": {
+            "description": "List of events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/EventResponse" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/{event_id}/showtimes": {
+      "get": {
+        "operationId": "getShowtimesByEvent",
+        "tags": ["Catalog"],
+        "parameters": [
+          { "name": "event_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of showtimes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/ShowtimeResponse" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/showtimes/{show_id}": {
+      "get": {
+        "operationId": "getShowtime",
+        "tags": ["Catalog"],
+        "parameters": [
+          { "name": "show_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Showtime details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ShowtimeResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/showtimes/{show_id}/seats": {
+      "get": {
+        "operationId": "getSeatMap",
+        "tags": ["Catalog"],
+        "parameters": [
+          { "name": "show_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Seat map for showtime",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SeatMapResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/join": {
+      "post": {
+        "operationId": "joinQueue",
+        "tags": ["Queue"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/QueueJoinRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Queue join result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/QueueJoinResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/status": {
+      "get": {
+        "operationId": "getQueueStatus",
+        "tags": ["Queue"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "show_id", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Queue status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/QueueStatusResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/recover": {
+      "get": {
+        "operationId": "recoverQueue",
+        "tags": ["Queue"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "show_id", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Queue recovery info",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/QueueRecoverResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seats/lock": {
+      "post": {
+        "operationId": "lockSeats",
+        "tags": ["Seats"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SeatLockRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Seat lock confirmation",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SeatLockResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/book": {
+      "post": {
+        "operationId": "bookSeats",
+        "tags": ["Booking"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BookRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Booking initialized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BookResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/book/{booking_id}/mock-confirm": {
+      "post": {
+        "operationId": "mockConfirm",
+        "tags": ["Booking"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "booking_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking confirmed (demo)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MockConfirmResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bookings": {
+      "get": {
+        "operationId": "getUserBookings",
+        "tags": ["Booking"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "User bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/BookingListItem" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments/intent": {
+      "post": {
+        "operationId": "createPaymentIntent",
+        "tags": ["Payment"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PaymentIntentRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment intent created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaymentIntentResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/events": {
+      "post": {
+        "operationId": "adminCreateEvent",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EventCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Event created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/events/{event_id}": {
+      "delete": {
+        "operationId": "adminDeleteEvent",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "event_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Event deleted" }
+        }
+      }
+    },
+    "/admin/venues": {
+      "post": {
+        "operationId": "adminCreateVenue",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/VenueCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Venue created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VenueResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/venues/{venue_id}": {
+      "delete": {
+        "operationId": "adminDeleteVenue",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "venue_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Venue deleted" }
+        }
+      }
+    },
+    "/admin/showtimes": {
+      "get": {
+        "operationId": "adminGetShowtimes",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "All showtimes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/ShowtimeResponse" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "adminCreateShowtime",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ShowtimeCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Showtime created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ShowtimeResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/showtimes/{show_id}": {
+      "delete": {
+        "operationId": "adminDeleteShowtime",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "show_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Showtime deleted" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "SignupRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" }
+        }
+      },
+      "SignupResponse": {
+        "type": "object",
+        "required": ["user_id", "email"],
+        "properties": {
+          "user_id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "required": ["access_token", "refresh_token", "token_type", "is_admin"],
+        "properties": {
+          "access_token": { "type": "string" },
+          "refresh_token": { "type": "string" },
+          "token_type": { "type": "string", "default": "bearer" },
+          "is_admin": { "type": "boolean", "default": false }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": ["refresh_token"],
+        "properties": {
+          "refresh_token": { "type": "string" }
+        }
+      },
+      "OAuthAuthorizeResponse": {
+        "type": "object",
+        "required": ["authorize_url", "state"],
+        "properties": {
+          "authorize_url": { "type": "string" },
+          "state": { "type": "string" }
+        }
+      },
+      "VenueResponse": {
+        "type": "object",
+        "required": ["venue_id", "name", "capacity"],
+        "properties": {
+          "venue_id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "capacity": { "type": "integer" }
+        }
+      },
+      "EventResponse": {
+        "type": "object",
+        "required": ["event_id", "event_type", "name", "description"],
+        "properties": {
+          "event_id": { "type": "string" },
+          "event_type": { "type": "string", "enum": ["MOVIE", "EVENT"] },
+          "name": { "type": "string" },
+          "description": { "type": "string", "nullable": true }
+        }
+      },
+      "ShowtimeResponse": {
+        "type": "object",
+        "required": ["show_id", "event_id", "venue_id", "base_price", "start_time", "end_time"],
+        "properties": {
+          "show_id": { "type": "string", "format": "uuid" },
+          "event_id": { "type": "string" },
+          "venue_id": { "type": "string", "format": "uuid" },
+          "base_price": { "type": "string" },
+          "start_time": { "type": "string", "format": "date-time" },
+          "end_time": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SeatResponse": {
+        "type": "object",
+        "required": ["seat_id", "tier", "price", "status"],
+        "properties": {
+          "seat_id": { "type": "string" },
+          "tier": { "type": "string" },
+          "price": { "type": "string" },
+          "status": { "type": "string", "enum": ["AVAILABLE", "PENDING_PAYMENT", "SOLD"] }
+        }
+      },
+      "SeatMapResponse": {
+        "type": "object",
+        "required": ["show_id", "seats"],
+        "properties": {
+          "show_id": { "type": "string", "format": "uuid" },
+          "seats": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SeatResponse" }
+          }
+        }
+      },
+      "QueueJoinRequest": {
+        "type": "object",
+        "required": ["show_id"],
+        "properties": {
+          "show_id": { "type": "string", "format": "uuid" }
+        }
+      },
+      "QueueJoinResponse": {
+        "type": "object",
+        "required": ["queue_token", "position", "status"],
+        "properties": {
+          "queue_token": { "type": "string", "nullable": true },
+          "position": { "type": "integer" },
+          "status": { "type": "string", "enum": ["waiting", "admitted"] }
+        }
+      },
+      "QueueStatusResponse": {
+        "type": "object",
+        "required": ["position", "status", "retry_after", "queue_token"],
+        "properties": {
+          "position": { "type": "integer", "nullable": true },
+          "status": { "type": "string", "enum": ["waiting", "admitted", "expired"] },
+          "retry_after": { "type": "integer", "nullable": true },
+          "queue_token": { "type": "string", "nullable": true }
+        }
+      },
+      "QueueRecoverResponse": {
+        "type": "object",
+        "required": ["queue_token", "status"],
+        "properties": {
+          "queue_token": { "type": "string", "nullable": true },
+          "status": { "type": "string", "enum": ["admitted", "none"] }
+        }
+      },
+      "SeatLockRequest": {
+        "type": "object",
+        "required": ["show_id", "seat_ids"],
+        "properties": {
+          "show_id": { "type": "string", "format": "uuid" },
+          "seat_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "SeatLockResponse": {
+        "type": "object",
+        "required": ["idempotency_key", "expires_at", "locked_seat_ids"],
+        "properties": {
+          "idempotency_key": { "type": "string" },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "locked_seat_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "BookRequest": {
+        "type": "object",
+        "required": ["show_id", "seat_ids", "idempotency_key"],
+        "properties": {
+          "show_id": { "type": "string", "format": "uuid" },
+          "seat_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "idempotency_key": { "type": "string" }
+        }
+      },
+      "BookResponse": {
+        "type": "object",
+        "required": ["booking_id", "status", "expires_at"],
+        "properties": {
+          "booking_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string" },
+          "expires_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "MockConfirmResponse": {
+        "type": "object",
+        "required": ["booking_id", "status", "seat_ids"],
+        "properties": {
+          "booking_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string" },
+          "seat_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "BookingSeatInfo": {
+        "type": "object",
+        "required": ["seat_id", "tier", "price"],
+        "properties": {
+          "seat_id": { "type": "string" },
+          "tier": { "type": "string" },
+          "price": { "type": "string" }
+        }
+      },
+      "BookingListItem": {
+        "type": "object",
+        "required": ["booking_id", "status", "seats", "amount", "currency", "created_at", "show_id", "start_time", "end_time", "event_name", "venue_name"],
+        "properties": {
+          "booking_id": { "type": "string" },
+          "status": { "type": "string" },
+          "seats": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/BookingSeatInfo" }
+          },
+          "amount": { "type": "string" },
+          "currency": { "type": "string" },
+          "created_at": { "type": "string", "nullable": true },
+          "show_id": { "type": "string" },
+          "start_time": { "type": "string", "nullable": true },
+          "end_time": { "type": "string", "nullable": true },
+          "event_name": { "type": "string" },
+          "venue_name": { "type": "string" }
+        }
+      },
+      "PaymentIntentRequest": {
+        "type": "object",
+        "required": ["booking_id"],
+        "properties": {
+          "booking_id": { "type": "string", "format": "uuid" }
+        }
+      },
+      "PaymentIntentResponse": {
+        "type": "object",
+        "required": ["payment_id", "client_secret", "status"],
+        "properties": {
+          "payment_id": { "type": "string", "format": "uuid" },
+          "client_secret": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      },
+      "EventCreateRequest": {
+        "type": "object",
+        "required": ["event_type", "name"],
+        "properties": {
+          "event_type": { "type": "string", "enum": ["MOVIE", "EVENT"] },
+          "name": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      },
+      "VenueCreateRequest": {
+        "type": "object",
+        "required": ["name", "capacity"],
+        "properties": {
+          "name": { "type": "string" },
+          "capacity": { "type": "integer" }
+        }
+      },
+      "ShowtimeCreateRequest": {
+        "type": "object",
+        "required": ["event_id", "venue_id", "base_price", "start_time", "end_time"],
+        "properties": {
+          "event_id": { "type": "string" },
+          "venue_id": { "type": "string" },
+          "base_price": { "type": "number" },
+          "start_time": { "type": "string", "format": "date-time" },
+          "end_time": { "type": "string", "format": "date-time" },
+          "auto_seats": { "type": "boolean", "default": true }
+        }
+      }
+    }
+  }
+}
