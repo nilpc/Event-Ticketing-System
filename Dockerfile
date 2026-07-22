@@ -81,12 +81,13 @@ COPY --from=frontend-builder /app/apps/web/dist /usr/share/nginx/html
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-RUN chown -R app:app /app && \
+RUN mkdir -p /var/cache/nginx /var/run && \
+    chown -R app:app /app && \
     chown -R app:app /usr/share/nginx/html && \
     chown -R app:app /var/log/nginx && \
     chown -R app:app /var/lib/nginx && \
     chown -R app:app /var/cache/nginx && \
-    touch /var/run/nginx.pid && chown app:app /var/run/nginx.pid
+    chown -R app:app /var/run
 
 EXPOSE 8080
 
