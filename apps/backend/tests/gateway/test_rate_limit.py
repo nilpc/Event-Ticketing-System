@@ -10,40 +10,47 @@ from collections.abc import AsyncGenerator
 from unittest.mock import patch
 
 import pytest
-import redis.asyncio as aioredis
+import slowapi.middleware as _sm
 from httpx import AsyncClient
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+from core.middleware.rate_limit import _find_route_handler
 
 
 @pytest.fixture(autouse=True)
 def _low_rate_limits():
-    """Override rate limit settings to low values for testing."""
+    """Override rate limit settings to low values for testing.
+
+    Patches ``create_limiter`` so slowapi uses in-memory storage
+    instead of Redis, avoiding connection issues with older Redis
+    versions while still exercising the full rate-limit path.
+
+    Also installs the patched ``_find_route_handler`` so that default
+    limits are enforced on FastAPI router-included routes.
+    """
     from core.config.settings import Settings, get_settings
 
     test_settings = Settings(
-        RATE_LIMIT_PUBLIC="1/second",
-        RATE_LIMIT_AUTH="1/second",
-        RATE_LIMIT_BOOKING="1/second",
+        RATE_LIMIT_PUBLIC="1/minute",
+        RATE_LIMIT_AUTH="1/minute",
+        RATE_LIMIT_BOOKING="1/minute",
     )
     get_settings.cache_clear()
+
+    def _create_memory_limiter() -> Limiter:
+        return Limiter(
+            key_func=get_remote_address,
+            storage_uri="memory://",
+            default_limits=[test_settings.RATE_LIMIT_PUBLIC],
+            headers_enabled=True,
+        )
+
+    _sm._find_route_handler = _find_route_handler
     with patch("core.config.settings", test_settings), \
-         patch("core.middleware.rate_limit.settings", test_settings):
+         patch("core.middleware.rate_limit.settings", test_settings), \
+         patch("core.middleware.rate_limit.create_limiter", side_effect=_create_memory_limiter):
         yield
-
-
-@pytest.fixture(autouse=True)
-async def _flush_rate_limit_keys():
-    """Flush slowapi rate limit keys before each test."""
-    from core.config import settings
-
-    r = aioredis.from_url(settings.REDIS_URL, protocol=2)
-    try:
-        keys = await r.keys("slowapi/*")
-        if keys:
-            await r.delete(*keys)
-    except Exception:
-        pass
-    finally:
-        await r.aclose()
 
 
 @pytest.fixture
