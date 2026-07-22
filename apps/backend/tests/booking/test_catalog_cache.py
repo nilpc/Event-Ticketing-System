@@ -6,6 +6,7 @@ caching catalog data with the cache-aside pattern.
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -26,7 +27,6 @@ def mock_session() -> AsyncMock:
 def mock_cache_repo() -> AsyncMock:
     """Mock CacheRepository."""
     cache = AsyncMock(spec=CacheRepository)
-    cache.get_or_set = AsyncMock()
     cache.invalidate = AsyncMock()
     cache.publish_invalidation = AsyncMock()
     return cache
@@ -44,36 +44,36 @@ class TestCatalogCacheAside:
     async def test_list_venues_uses_cache(
         self, catalog_service: CatalogService, mock_cache_repo: AsyncMock
     ) -> None:
-        """list_venues should call cache.get_or_set with correct key."""
-        mock_cache_repo.get_or_set.return_value = [
-            {"venue_id": str(uuid4()), "name": "Test Venue", "capacity": 100}
-        ]
+        """list_venues should check cache.get with correct key, skip DB on hit."""
+        mock_cache_repo.get.return_value = json.dumps(
+            [{"venue_id": str(uuid4()), "name": "Test Venue", "capacity": 100}]
+        )
 
         result = await catalog_service.list_venues()
 
-        mock_cache_repo.get_or_set.assert_called_once()
-        call_args = mock_cache_repo.get_or_set.call_args
-        assert call_args[0][0] == "venues:all"
+        mock_cache_repo.get.assert_called_once_with("venues:all")
+        mock_cache_repo.set.assert_not_called()
         assert len(result) == 1
         assert isinstance(result[0], VenueResponse)
 
     async def test_list_events_uses_cache(
         self, catalog_service: CatalogService, mock_cache_repo: AsyncMock
     ) -> None:
-        """list_events should call cache.get_or_set with correct key."""
-        mock_cache_repo.get_or_set.return_value = [
-            {
-                "event_id": f"STE{uuid4().hex[:6].upper()}",
-                "event_type": "EVENT",
-                "name": "Test Event",
-            }
-        ]
+        """list_events should check cache.get with correct key, skip DB on hit."""
+        mock_cache_repo.get.return_value = json.dumps(
+            [
+                {
+                    "event_id": f"STE{uuid4().hex[:6].upper()}",
+                    "event_type": "EVENT",
+                    "name": "Test Event",
+                }
+            ]
+        )
 
         await catalog_service.list_events()
 
-        mock_cache_repo.get_or_set.assert_called_once()
-        call_args = mock_cache_repo.get_or_set.call_args
-        assert call_args[0][0] == "events:all"
+        mock_cache_repo.get.assert_called_once_with("events:all")
+        mock_cache_repo.set.assert_not_called()
 
     async def test_invalidate_seat_map_calls_cache_and_publishes(
         self, catalog_service: CatalogService, mock_cache_repo: AsyncMock
