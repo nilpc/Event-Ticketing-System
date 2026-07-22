@@ -40,22 +40,3 @@ async def generate_event_id(
     serial = result.scalar_one()
     return format_event_id(event_type, int(serial))
 
-
-def parse_event_id_prefix(event_id: str) -> tuple[EventType | None, int | None]:
-    """Parse an event ID into (event_type, serial_number).
-
-    Returns (None, None) if the ID doesn't match the expected format.
-    """
-    if len(event_id) < 5:
-        return None, None
-    prefix = event_id[:3]
-    serial_str = event_id[3:]
-    try:
-        serial = int(serial_str)
-    except ValueError:
-        return None, None
-    if prefix == "STE":
-        return EventType.EVENT, serial
-    if prefix == "STM":
-        return EventType.MOVIE, serial
-    return None, None

@@ -19,20 +19,6 @@ class SeatRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def transition_seat_to_pending(self, show_id: UUID, seat_id: str) -> None:
-        """FR-8: Atomically transition seat from AVAILABLE to PENDING_PAYMENT."""
-        result = await self.session.execute(
-            update(Seat)
-            .where(
-                Seat.show_id == show_id,
-                Seat.seat_id == seat_id,
-                Seat.status == SeatStatus.AVAILABLE,
-            )
-            .values(status=SeatStatus.PENDING_PAYMENT)
-        )
-        if result.rowcount == 0:  # type: ignore[attr-defined]
-            raise SeatUnavailableError(f"Seat {seat_id} for show {show_id} is not available.")
-
     async def transition_seats_to_pending(
         self, show_id: UUID, seat_ids: list[str]
     ) -> dict[str, str]:
@@ -54,19 +40,6 @@ class SeatRepository:
             results[seat_id] = "ok" if result.rowcount else "unavailable"  # type: ignore[attr-defined]
         return results
 
-    async def get_seat_price(self, show_id: UUID, seat_id: str) -> Decimal:
-        """FR-10: Read true seat price for server-side amount calculation."""
-        result = await self.session.execute(
-            select(Seat.price).where(
-                Seat.show_id == show_id,
-                Seat.seat_id == seat_id,
-            )
-        )
-        price = result.scalar_one_or_none()
-        if price is None:
-            raise SeatUnavailableError(f"Seat {seat_id} for show {show_id} not found.")
-        return price
-
     async def get_seat_prices(self, show_id: UUID, seat_ids: list[str]) -> dict[str, Decimal]:
         """Bulk: get prices for multiple seats."""
         result = await self.session.execute(
@@ -82,16 +55,6 @@ class SeatRepository:
             raise SeatUnavailableError(f"Seats not found: {', '.join(missing)}")
         return {r.seat_id: r.price for r in rows}
 
-    async def get_seat_tiers(self, show_id: UUID, seat_ids: list[str]) -> dict[str, str]:
-        """Bulk: get tier for multiple seats."""
-        result = await self.session.execute(
-            select(Seat.seat_id, Seat.tier).where(
-                Seat.show_id == show_id,
-                Seat.seat_id.in_(seat_ids),
-            )
-        )
-        return {r.seat_id: r.tier for r in result.all()}
-
     async def verify_seat_available(self, show_id: UUID, seat_id: str) -> None:
         """FR-7: Verify seat exists and is AVAILABLE — used by seat lock Layer 3."""
         result = await self.session.execute(
@@ -105,11 +68,6 @@ class SeatRepository:
             raise SeatUnavailableError(
                 f"Seat {seat_id} for show {show_id} is not available."
             )
-
-    async def verify_seats_available(self, show_id: UUID, seat_ids: list[str]) -> None:
-        """Bulk: verify all seats exist and are AVAILABLE."""
-        for seat_id in seat_ids:
-            await self.verify_seat_available(show_id, seat_id)
 
     async def finalize_sold_seat(self, show_id: UUID, seat_id: str) -> None:
         """FR-8: Transition PENDING_PAYMENT to SOLD after payment confirmation."""
@@ -138,11 +96,6 @@ class SeatRepository:
             )
             .values(status=SeatStatus.AVAILABLE)
         )
-
-    async def revert_seats_to_available(self, show_id: UUID, seat_ids: list[str]) -> None:
-        """Bulk: revert multiple seats to AVAILABLE."""
-        for seat_id in seat_ids:
-            await self.revert_seat_to_available(show_id, seat_id)
 
     async def transition_seat_available(self, show_id: UUID, seat_id: str) -> None:
         """NFR-1: Release a PENDING_PAYMENT seat back to AVAILABLE."""

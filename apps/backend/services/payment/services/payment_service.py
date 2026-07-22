@@ -83,8 +83,9 @@ class PaymentService:
                 )
             raise
 
+        new_intent = None
         try:
-            intent = await self.provider.create_payment_intent(
+            new_intent = await self.provider.create_payment_intent(
                 amount_cents=amount_cents,
                 currency=booking.currency,
                 metadata={
@@ -94,16 +95,25 @@ class PaymentService:
             )
             await self.payment_repo.update_payment_record(
                 payment_id=payment_id,
-                provider_payment_id=intent.id,
+                provider_payment_id=new_intent.id,
                 status=PaymentStatus.REQUIRES_ACTION,
             )
             return PaymentIntentResponse(
                 payment_id=payment_id,
-                client_secret=intent.client_secret or "",
+                client_secret=new_intent.client_secret or "",
                 status=PaymentStatus.REQUIRES_ACTION,
             )
         except Exception:
-            # FR-5: Mark as failed — no orphaned Stripe intents
+            # FR-5: Cancel orphaned Stripe intent, then mark as failed
+            if new_intent is not None:
+                try:
+                    await self.provider.cancel_payment_intent(new_intent.id)
+                except Exception:
+                    logger.warning(
+                        "stripe_orphan_cancel_failed",
+                        intent_id=new_intent.id,
+                        payment_id=str(payment_id),
+                    )
             await self.payment_repo.update_payment_record(
                 payment_id=payment_id,
                 status=PaymentStatus.FAILED,
