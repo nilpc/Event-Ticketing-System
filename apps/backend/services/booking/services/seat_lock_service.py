@@ -56,7 +56,9 @@ class SeatLockService:
         try:
             for seat_id in seat_ids:
                 # Layer 1: User hold limit
-                if not await self.lock_repo.acquire_user_hold(show_id, user_id, HOLD_LIMIT_TTL):
+                if not await self.lock_repo.acquire_user_hold(
+                    show_id, user_id, HOLD_LIMIT_TTL, max_holds=MAX_SEATS_PER_CHECKOUT
+                ):
                     raise BookingConflictError(
                         "You have reached the maximum number of held seats. "
                         "Please complete or release existing holds."

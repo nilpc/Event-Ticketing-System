@@ -146,10 +146,11 @@ export default function CheckoutPage() {
         setStage("booking");
       } catch (err) {
         if (!cancelled) {
-          const axiosErr = err as AxiosError;
+          const axiosErr = err as AxiosError<{ detail?: string }>;
+          const detail = axiosErr.response?.data?.detail;
           const status = axiosErr.response?.status ?? (err as { status?: number }).status;
           if (status === 409) {
-            setError("One or more seats are no longer available.");
+            setError(detail ?? "One or more seats are no longer available.");
           } else {
             setError("Failed to lock seats.");
           }
@@ -251,6 +252,7 @@ export default function CheckoutPage() {
       await confirmApi.mockConfirm(bookingId);
       setStage("complete");
       resetBookingFlow();
+      setTimeout(() => navigate("/account"), 1500);
     } catch (err) {
       const axiosErr = err as AxiosError<{ detail?: string }>;
       const status = axiosErr.response?.status ?? (err as { status?: number }).status;

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Trash2, Key, Film, MapPin, Calendar } from "lucide-react";
 import { toast } from "sonner";
@@ -169,6 +170,7 @@ function Row({ label, sub, onDelete, deleting }: {
 
 function NewShowTab() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [eventMode, setEventMode] = useState<"select" | "new">("select");
   const [selectedEventId, setSelectedEventId] = useState("");
@@ -235,6 +237,7 @@ function NewShowTab() {
       queryClient.invalidateQueries({ queryKey: ["adminEvents"] });
       queryClient.invalidateQueries({ queryKey: ["adminVenues"] });
       queryClient.invalidateQueries({ queryKey: ["adminShowtimes"] });
+      navigate("/");
     },
     onError: (err: { response?: { data?: { detail?: string } } }) => {
       toast.error(err.response?.data?.detail ?? "Failed to create show.");

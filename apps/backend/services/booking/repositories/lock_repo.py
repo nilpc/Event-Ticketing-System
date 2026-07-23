@@ -99,11 +99,13 @@ class LockRepository:
 
     # --- User Hold Limit (FR-7) ---
 
-    async def acquire_user_hold(self, show_id: UUID, user_id: UUID, ttl: int = 600) -> bool:
+    async def acquire_user_hold(
+        self, show_id: UUID, user_id: UUID, ttl: int = 600, max_holds: int = 8
+    ) -> bool:
         """FR-7: Enforce per-user hold limit.
 
         Uses a Redis counter per (show_id, user_id) to track held seats.
-        Returns False if user already holds the max (5 seats).
+        Returns False if user already holds the max (default 8, matches MAX_SEATS_PER_CHECKOUT).
         """
         if self.redis is None:
             raise RedisUnavailableError("Redis unavailable — cannot enforce hold limit.")
@@ -111,7 +113,7 @@ class LockRepository:
         current_count = await self.redis.incr(hold_key)
         if current_count == 1:
             await self.redis.expire(hold_key, ttl)
-        if current_count > 5:
+        if current_count > max_holds:
             await self.redis.decr(hold_key)
             return False
         return True

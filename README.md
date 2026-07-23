@@ -11,8 +11,12 @@ A full-stack event ticketing platform built for flash-sale scenarios. Turborepo 
 - **Virtual waiting room** — Redis-backed queue with token-based admission and crash recovery
 - **JWT auth (RS256)** — Access/refresh token rotation with reuse detection, Google OAuth2; admin users identified by `is_admin` column in DB
 - **Transactional outbox** — `FOR UPDATE SKIP LOCKED` relay for reliable async event publishing
+- **WebSocket live updates** — Real-time seat status broadcasting via Redis Pub/Sub backplane (`FR-7`)
+- **Catalog caching** — Redis cache-aside for venues/events with invalidation via Pub/Sub (`FR-4`)
+- **Rate limiting** — slowapi + Redis distributed rate limits (public/auth/booking tiers) (`NFR-4`)
 - **Observability** — structlog (JSON), Sentry, W3C traceparent, Grafana dashboard
 - **Docker Compose** — Full stack (backend + frontend + Redis) in one command; auto-migration + auto-seed on startup
+- **Kubernetes** — Kustomize manifests for Minikube and production; KEDA autoscalers, PDBs, network policies
 
 ## Monorepo Structure
 
@@ -24,6 +28,9 @@ Event-Ticketing-System/
 ├── turbo.json                # Turborepo task pipeline + caching
 ├── pnpm-workspace.yaml       # Workspace package resolution
 ├── package.json              # Root scripts (dev, build, lint, test, typecheck)
+├── k8s/                   # Kustomize: base + minikube overlay
+│   ├── base/              # Deployments, services, PDBs, KEDA scalers, network policies
+│   └── minikube/          # Ingress, local Postgres/Redis, secrets
 ├── Dockerfile                # Monolithic multi-stage build (nginx + gunicorn)
 ├── supervisord.conf          # Process manager for nginx + backend
 └── docker-compose.yml        # Postgres + Redis + app
@@ -70,6 +77,29 @@ On first boot the entrypoint automatically:
 Services:
 - **App (frontend + API)**: http://localhost
 - **Redis**: localhost:6379
+
+### Kubernetes (Minikube)
+
+One-command local deployment with Kustomize overlays:
+
+```powershell
+.\k8s\deploy-minikube.ps1
+```
+
+The script starts Minikube, builds the Docker image inside the Minikube daemon, applies the `k8s/minikube/` overlay (includes local Postgres, Redis, secrets, ingress), and waits for all pods to be ready.
+
+```bash
+# Get the service URL
+minikube service gateway -n event-ticketing --url
+
+# Useful commands
+kubectl get pods -n event-ticketing
+kubectl logs -f deployment/gateway -n event-ticketing
+kubectl delete -k k8s/minikube/
+minikube stop
+```
+
+Base manifests (`k8s/base/`) include: gateway deployment + service, background worker deployments (sweeper, relay, admitter), migration job, KEDA autoscalers, PodDisruptionBudgets, network policies, and a Grafana dashboard.
 
 ### Database Management
 
@@ -249,6 +279,12 @@ UPDATE identity.users SET is_admin = true WHERE email = 'user@example.com';
 | POST | `/v1/payments/intent` | Create Stripe PaymentIntent |
 | POST | `/v1/book/{id}/mock-confirm` | Demo: confirm all seats in a booking without payment |
 
+### WebSocket
+
+| Endpoint | Description |
+|----------|-------------|
+| `ws://host/ws/showtime/{id}?token={jwt}` | Real-time seat status updates (FR-7) |
+
 ### Admin (JWT + is_admin)
 
 | Method | Endpoint | Description |
@@ -283,6 +319,43 @@ Signup/Login → Join Queue → Admitted → Select Seats → Lock → Book → 
 4. **Book**: Single atomic DB transaction transitions all seats to PENDING, creates one booking with `booking_seats` junction rows, emits outbox event
 5. **Pay**: Stripe PaymentIntent or mock-confirm for demo (pays total across all seats)
 6. **Confirm**: Booking marked CONFIRMED, all seats marked SOLD via junction table
+
+## WebSocket Live Updates (`FR-7`)
+
+Clients connect to `ws://host/ws/showtime/{show_id}?token={jwt}` to receive real-time seat status changes. The server pushes JSON messages:
+
+```json
+{
+  "type": "seat_update",
+  "seat_id": "A1",
+  "status": "SOLD",
+  "locked_by": "user-uuid"
+}
+```
+
+- Single-instance: connections held in memory
+- Multi-instance: Redis Pub/Sub backplane broadcasts across all gateway replicas
+- Dead connections are silently pruned on broadcast
+
+## Rate Limiting (`NFR-4`)
+
+Redis-backed distributed rate limiting via slowapi. Three tiers:
+
+| Tier | Default | Applies to |
+|------|---------|-----------|
+| Public | 60/min | All unauthenticated endpoints |
+| Auth | 10/min | Auth endpoints (signup, login, refresh) |
+| Booking | 5/min | Seat lock, book, payment endpoints |
+
+Custom limits can be set via `RATE_LIMIT_PUBLIC`, `RATE_LIMIT_AUTH`, `RATE_LIMIT_BOOKING` environment variables.
+
+## Catalog Caching (`FR-4`)
+
+Cache-aside pattern for venue and event listings via `CacheRepository`:
+
+- Venues/events cached with 300s TTL
+- Seat map invalidation publishes via Redis Pub/Sub for cross-instance consistency
+- All cache operations are failure-tolerant — Redis outages never break API responses
 
 ## Data Model
 
@@ -321,6 +394,9 @@ A partial unique index (`unique_pending_booking_per_user_show`) prevents users f
 | `SENTRY_DSN` | Sentry error tracking DSN (optional) | — |
 | `LOG_LEVEL` | Logging level | `INFO` |
 | `LOG_FORMAT` | `json` or `console` | `json` |
+| `RATE_LIMIT_PUBLIC` | Public endpoint rate limit | `60/minute` |
+| `RATE_LIMIT_AUTH` | Auth endpoint rate limit | `10/minute` |
+| `RATE_LIMIT_BOOKING` | Booking endpoint rate limit | `5/minute` |
 
 ## Running Tests
 
@@ -373,10 +449,13 @@ All run inside the backend container on startup:
 | Database | PostgreSQL 16 (asyncpg), Redis 7 |
 | Auth | python-jose (RS256), bcrypt, Google OAuth2 |
 | Payments | Stripe SDK (mock-confirm for demo) |
+| Real-time | WebSockets, Redis Pub/Sub |
+| Caching | Redis cache-aside (venues, events, seat maps) |
+| Rate limiting | slowapi (Redis-backed, distributed) |
 | Observability | structlog, Sentry, OpenTelemetry |
 | Testing | pytest, testcontainers, Locust |
 | CI/CD | GitHub Actions (ruff, mypy, eslint, tsc, pytest, Turborepo) |
-| Deploy | Docker Compose (multi-stage builds) |
+| Deploy | Docker Compose, Kubernetes (Kustomize) |
 
 ## CI Checks
 
