@@ -20,14 +20,51 @@ data "aws_iam_policy_document" "eks_node" {
   }
 }
 
-data "aws_iam_policy_document" "lb_controller" {
+data "aws_iam_policy_document" "lb_controller_assume" {
   statement {
     effect = "Allow"
     principals {
-      type        = "Service"
-      identifiers = ["eks.amazonaws.com"]
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.this.arn]
     }
-    actions = ["sts:AssumeRole"]
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:sub"
+      values   = ["system:serviceaccount:kube-system:aws-load-balancer-controller"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "eso_assume" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.this.arn]
+    }
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:sub"
+      values   = ["system:serviceaccount:external-secrets:external-secrets-sa"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "ebs_csi_assume" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.this.arn]
+    }
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:sub"
+      values   = ["system:serviceaccount:kube-system:ebs-csi-controller-sa"]
+    }
   }
 }
 
@@ -121,17 +158,6 @@ resource "aws_iam_role_policy_attachment" "fargate_pod_execution" {
 
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSFargatePodExecutionRolePolicy"
   role       = aws_iam_role.fargate[0].name
-}
-
-data "aws_iam_policy_document" "lb_controller_assume" {
-  statement {
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["eks.amazonaws.com"]
-    }
-    actions = ["sts:AssumeRole"]
-  }
 }
 
 resource "aws_iam_policy" "lb_controller" {
@@ -242,7 +268,7 @@ resource "aws_iam_policy" "eso_ssm" {
 
 resource "aws_iam_role" "eso" {
   name               = "${var.cluster_name}-eso-role"
-  assume_role_policy = data.aws_iam_policy_document.lb_controller_assume.json
+  assume_role_policy = data.aws_iam_policy_document.eso_assume.json
 
   tags = merge(var.tags, {
     Name = "${var.cluster_name}-eso-role"
@@ -252,4 +278,19 @@ resource "aws_iam_role" "eso" {
 resource "aws_iam_role_policy_attachment" "eso_ssm" {
   policy_arn = aws_iam_policy.eso_ssm.arn
   role       = aws_iam_role.eso.name
+}
+
+# ── EBS CSI Driver (IRSA) ─────────────────────────────────────────
+resource "aws_iam_role" "ebs_csi" {
+  name               = "${var.cluster_name}-ebs-csi-role"
+  assume_role_policy = data.aws_iam_policy_document.ebs_csi_assume.json
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-ebs-csi-role"
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.ebs_csi.name
 }

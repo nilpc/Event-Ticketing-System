@@ -103,7 +103,7 @@ variable "on_demand_instance_types" {
 variable "spot_instance_types" {
   description = "Instance types for spot node group (ordered by preference)"
   type        = list(string)
-  default     = ["t3.medium", "t3.large"]
+  default     = ["t3.medium", "t3.large", "m6i.large", "c6i.large"]
 }
 
 variable "domain_name" {

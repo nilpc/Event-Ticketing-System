@@ -23,20 +23,20 @@ resource "aws_db_instance" "this" {
   username = var.db_username
   password = random_password.db.result
 
-  allocated_storage     = var.db_allocated_storage
-  storage_encrypted     = true
+  allocated_storage = var.db_allocated_storage
+  storage_encrypted = true
 
-  multi_az               = false
-  publicly_accessible    = false
-  skip_final_snapshot    = true
-  deletion_protection    = false
+  multi_az            = false
+  publicly_accessible = false
+  skip_final_snapshot = true
+  deletion_protection = false
 
-  db_subnet_group_name = aws_db_subnet_group.this.name
+  db_subnet_group_name   = aws_db_subnet_group.this.name
   vpc_security_group_ids = [aws_security_group.rds.id]
 
   backup_retention_period = 1
-  backup_window          = "03:00-04:00"
-  maintenance_window     = "sun:04:00-sun:06:00"
+  backup_window           = "03:00-04:00"
+  maintenance_window      = "sun:04:00-sun:06:00"
 
   tags = merge(var.tags, {
     Name = "${var.cluster_name}-db"

@@ -8,14 +8,14 @@ resource "aws_cloudwatch_dashboard" "this" {
   dashboard_name = local.cw_dashboard_name
 
   dashboard_body = jsonencode({
-    start = "-PT6H"
+    start          = "-PT6H"
     periodOverride = "auto"
     widgets = [
       # ── Row 1: EKS + NAT ──────────────────────────────────────────
       {
-        type = "metric"
-        x    = 0
-        y    = 0
+        type   = "metric"
+        x      = 0
+        y      = 0
         width  = 6
         height = 6
         properties = {
@@ -30,9 +30,9 @@ resource "aws_cloudwatch_dashboard" "this" {
         }
       },
       {
-        type = "metric"
-        x    = 6
-        y    = 0
+        type   = "metric"
+        x      = 6
+        y      = 0
         width  = 6
         height = 6
         properties = {
@@ -48,9 +48,9 @@ resource "aws_cloudwatch_dashboard" "this" {
       },
       # ── Row 2: ALB ────────────────────────────────────────────────
       {
-        type = "metric"
-        x    = 0
-        y    = 6
+        type   = "metric"
+        x      = 0
+        y      = 6
         width  = 6
         height = 6
         properties = {
@@ -64,9 +64,9 @@ resource "aws_cloudwatch_dashboard" "this" {
         }
       },
       {
-        type = "metric"
-        x    = 6
-        y    = 6
+        type   = "metric"
+        x      = 6
+        y      = 6
         width  = 6
         height = 6
         properties = {
@@ -82,9 +82,9 @@ resource "aws_cloudwatch_dashboard" "this" {
       },
       # ── Row 3: RDS ────────────────────────────────────────────────
       {
-        type = "metric"
-        x    = 0
-        y    = 12
+        type   = "metric"
+        x      = 0
+        y      = 12
         width  = 6
         height = 6
         properties = {
@@ -98,9 +98,9 @@ resource "aws_cloudwatch_dashboard" "this" {
         }
       },
       {
-        type = "metric"
-        x    = 6
-        y    = 12
+        type   = "metric"
+        x      = 6
+        y      = 12
         width  = 6
         height = 6
         properties = {
@@ -116,9 +116,9 @@ resource "aws_cloudwatch_dashboard" "this" {
       },
       # ── Row 4: WAF ────────────────────────────────────────────────
       {
-        type = "metric"
-        x    = 0
-        y    = 18
+        type   = "metric"
+        x      = 0
+        y      = 18
         width  = 6
         height = 6
         properties = {
@@ -134,9 +134,9 @@ resource "aws_cloudwatch_dashboard" "this" {
       },
       # ── Row 5: Cost ──────────────────────────────────────────────
       {
-        type = "metric"
-        x    = 6
-        y    = 18
+        type   = "metric"
+        x      = 6
+        y      = 18
         width  = 6
         height = 6
         properties = {
@@ -145,16 +145,16 @@ resource "aws_cloudwatch_dashboard" "this" {
           metrics = [
             ["AWS/Billing", "EstimatedCharges", { stat = "Maximum", label = "Estimated Charges ($)" }]
           ]
-          region = var.aws_region
-          title  = "Estimated AWS Charges"
+          region               = var.aws_region
+          title                = "Estimated AWS Charges"
           setPeriodToTimeRange = true
         }
       },
       # ── Row 6: Custom text ────────────────────────────────────────
       {
-        type = "text"
-        x    = 0
-        y    = 24
+        type   = "text"
+        x      = 0
+        y      = 24
         width  = 12
         height = 2
         properties = {

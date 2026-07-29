@@ -26,28 +26,28 @@ resource "aws_internet_gateway" "this" {
 
 resource "aws_subnet" "public" {
   count             = length(var.public_subnet_cidrs)
-  vpc_id           = aws_vpc.this.id
-  cidr_block       = var.public_subnet_cidrs[count.index]
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = var.public_subnet_cidrs[count.index]
   availability_zone = local.azs[count.index]
 
   map_public_ip_on_launch = true
 
   tags = merge(var.tags, {
-    Name                              = "${var.cluster_name}-public-${local.azs[count.index]}"
-    "kubernetes.io/role/elb"          = "1"
+    Name                                        = "${var.cluster_name}-public-${local.azs[count.index]}"
+    "kubernetes.io/role/elb"                    = "1"
     "kubernetes.io/cluster/${var.cluster_name}" = "owned"
   })
 }
 
 resource "aws_subnet" "private" {
   count             = length(var.private_subnet_cidrs)
-  vpc_id           = aws_vpc.this.id
-  cidr_block       = var.private_subnet_cidrs[count.index]
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = var.private_subnet_cidrs[count.index]
   availability_zone = local.azs[count.index]
 
   tags = merge(var.tags, {
-    Name                                       = "${var.cluster_name}-private-${local.azs[count.index]}"
-    "kubernetes.io/role/internal-elb"          = "1"
+    Name                                        = "${var.cluster_name}-private-${local.azs[count.index]}"
+    "kubernetes.io/role/internal-elb"           = "1"
     "kubernetes.io/cluster/${var.cluster_name}" = "owned"
   })
 }
@@ -110,8 +110,8 @@ resource "aws_route_table_association" "private" {
 # VPC Gateway Endpoint for S3 — keeps S3 traffic within AWS network,
 # avoids NAT Gateway data processing charges.
 resource "aws_vpc_endpoint" "s3" {
-  vpc_id       = aws_vpc.this.id
-  service_name = "com.amazonaws.${var.aws_region}.s3"
+  vpc_id            = aws_vpc.this.id
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
   vpc_endpoint_type = "Gateway"
 
   route_table_ids = [
