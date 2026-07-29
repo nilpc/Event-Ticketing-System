@@ -19,8 +19,10 @@ class Settings(BaseSettings):
     # --- JWT ---
     JWT_PRIVATE_KEY_PATH: str = "certs/private.pem"
     JWT_PUBLIC_KEY_PATH: str = "certs/public.pem"
+    JWT_PRIVATE_KEY: str = ""
+    JWT_PUBLIC_KEY: str = ""
     JWT_ALGORITHM: str = "RS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 5
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # --- Stripe ---

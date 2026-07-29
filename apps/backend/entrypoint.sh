@@ -1,6 +1,22 @@
 #!/bin/sh
 set -e
 
+echo "==> Writing JWT keys from environment..."
+if [ -n "$JWT_PRIVATE_KEY" ]; then
+    echo "$JWT_PRIVATE_KEY" > certs/private.pem
+    chmod 600 certs/private.pem
+    echo "    Written private key from JWT_PRIVATE_KEY env var"
+fi
+if [ -n "$JWT_PUBLIC_KEY" ]; then
+    echo "$JWT_PUBLIC_KEY" > certs/public.pem
+    echo "    Written public key from JWT_PUBLIC_KEY env var"
+fi
+if [ ! -f certs/private.pem ] || [ ! -f certs/public.pem ]; then
+    echo "    WARN: No JWT keys found — generating ephemeral keys (dev mode)"
+    openssl genrsa -out certs/private.pem 2048 2>/dev/null
+    openssl rsa -in certs/private.pem -pubout -out certs/public.pem 2>/dev/null
+fi
+
 echo "==> Checking database..."
 python -c "
 import os, asyncio

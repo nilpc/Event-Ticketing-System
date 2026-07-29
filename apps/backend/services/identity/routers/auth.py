@@ -126,7 +126,7 @@ async def google_callback(
     session: AsyncSession = Depends(get_db_session),
 ) -> LoginResponse:
     """FR-2: Handle Google OAuth2 callback, issue tokens."""
-    from urllib.parse import urlparse, urlunparse
+    from core.config.settings import settings as app_settings
 
     # C2: Validate OAuth CSRF state (one-time use, stored in Redis)
     try:
@@ -140,8 +140,7 @@ async def google_callback(
         # Redis unavailable — skip CSRF validation (degraded mode)
         logger.warning("oauth_state_validate_failed", reason="Redis unavailable")
 
-    parsed = urlparse(str(request.url))
-    redirect_uri = urlunparse(parsed._replace(query="", fragment=""))
+    redirect_uri = f"{app_settings.CLIENT_ORIGIN}/auth/callback"
     svc = OAuthService(session)
     try:
         return await svc.handle_callback(code, redirect_uri)

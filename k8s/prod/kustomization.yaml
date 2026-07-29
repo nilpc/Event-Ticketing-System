@@ -1,0 +1,121 @@
+# Phase 7: Production overlay for EKS — extends k8s/base with cloud-native add-ons.
+# Apply: kubectl apply -k k8s/prod/
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: event-ticketing
+
+resources:
+  # Everything from base
+  - ../base
+
+  # Production-specific resources
+  - ingress.yaml
+
+images:
+  - name: event-ticketing
+    newName: ghcr.io/nilpc/event-ticketing-system
+    newTag: main
+
+patches:
+  # ── Delete resources not needed in EKS ──
+  - patch: |-
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: event-ticketing-secrets
+        namespace: event-ticketing
+      $patch: delete
+  - patch: |-
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: migrate
+        namespace: event-ticketing
+      $patch: delete
+
+  # ── Gateway: spot tolerations + node selector ──
+  - target:
+      kind: Deployment
+      name: gateway
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          node-type: spot
+      - op: add
+        path: /spec/template/spec/tolerations
+        value:
+          - key: spot
+            operator: Equal
+            value: "true"
+            effect: NoSchedule
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Always
+
+  # ── Sweeper: spot tolerations ──
+  - target:
+      kind: Deployment
+      name: sweeper
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          node-type: spot
+      - op: add
+        path: /spec/template/spec/tolerations
+        value:
+          - key: spot
+            operator: Equal
+            value: "true"
+            effect: NoSchedule
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Always
+
+  # ── Relay: spot tolerations ──
+  - target:
+      kind: Deployment
+      name: relay
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          node-type: spot
+      - op: add
+        path: /spec/template/spec/tolerations
+        value:
+          - key: spot
+            operator: Equal
+            value: "true"
+            effect: NoSchedule
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Always
+
+  # ── Admitter: spot tolerations ──
+  - target:
+      kind: Deployment
+      name: admitter
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          node-type: spot
+      - op: add
+        path: /spec/template/spec/tolerations
+        value:
+          - key: spot
+            operator: Equal
+            value: "true"
+            effect: NoSchedule
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Always
+
+  # ── Migration Job is handled by Helm pre-upgrade hook; delete base version ──
+  # Migration is run via ArgoCD sync-hook or manually.

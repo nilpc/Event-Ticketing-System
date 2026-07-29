@@ -12,7 +12,10 @@ foreach ($cmd in @("minikube", "kubectl", "docker")) {
 }
 
 Write-Host "==> Starting Minikube..." -ForegroundColor Cyan
-minikube start --cpus 2 --memory 4096 --driver docker 2>$null
+minikube start --cpus 2 --memory 3072 --driver docker 2>$null
+
+Write-Host "==> Enabling NGINX Ingress Controller..." -ForegroundColor Cyan
+minikube addons enable ingress 2>$null
 
 Write-Host "==> Pointing Docker CLI to Minikube daemon..." -ForegroundColor Cyan
 minikube docker --shell powershell | Invoke-Expression

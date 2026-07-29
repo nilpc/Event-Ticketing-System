@@ -17,4 +17,4 @@ resources:
   - migration-job.yaml
   - keda-gateway-scaler.yaml
   - keda-queue-scaler.yaml
-  - grafana/configmap.yaml
+  # - grafana/configmap.yaml

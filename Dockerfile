@@ -60,12 +60,8 @@ COPY apps/backend/seed.py ./
 COPY apps/backend/entrypoint.sh ./
 RUN chmod +x entrypoint.sh && sed -i 's/\r$//' entrypoint.sh
 
-# RSA certs (auto-generate if missing)
-RUN mkdir -p certs && \
-    if [ ! -f certs/private.pem ]; then \
-        openssl genrsa -out certs/private.pem 2048 2>/dev/null && \
-        openssl rsa -in certs/private.pem -pubout -out certs/public.pem 2>/dev/null; \
-    fi
+# RSA certs directory (keys injected at runtime via JWT_PRIVATE_KEY/JWT_PUBLIC_KEY env vars)
+RUN mkdir -p certs && chown app:app certs
 
 # Frontend static files
 COPY --from=frontend-builder /app/apps/web/dist /usr/share/nginx/html

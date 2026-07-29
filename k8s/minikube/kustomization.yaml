@@ -54,13 +54,6 @@ patches:
         namespace: event-ticketing
       $patch: delete
   - patch: |-
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: grafana-dashboard-event-ticketing
-        namespace: monitoring
-      $patch: delete
-  - patch: |-
       apiVersion: batch/v1
       kind: Job
       metadata:
