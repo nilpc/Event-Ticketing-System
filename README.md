@@ -28,9 +28,12 @@ Event-Ticketing-System/
 ├── turbo.json                # Turborepo task pipeline + caching
 ├── pnpm-workspace.yaml       # Workspace package resolution
 ├── package.json              # Root scripts (dev, build, lint, test, typecheck)
-├── k8s/                   # Kustomize: base + minikube overlay
+├── k8s/                   # Kustomize: base + minikube + prod overlays
 │   ├── base/              # Deployments, services, PDBs, KEDA scalers, network policies
-│   └── minikube/          # Ingress, local Postgres/Redis, secrets
+│   ├── minikube/          # Ingress, local Postgres/Redis, secrets
+│   └── prod/              # ALB ingress, External Secrets, GHCR image patch
+├── infra/terraform/       # AWS EKS infrastructure (VPC, EKS, RDS, IAM, CloudWatch)
+├── scripts/               # Bootstrap (init.ps1) and deploy (deploy.ps1) scripts
 ├── Dockerfile                # Monolithic multi-stage build (nginx + gunicorn)
 ├── supervisord.conf          # Process manager for nginx + backend
 └── docker-compose.yml        # Postgres + Redis + app
@@ -99,7 +102,32 @@ kubectl delete -k k8s/minikube/
 minikube stop
 ```
 
-Base manifests (`k8s/base/`) include: gateway deployment + service, background worker deployments (sweeper, relay, admitter), migration job, KEDA autoscalers, PodDisruptionBudgets, network policies, and a Grafana dashboard.
+Base manifests (`k8s/base/`) include: gateway deployment + service, background worker deployments (sweeper, relay, admitter), migration job, KEDA autoscalers, PodDisruptionBudgets, and network policies.
+
+### AWS EKS (Production)
+
+Provision the cluster with Terraform, then bootstrap and deploy:
+
+```bash
+# 1. Provision AWS infrastructure (VPC, EKS 1.30, RDS, IAM, CloudWatch)
+cd infra/terraform
+terraform apply
+
+# 2. Bootstrap the cluster — Helm charts (ALB Controller, KEDA, ESO, Redis, ArgoCD),
+#    writes secrets to SSM Parameter Store
+.\scripts\init.ps1 `
+    -LbControllerRoleArn "<from terraform output>" `
+    -EsoRoleArn "<from terraform output>" `
+    -RdsEndpoint "<from terraform output>"
+
+# 3. Build Docker image, push to GHCR, and apply prod overlay
+.\scripts\deploy.ps1
+
+# 4. Get the ALB URL
+kubectl -n event-ticketing get ingress/gateway
+```
+
+Cost-optimized for portfolio: single-AZ RDS db.t4g.micro (~$15/mo), spot instances (t3.medium) for app pods, single NAT Gateway (~$32/mo), self-hosted Redis via Bitnami Helm ($0), no WAF, no Prometheus/Grafana. Monthly budget alarm at $150. Destroy with `terraform destroy` when not in use.
 
 ### Database Management
 
@@ -455,7 +483,7 @@ All run inside the backend container on startup:
 | Observability | structlog, Sentry, OpenTelemetry |
 | Testing | pytest, testcontainers, Locust |
 | CI/CD | GitHub Actions (ruff, mypy, eslint, tsc, pytest, Turborepo) |
-| Deploy | Docker Compose, Kubernetes (Kustomize) |
+| Deploy | Docker Compose, Kubernetes (Kustomize), Terraform (EKS) |
 
 ## CI Checks
 
