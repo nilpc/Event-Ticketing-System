@@ -32,7 +32,7 @@ spec:
 
       containers:
         - name: relay
-          image: event-ticketing:latest
+          image: event-ticketing-api:latest
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "services.workers", "relay"]
           resources:

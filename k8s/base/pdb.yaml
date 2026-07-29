@@ -2,7 +2,7 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: gateway-pdb
+  name: gateway-api-pdb
   namespace: event-ticketing
   labels:
     app.kubernetes.io/name: gateway
@@ -11,4 +11,4 @@ spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: gateway
+      app.kubernetes.io/name: gateway-api

@@ -64,13 +64,20 @@ patches:
   # ── Scale down for local dev ──
   - target:
       kind: Deployment
-      name: gateway
+      name: gateway-api
     patch: |-
       - op: replace
         path: /spec/replicas
         value: 1
       - op: remove
         path: /spec/template/spec/initContainers
+  - target:
+      kind: Deployment
+      name: gateway-web
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
   - target:
       kind: Deployment
       name: relay

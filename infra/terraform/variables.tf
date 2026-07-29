@@ -103,7 +103,7 @@ variable "on_demand_instance_types" {
 variable "spot_instance_types" {
   description = "Instance types for spot node group (ordered by preference)"
   type        = list(string)
-  default     = ["t3.medium", "t3.large", "t4g.medium", "t4g.large"]
+  default     = ["t3.medium", "t3.large"]
 }
 
 variable "domain_name" {
@@ -123,6 +123,12 @@ variable "redis_password" {
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "waf_action" {
+  description = "WAF default rule action: 'count' (observe only) or 'block' (enforce). Start with 'count', switch to 'block' after validating in CloudWatch."
+  type        = string
+  default     = "count"
 }
 
 variable "tags" {

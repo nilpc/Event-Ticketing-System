@@ -27,7 +27,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: migrate
-          image: event-ticketing:latest
+          image: event-ticketing-api:latest
           imagePullPolicy: IfNotPresent
           command: ["alembic", "upgrade", "head"]
           resources:

@@ -1,13 +1,19 @@
 # S3 bucket for Terraform state storage.
+resource "random_string" "suffix" {
+  length  = 6
+  special = false
+  upper   = false
+}
+
 resource "aws_s3_bucket" "tfstate" {
-  bucket = "${var.cluster_name}-tfstate"
+  bucket = "${var.cluster_name}-tfstate-${random_string.suffix.result}"
 
   lifecycle {
     prevent_destroy = true
   }
 
   tags = merge(var.tags, {
-    Name = "${var.cluster_name}-tfstate"
+    Name = "${var.cluster_name}-tfstate-${random_string.suffix.result}"
   })
 }
 

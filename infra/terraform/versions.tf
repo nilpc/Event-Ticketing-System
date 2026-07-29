@@ -14,10 +14,10 @@ terraform {
   # Migrate from local to S3 after first apply:
   #   terraform init -migrate-state -backend-config="bucket=$(terraform output -raw tfstate_bucket)" -backend-config="dynamodb_table=$(terraform output -raw tfstate_lock_table)"
   # backend "s3" {
-  #   bucket         = "event-ticketing-tfstate"
+  #   bucket         = aws_s3_bucket.tfstate.id  # dynamic — use output
   #   key            = "terraform.tfstate"
-  #   region         = "us-east-1"
-  #   dynamodb_table = "event-ticketing-tfstate-lock"
+  #   region         = var.aws_region
+  #   dynamodb_table = aws_dynamodb_table.tfstate_lock.name
   #   encrypt        = true
   # }
 }

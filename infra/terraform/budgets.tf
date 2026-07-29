@@ -3,7 +3,7 @@ resource "aws_budgets_budget" "monthly" {
   budget_type  = "COST"
   limit_amount = "150"
   time_unit    = "MONTHLY"
-  time_period_start = "2025-01-01_00:00"
+  time_period_start = "2026-07-01_00:00"
 
   notification {
     comparison_operator = "GREATER_THAN"
@@ -29,7 +29,7 @@ resource "aws_budgets_budget" "forecast" {
   budget_type  = "COST"
   limit_amount = "150"
   time_unit    = "MONTHLY"
-  time_period_start = "2025-01-01_00:00"
+  time_period_start = "2026-07-01_00:00"
 
   notification {
     comparison_operator = "GREATER_THAN"

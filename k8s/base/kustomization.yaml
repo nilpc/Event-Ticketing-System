@@ -8,7 +8,9 @@ namespace: event-ticketing
 resources:
   - namespace.yaml
   - network-policies.yaml
-  - gateway-deployment.yaml
+  - gateway-api-deployment.yaml
+  - gateway-api-service.yaml
+  - gateway-web-deployment.yaml
   - gateway-service.yaml
   - pdb.yaml
   - sweeper-deployment.yaml

@@ -1,17 +1,17 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: gateway
+  name: gateway-api
   namespace: event-ticketing
   labels:
-    app.kubernetes.io/name: gateway
+    app.kubernetes.io/name: gateway-api
     app.kubernetes.io/part-of: event-ticketing
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: gateway-web
+    app.kubernetes.io/name: gateway-api
   ports:
     - name: http
-      port: 80
+      port: 8000
       targetPort: http
       protocol: TCP

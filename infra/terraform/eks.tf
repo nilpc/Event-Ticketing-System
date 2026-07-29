@@ -35,7 +35,7 @@ resource "aws_eks_addon" "coredns" {
 resource "aws_eks_addon" "kube_proxy" {
   cluster_name  = aws_eks_cluster.this.name
   addon_name   = "kube-proxy"
-  addon_version = "v1.30.3-eksbuild.3"
+  addon_version = "v1.30.14-eksbuild.42"
 
   depends_on = [aws_eks_cluster.this]
 }
@@ -86,6 +86,7 @@ resource "aws_eks_node_group" "spot" {
 
   instance_types = var.spot_instance_types
   capacity_type  = "SPOT"
+  ami_type       = "AL2023_x86_64_STANDARD"
 
   scaling_config {
     desired_size = var.spot_desired_size

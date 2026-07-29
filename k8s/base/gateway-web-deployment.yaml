@@ -1,24 +1,28 @@
-# NFR-3: Queue Admitter Deployment — admits users from Redis sorted sets.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: admitter
+  name: gateway-web
   namespace: event-ticketing
   labels:
-    app.kubernetes.io/name: admitter
+    app.kubernetes.io/name: gateway-web
     app.kubernetes.io/part-of: event-ticketing
-    app.kubernetes.io/component: worker
+    app.kubernetes.io/component: web
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app.kubernetes.io/name: admitter
+      app.kubernetes.io/name: gateway-web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: admitter
+        app.kubernetes.io/name: gateway-web
         app.kubernetes.io/part-of: event-ticketing
-        app.kubernetes.io/component: worker
+        app.kubernetes.io/component: web
     spec:
       affinity:
         podAntiAffinity:
@@ -27,33 +31,31 @@ spec:
               podAffinityTerm:
                 labelSelector:
                   matchLabels:
-                    app.kubernetes.io/name: admitter
+                    app.kubernetes.io/name: gateway-web
                 topologyKey: kubernetes.io/hostname
 
       containers:
-        - name: admitter
-          image: event-ticketing-api:latest
+        - name: web
+          image: event-ticketing-web:latest
           imagePullPolicy: IfNotPresent
-          command: ["python", "-m", "services.workers", "admitter"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
           resources:
             requests:
               cpu: 50m
-              memory: 64Mi
+              memory: 32Mi
             limits:
               cpu: 200m
-              memory: 128Mi
+              memory: 64Mi
 
           livenessProbe:
-            exec:
-              command:
-                - python
-                - -c
-                - "import os; os.kill(1, 0)"
+            httpGet:
+              path: /health
+              port: http
             initialDelaySeconds: 10
-            periodSeconds: 30
+            periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 3
-
-          envFrom:
-            - secretRef:
-                name: event-ticketing-secrets

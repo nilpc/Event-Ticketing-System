@@ -25,7 +25,49 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .
 
-# ── Stage 3: Production image ───────────────────────────────────
+# ── Stage 3: API image (Python-only, no nginx) ──────────────────
+FROM python:3.11-slim AS api
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libpq5 \
+        libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=backend-builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH="/app"
+
+RUN groupadd -r app && useradd -r -g app -d /app -s /sbin/nologin app
+
+WORKDIR /app
+
+COPY apps/backend/core/ ./core/
+COPY apps/backend/services/ ./services/
+COPY apps/backend/migrations/ ./migrations/
+COPY apps/backend/alembic.ini ./
+COPY apps/backend/seed.py ./
+COPY apps/backend/entrypoint.sh ./
+RUN chmod +x entrypoint.sh && sed -i 's/\r$//' entrypoint.sh
+
+RUN mkdir -p certs && chown app:app certs && \
+    chown -R app:app /app
+
+EXPOSE 8000
+
+CMD ["/app/entrypoint.sh"]
+
+# ── Stage 4: Web image (nginx + React SPA) ──────────────────────
+FROM nginx:alpine AS web
+
+COPY --from=frontend-builder /app/apps/web/dist /usr/share/nginx/html
+COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 8080
+
+# ── Stage 5: Monolith (legacy — kept for backward compat) ──────
 FROM python:3.11-slim AS production
 
 RUN apt-get update && \
@@ -36,22 +78,18 @@ RUN apt-get update && \
         libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Remove Debian default site (conflicts with our conf.d/default.conf)
 RUN rm -f /etc/nginx/sites-enabled/default
 
-# Python venv from builder
 COPY --from=backend-builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH="/app"
 
-# Non-root user
 RUN groupadd -r app && useradd -r -g app -d /app -s /sbin/nologin app
 
 WORKDIR /app
 
-# Backend code
 COPY apps/backend/core/ ./core/
 COPY apps/backend/services/ ./services/
 COPY apps/backend/migrations/ ./migrations/
@@ -60,13 +98,10 @@ COPY apps/backend/seed.py ./
 COPY apps/backend/entrypoint.sh ./
 RUN chmod +x entrypoint.sh && sed -i 's/\r$//' entrypoint.sh
 
-# RSA certs directory (keys injected at runtime via JWT_PRIVATE_KEY/JWT_PUBLIC_KEY env vars)
 RUN mkdir -p certs && chown app:app certs
 
-# Frontend static files
 COPY --from=frontend-builder /app/apps/web/dist /usr/share/nginx/html
 
-# Config files
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 

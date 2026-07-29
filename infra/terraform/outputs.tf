@@ -76,6 +76,11 @@ output "tfstate_lock_table" {
   value       = aws_dynamodb_table.tfstate_lock.id
 }
 
+output "waf_acl_arn" {
+  description = "WAFv2 Web ACL ARN (for ALB ingress annotation)"
+  value       = aws_wafv2_web_acl.this.arn
+}
+
 output "lb_controller_role_arn" {
   description = "IAM role ARN for AWS Load Balancer Controller (for IRSA)"
   value       = aws_iam_role.lb_controller.arn

@@ -1,6 +1,3 @@
-# Minikube deploy script
-# Usage: .\k8s\deploy-minikube.ps1
-
 $ErrorActionPreference = "Stop"
 
 Write-Host "==> Checking prerequisites..." -ForegroundColor Cyan
@@ -18,10 +15,11 @@ Write-Host "==> Enabling NGINX Ingress Controller..." -ForegroundColor Cyan
 minikube addons enable ingress 2>$null
 
 Write-Host "==> Pointing Docker CLI to Minikube daemon..." -ForegroundColor Cyan
-minikube docker --shell powershell | Invoke-Expression
+& minikube -p minikube docker-env --shell powershell | Invoke-Expression
 
-Write-Host "==> Building Docker image inside Minikube..." -ForegroundColor Cyan
-docker build -t event-ticketing:latest .
+Write-Host "==> Building Docker images inside Minikube..." -ForegroundColor Cyan
+docker build -t event-ticketing-api:latest --target api .
+docker build -t event-ticketing-web:latest --target web .
 
 Write-Host "==> Deploying to Minikube..." -ForegroundColor Cyan
 kubectl apply -k k8s/minikube/
@@ -35,8 +33,9 @@ kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=redis -n event-
 Write-Host "==> Waiting for migration job to complete..." -ForegroundColor Cyan
 kubectl wait --for=condition=complete job/migrate-setup -n event-ticketing --timeout=120s
 
-Write-Host "==> Waiting for gateway pods..." -ForegroundColor Cyan
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=gateway -n event-ticketing --timeout=120s
+Write-Host "==> Waiting for pods..." -ForegroundColor Cyan
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=gateway-api -n event-ticketing --timeout=120s
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=gateway-web -n event-ticketing --timeout=120s
 
 Write-Host "==> Deployment complete!" -ForegroundColor Green
 Write-Host ""
@@ -45,6 +44,7 @@ minikube service gateway -n event-ticketing --url
 Write-Host ""
 Write-Host "Useful commands:" -ForegroundColor Yellow
 Write-Host "  kubectl get pods -n event-ticketing"
-Write-Host "  kubectl logs -f deployment/gateway -n event-ticketing"
+Write-Host "  kubectl logs -f deployment/gateway-api -n event-ticketing"
+Write-Host "  kubectl logs -f deployment/gateway-web -n event-ticketing"
 Write-Host "  kubectl delete -k k8s/minikube/"
 Write-Host "  minikube stop"

@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/part-of: event-ticketing
 spec:
   scaleTargetRef:
-    name: gateway
+    name: gateway-api
   minReplicaCount: 2
   maxReplicaCount: 10
   pollingInterval: 15
