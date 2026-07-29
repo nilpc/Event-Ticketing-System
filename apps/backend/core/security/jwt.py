@@ -30,7 +30,10 @@ def _get_private_key() -> str:
     if _private_key is None:
         val = _load_key(settings.JWT_PRIVATE_KEY_PATH, settings.JWT_PRIVATE_KEY)
         if val is None:
-            msg = "No JWT private key found — set JWT_PRIVATE_KEY env var or provide certs/private.pem"
+            msg = (
+                "No JWT private key found — set JWT_PRIVATE_KEY env var"
+                " or provide certs/private.pem"
+            )
             raise RuntimeError(msg)
         _private_key = val
     return _private_key
