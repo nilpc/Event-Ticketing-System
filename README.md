@@ -127,7 +127,7 @@ terraform apply
 kubectl -n event-ticketing get ingress/gateway
 ```
 
-Cost-optimized for portfolio: single-AZ RDS db.t4g.micro (10GB, ~$13/mo), 1× on-demand t3.small for infra pods (~$15/mo), 1× spot t3.medium for app pods (~$9/mo), single NAT Gateway (~$33/mo), self-hosted Redis via Bitnami Helm ($0), no WAF, no Prometheus/Grafana. Monthly budget alarm at $150 (~$5.50/day). Destroy with `terraform destroy` when not in use.
+Cost-optimized: single-AZ RDS db.t4g.micro (10GB, ~$13/mo), 1× on-demand t3.small for infra pods (~$15/mo), 1× spot t3.medium for app pods (~$9/mo), single NAT Gateway (~$33/mo), self-hosted Redis via Bitnami Helm ($0), no WAF, no Prometheus/Grafana. Monthly budget alarm at $150 (~$5.50/day). Destroy with `terraform destroy` when not in use.
 
 ### Database Management
 
