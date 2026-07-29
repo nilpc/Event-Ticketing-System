@@ -106,3 +106,20 @@ resource "aws_route_table_association" "private" {
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private.id
 }
+
+# VPC Gateway Endpoint for S3 — keeps S3 traffic within AWS network,
+# avoids NAT Gateway data processing charges.
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id       = aws_vpc.this.id
+  service_name = "com.amazonaws.${var.aws_region}.s3"
+  vpc_endpoint_type = "Gateway"
+
+  route_table_ids = [
+    aws_route_table.private.id,
+    aws_route_table.public.id,
+  ]
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-s3-gateway-endpoint"
+  })
+}

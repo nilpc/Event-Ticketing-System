@@ -112,6 +112,12 @@ variable "domain_name" {
   default     = ""
 }
 
+variable "fargate_enabled" {
+  description = "Enable Fargate profile for event-ticketing namespace (zero node management)"
+  type        = bool
+  default     = false
+}
+
 variable "redis_password" {
   description = "Password for self-hosted Redis. Auto-generated if empty."
   type        = string

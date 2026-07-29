@@ -94,6 +94,35 @@ resource "aws_iam_role_policy_attachment" "node_ssm" {
   role       = aws_iam_role.node.name
 }
 
+data "aws_iam_policy_document" "fargate_pod_execution" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["eks-fargate-pods.amazonaws.com"]
+    }
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+resource "aws_iam_role" "fargate" {
+  count = var.fargate_enabled ? 1 : 0
+
+  name               = "${var.cluster_name}-fargate-execution-role"
+  assume_role_policy = data.aws_iam_policy_document.fargate_pod_execution.json
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-fargate-execution-role"
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "fargate_pod_execution" {
+  count = var.fargate_enabled ? 1 : 0
+
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSFargatePodExecutionRolePolicy"
+  role       = aws_iam_role.fargate[0].name
+}
+
 data "aws_iam_policy_document" "lb_controller_assume" {
   statement {
     effect = "Allow"

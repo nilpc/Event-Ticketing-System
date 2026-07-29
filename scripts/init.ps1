@@ -21,6 +21,12 @@
     RDS master username (from Terraform output)
 .PARAMETER DbPassword
     RDS master password (from Terraform output)
+.PARAMETER CorsOrigins
+    Comma-separated CORS origins (default: *, override for production)
+.PARAMETER ClientOrigin
+    Frontend URL for redirects (default: *, override for production)
+.PARAMETER AutoDetect
+    Read LbControllerRoleArn, EsoRoleArn, and RdsEndpoint from `terraform output`
 #>
 
 param(
@@ -30,8 +36,35 @@ param(
     [string]$EsoRoleArn = "",
     [string]$RdsEndpoint = "",
     [string]$DbUsername = "etadmin",
-    [string]$DbPassword = ""
+    [string]$DbPassword = "",
+    [string]$CorsOrigins = "*",
+    [string]$ClientOrigin = "*",
+    [switch]$AutoDetect
 )
+
+# ═══════════════════════════════════════════════════════════════════════
+# Step 0: Auto-detect Terraform outputs
+# ═══════════════════════════════════════════════════════════════════════
+if ($AutoDetect) {
+    Write-Host "=== Auto-detecting Terraform outputs ===" -ForegroundColor Cyan
+    $tfDir = Resolve-Path "$PSScriptRoot/../infra/terraform"
+    Push-Location $tfDir
+
+    if ($LbControllerRoleArn -eq "") {
+        $LbControllerRoleArn = terraform output -raw lb_controller_role_arn 2>$null
+        Write-Host "  LbControllerRoleArn: $LbControllerRoleArn" -ForegroundColor Green
+    }
+    if ($EsoRoleArn -eq "") {
+        $EsoRoleArn = terraform output -raw eso_role_arn 2>$null
+        Write-Host "  EsoRoleArn: $EsoRoleArn" -ForegroundColor Green
+    }
+    if ($RdsEndpoint -eq "") {
+        $RdsEndpoint = terraform output -raw rds_endpoint 2>$null
+        Write-Host "  RdsEndpoint: $RdsEndpoint" -ForegroundColor Green
+    }
+
+    Pop-Location
+}
 
 # ═══════════════════════════════════════════════════════════════════════
 # Step 1: Configure kubectl
@@ -173,24 +206,16 @@ if ($RdsEndpoint -ne "") {
 $redisUrl = "redis://:${redisPassword}@redis-master.event-ticketing.svc.cluster.local:6379/0"
 Write-SsmParam -Name "/event-ticketing/REDIS_URL" -Value $redisUrl
 
-# CORS
-Write-SsmParam -Name "/event-ticketing/CORS_ORIGINS" -Value (Read-Host "Enter CORS_ORIGINS (e.g. http://my-domain.com)")
-Write-SsmParam -Name "/event-ticketing/CLIENT_ORIGIN" -Value (Read-Host "Enter CLIENT_ORIGIN (same as above)")
+# CORS — default to wide open for demo; override via -CorsOrigins/-ClientOrigin
+Write-SsmParam -Name "/event-ticketing/CORS_ORIGINS" -Value $CorsOrigins
+Write-SsmParam -Name "/event-ticketing/CLIENT_ORIGIN" -Value $ClientOrigin
 
 # Logging
 Write-SsmParam -Name "/event-ticketing/LOG_LEVEL" -Value "INFO"
 Write-SsmParam -Name "/event-ticketing/LOG_FORMAT" -Value "json"
 
-# Stripe (optional)
-Write-SsmParam -Name "/event-ticketing/STRIPE_SECRET_KEY" -Value (Read-Host "Enter STRIPE_SECRET_KEY (or leave blank)")
-Write-SsmParam -Name "/event-ticketing/STRIPE_WEBHOOK_SECRET" -Value (Read-Host "Enter STRIPE_WEBHOOK_SECRET (or leave blank)")
-
-# Google OAuth2 (optional)
-Write-SsmParam -Name "/event-ticketing/GOOGLE_CLIENT_ID" -Value (Read-Host "Enter GOOGLE_CLIENT_ID (or leave blank)")
-Write-SsmParam -Name "/event-ticketing/GOOGLE_CLIENT_SECRET" -Value (Read-Host "Enter GOOGLE_CLIENT_SECRET (or leave blank)")
-
-# Sentry (optional)
-Write-SsmParam -Name "/event-ticketing/SENTRY_DSN" -Value (Read-Host "Enter SENTRY_DSN (or leave blank)")
+# Stripe, Google OAuth2, Sentry — optional, not prompted interactively.
+# Set via the SSM Parameter Store after bootstrap if needed.
 
 # JWT keys (generate if not exist)
 $jwtDir = Join-Path $PSScriptRoot ".." "certs"

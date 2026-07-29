@@ -66,6 +66,16 @@ output "spot_node_group_name" {
   value       = aws_eks_node_group.spot.node_group_name
 }
 
+output "tfstate_bucket" {
+  description = "S3 bucket name for Terraform state"
+  value       = aws_s3_bucket.tfstate.id
+}
+
+output "tfstate_lock_table" {
+  description = "DynamoDB table name for Terraform state locking"
+  value       = aws_dynamodb_table.tfstate_lock.id
+}
+
 output "lb_controller_role_arn" {
   description = "IAM role ARN for AWS Load Balancer Controller (for IRSA)"
   value       = aws_iam_role.lb_controller.arn

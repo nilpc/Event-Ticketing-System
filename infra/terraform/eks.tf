@@ -108,3 +108,25 @@ resource "aws_eks_node_group" "spot" {
 
   depends_on = [aws_eks_cluster.this]
 }
+
+# Fargate profile for the event-ticketing namespace.
+# Use Fargate when you want zero node management for control-plane pods.
+# Not enabled by default to keep costs minimal — toggle var.fargate_enabled.
+resource "aws_eks_fargate_profile" "this" {
+  count = var.fargate_enabled ? 1 : 0
+
+  cluster_name           = aws_eks_cluster.this.name
+  fargate_profile_name   = "${var.cluster_name}-fargate"
+  pod_execution_role_arn = aws_iam_role.fargate[0].arn
+  subnet_ids             = aws_subnet.private[*].id
+
+  selector {
+    namespace = "event-ticketing"
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-fargate"
+  })
+
+  depends_on = [aws_eks_cluster.this]
+}
