@@ -6,23 +6,17 @@ namespace: event-ticketing
 resources:
   - ../base
   - ingress.yaml
+  - external-secret.yaml
 
 images:
   - name: event-ticketing-api
-    newName: ghcr.io/nilpc/event-ticketing-api
+    newName: 078682762568.dkr.ecr.us-east-1.amazonaws.com/event-ticketing-api
     newTag: main
   - name: event-ticketing-web
-    newName: ghcr.io/nilpc/event-ticketing-web
+    newName: 078682762568.dkr.ecr.us-east-1.amazonaws.com/event-ticketing-web
     newTag: main
 
 patches:
-  - patch: |-
-      apiVersion: v1
-      kind: Secret
-      metadata:
-        name: event-ticketing-secrets
-        namespace: event-ticketing
-      $patch: delete
   - patch: |-
       apiVersion: batch/v1
       kind: Job
