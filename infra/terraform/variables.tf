@@ -58,10 +58,16 @@ variable "eks_version" {
   default     = "1.30"
 }
 
+variable "on_demand_instance_types" {
+  description = "Instance types for on-demand node group"
+  type        = list(string)
+  default     = ["t3.medium", "t3.small"]
+}
+
 variable "on_demand_min_size" {
-  description = "Minimum size of on-demand node group (infra pods)"
+  description = "Minimum size of on-demand node group"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "on_demand_max_size" {
@@ -74,36 +80,6 @@ variable "on_demand_desired_size" {
   description = "Desired size of on-demand node group"
   type        = number
   default     = 2
-}
-
-variable "spot_min_size" {
-  description = "Minimum size of spot node group (application pods)"
-  type        = number
-  default     = 0
-}
-
-variable "spot_max_size" {
-  description = "Maximum size of spot node group"
-  type        = number
-  default     = 10
-}
-
-variable "spot_desired_size" {
-  description = "Desired size of spot node group"
-  type        = number
-  default     = 2
-}
-
-variable "on_demand_instance_types" {
-  description = "Instance types for on-demand node group"
-  type        = list(string)
-  default     = ["t3.small"]
-}
-
-variable "spot_instance_types" {
-  description = "Instance types for spot node group (ordered by preference)"
-  type        = list(string)
-  default     = ["t3.medium", "t3.large", "m6i.large", "c6i.large"]
 }
 
 variable "domain_name" {

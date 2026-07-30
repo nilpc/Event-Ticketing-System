@@ -56,14 +56,9 @@ output "nat_gateway_ip" {
   value       = aws_eip.nat.public_ip
 }
 
-output "on_demand_node_group_name" {
-  description = "On-demand node group name (for infra pods)"
+output "node_group_name" {
+  description = "On-demand node group name"
   value       = aws_eks_node_group.on_demand.node_group_name
-}
-
-output "spot_node_group_name" {
-  description = "Spot node group name (for application pods)"
-  value       = aws_eks_node_group.spot.node_group_name
 }
 
 output "tfstate_bucket" {

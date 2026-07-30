@@ -103,37 +103,7 @@ resource "aws_eks_node_group" "on_demand" {
   depends_on = [aws_eks_cluster.this]
 }
 
-resource "aws_eks_node_group" "spot" {
-  cluster_name    = aws_eks_cluster.this.name
-  node_group_name = "${var.cluster_name}-spot"
-  node_role_arn   = aws_iam_role.node.arn
-  subnet_ids      = aws_subnet.private[*].id
 
-  instance_types = var.spot_instance_types
-  capacity_type  = "SPOT"
-  ami_type       = "AL2023_x86_64_STANDARD"
-
-  scaling_config {
-    desired_size = var.spot_desired_size
-    min_size     = var.spot_min_size
-    max_size     = var.spot_max_size
-  }
-
-  update_config {
-    max_unavailable = 1
-  }
-
-  labels = {
-    "node-type"     = "spot"
-    "capacity-type" = "spot"
-  }
-
-  tags = merge(var.tags, {
-    Name = "${var.cluster_name}-spot"
-  })
-
-  depends_on = [aws_eks_cluster.this]
-}
 
 # Fargate profile for the event-ticketing namespace.
 # Use Fargate when you want zero node management for control-plane pods.

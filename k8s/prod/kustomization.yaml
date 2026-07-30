@@ -31,7 +31,7 @@ patches:
         namespace: event-ticketing
       $patch: delete
 
-  # ── Gateway API: spot tolerations + node selector ──
+  # ── Gateway API: 2 replicas, on-demand node selector ──
   - target:
       kind: Deployment
       name: gateway-api
@@ -42,19 +42,12 @@ patches:
       - op: add
         path: /spec/template/spec/nodeSelector
         value:
-          node-type: spot
-      - op: add
-        path: /spec/template/spec/tolerations
-        value:
-          - key: spot
-            operator: Equal
-            value: "true"
-            effect: NoSchedule
+          node-type: on-demand
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
 
-  # ── Gateway Web: spot tolerations + node selector ──
+  # ── Gateway Web: 2 replicas, on-demand node selector ──
   - target:
       kind: Deployment
       name: gateway-web
@@ -65,19 +58,12 @@ patches:
       - op: add
         path: /spec/template/spec/nodeSelector
         value:
-          node-type: spot
-      - op: add
-        path: /spec/template/spec/tolerations
-        value:
-          - key: spot
-            operator: Equal
-            value: "true"
-            effect: NoSchedule
+          node-type: on-demand
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
 
-  # ── Sweeper: spot tolerations ──
+  # ── Sweeper: on-demand node selector ──
   - target:
       kind: Deployment
       name: sweeper
@@ -85,19 +71,12 @@ patches:
       - op: add
         path: /spec/template/spec/nodeSelector
         value:
-          node-type: spot
-      - op: add
-        path: /spec/template/spec/tolerations
-        value:
-          - key: spot
-            operator: Equal
-            value: "true"
-            effect: NoSchedule
+          node-type: on-demand
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
 
-  # ── Relay: spot tolerations ──
+  # ── Relay: on-demand node selector ──
   - target:
       kind: Deployment
       name: relay
@@ -105,19 +84,12 @@ patches:
       - op: add
         path: /spec/template/spec/nodeSelector
         value:
-          node-type: spot
-      - op: add
-        path: /spec/template/spec/tolerations
-        value:
-          - key: spot
-            operator: Equal
-            value: "true"
-            effect: NoSchedule
+          node-type: on-demand
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
 
-  # ── Admitter: spot tolerations ──
+  # ── Admitter: on-demand node selector ──
   - target:
       kind: Deployment
       name: admitter
@@ -125,14 +97,7 @@ patches:
       - op: add
         path: /spec/template/spec/nodeSelector
         value:
-          node-type: spot
-      - op: add
-        path: /spec/template/spec/tolerations
-        value:
-          - key: spot
-            operator: Equal
-            value: "true"
-            effect: NoSchedule
+          node-type: on-demand
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
