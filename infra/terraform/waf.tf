@@ -1,6 +1,6 @@
 resource "aws_wafv2_web_acl" "this" {
   name        = "${var.cluster_name}-web-acl"
-  description = "WAF for ${var.cluster_name} ALB — rate-limit + OWASP core rules"
+  description = "WAF for ${var.cluster_name} ALB - rate-limit + OWASP core rules"
   scope       = "REGIONAL"
 
   default_action {

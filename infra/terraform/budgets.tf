@@ -2,6 +2,7 @@ resource "aws_budgets_budget" "monthly" {
   name              = "${var.cluster_name}-monthly-budget"
   budget_type       = "COST"
   limit_amount      = "150"
+  limit_unit        = "USD"
   time_unit         = "MONTHLY"
   time_period_start = "2026-07-01_00:00"
 
@@ -28,6 +29,7 @@ resource "aws_budgets_budget" "forecast" {
   name              = "${var.cluster_name}-forecast-budget"
   budget_type       = "COST"
   limit_amount      = "150"
+  limit_unit        = "USD"
   time_unit         = "MONTHLY"
   time_period_start = "2026-07-01_00:00"
 

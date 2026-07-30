@@ -63,7 +63,6 @@ resource "aws_eks_addon" "ebs_csi" {
   configuration_values = jsonencode({
     controller = {
       serviceAccount = {
-        create = true
         annotations = {
           "eks.amazonaws.com/role-arn" = aws_iam_role.ebs_csi.arn
         }
