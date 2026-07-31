@@ -221,7 +221,10 @@ async def seed(reset: bool = False):
             if admin_id is None:
                 admin_id = uuid4()
                 if os.getenv("ADMIN_PASSWORD") is None:
-                    print(f"[seed] No ADMIN_PASSWORD set — generated admin password: {ADMIN_PASSWORD}")
+                    print(
+                        "[seed] No ADMIN_PASSWORD set — "
+                        f"generated admin password: {ADMIN_PASSWORD}"
+                    )
                 await session.execute(
                     text(
                         "INSERT INTO identity.users"
