@@ -29,13 +29,6 @@ patches:
       apiVersion: keda.sh/v1alpha1
       kind: ScaledObject
       metadata:
-        name: gateway-scaler
-        namespace: event-ticketing
-      $patch: delete
-  - patch: |-
-      apiVersion: keda.sh/v1alpha1
-      kind: ScaledObject
-      metadata:
         name: queue-scaler
         namespace: event-ticketing
       $patch: delete

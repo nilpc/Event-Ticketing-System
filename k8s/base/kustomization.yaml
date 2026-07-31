@@ -18,6 +18,5 @@ resources:
   - relay-deployment.yaml
   - admitter-deployment.yaml
   - migration-job.yaml
-  - keda-gateway-scaler.yaml
   - keda-queue-scaler.yaml
   # - grafana/configmap.yaml
