@@ -2,6 +2,7 @@
 import asyncio
 import hashlib
 import os
+import secrets
 from typing import TypedDict
 from uuid import uuid4
 
@@ -13,7 +14,9 @@ load_dotenv()
 
 
 ADMIN_EMAIL = "admin@event-ticketing.dev"
-ADMIN_PASSWORD = "Admin123!"
+# Never hardcode the admin password. Injected via ADMIN_PASSWORD env var; a
+# random fallback means a fresh DB never gets a publicly-known credential.
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD") or secrets.token_urlsafe(24)
 
 
 def _hash_password(password: str) -> str:
@@ -217,6 +220,8 @@ async def seed(reset: bool = False):
             admin_id = existing.scalar_one_or_none()
             if admin_id is None:
                 admin_id = uuid4()
+                if os.getenv("ADMIN_PASSWORD") is None:
+                    print(f"[seed] No ADMIN_PASSWORD set — generated admin password: {ADMIN_PASSWORD}")
                 await session.execute(
                     text(
                         "INSERT INTO identity.users"

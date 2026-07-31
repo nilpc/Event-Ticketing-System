@@ -245,7 +245,7 @@ docker run -d --name redis -p 6379:6379 redis:7-alpine
 ### Default Admin Credentials
 
 - **Email**: `admin@event-ticketing.dev`
-- **Password**: `Admin123!`
+- **Password**: generated at seed time — set the `ADMIN_PASSWORD` env var when seeding (a random one is generated and printed to logs if unset)
 
 ### Grant Admin Access to an Existing User
 
