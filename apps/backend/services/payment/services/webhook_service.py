@@ -66,6 +66,8 @@ class WebhookService:
                     return  # Duplicate — silently drop
 
                 metadata = getattr(event.data.object, "metadata", {}) or {}
+                if hasattr(metadata, "to_dict"):
+                    metadata = metadata.to_dict()
                 booking_id_str = metadata.get("booking_id")
                 if not booking_id_str:
                     return  # §6: null-check guard — spoofed/missing booking_id

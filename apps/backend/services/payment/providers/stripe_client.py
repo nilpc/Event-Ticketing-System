@@ -28,15 +28,16 @@ class StripeClient:
         amount_cents: int,
         currency: str,
         metadata: dict | None = None,
+        payment_method_types: list[str] | None = None,
     ) -> stripe.PaymentIntent:
-        """FR-5: Create a Stripe PaymentIntent."""
+        """FR-5: Create a Stripe PaymentIntent (card-only by default)."""
         try:
             intent = await asyncio.to_thread(
                 stripe.PaymentIntent.create,
                 amount=amount_cents,
                 currency=currency,
                 metadata=metadata or {},
-                automatic_payment_methods={"enabled": True},
+                payment_method_types=payment_method_types or ["card"],
             )
             logger.info(
                 "stripe_intent_created",

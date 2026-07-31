@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +15,7 @@ from services.payment.repositories.payment_repo import PaymentRepository
 from services.payment.services.webhook_service import WebhookService
 
 router = APIRouter(prefix="/v1/webhooks", tags=["webhooks"])
+logger = structlog.get_logger()
 
 
 def _get_webhook_service(
@@ -40,6 +42,7 @@ async def stripe_webhook(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception:
+        logger.exception("webhook_processing_failed")
         raise HTTPException(status_code=500, detail="Webhook processing failed")
 
     return {"status": "ok"}

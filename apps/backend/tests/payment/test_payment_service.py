@@ -63,6 +63,7 @@ async def test_create_intent_happy_path(db_session, booking_fixture) -> None:
     assert response.client_secret == "pi_created_1_secret"
     assert len(provider.created) == 1
     assert provider.created[0].id == "pi_created_1"
+    assert provider.created_pm_types == [["card"]]
 
     result = await db_session.execute(
         select(Payment).where(Payment.payment_id == response.payment_id)

@@ -93,6 +93,7 @@ class PaymentService:
             new_intent = await self.provider.create_payment_intent(
                 amount_cents=amount_cents,
                 currency=booking.currency,
+                payment_method_types=["card"],
                 metadata={
                     "booking_id": str(booking_id),
                     "payment_id": str(payment_id),

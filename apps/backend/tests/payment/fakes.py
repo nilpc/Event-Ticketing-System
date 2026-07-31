@@ -15,6 +15,7 @@ class FakeStripeClient:
         self.retrieved: list = []
         self.cancelled: list[str] = []
         self.create_error: Exception | None = None
+        self.created_pm_types: list[list[str] | None] = []
 
     def make_intent(self, intent_id: str) -> SimpleNamespace:
         return SimpleNamespace(
@@ -28,11 +29,13 @@ class FakeStripeClient:
         amount_cents: int,
         currency: str,
         metadata: dict | None = None,
+        payment_method_types: list[str] | None = None,
     ) -> SimpleNamespace:
         if self.create_error is not None:
             raise self.create_error
         intent = self.make_intent(f"pi_created_{len(self.created) + 1}")
         self.created.append(intent)
+        self.created_pm_types.append(payment_method_types)
         return intent
 
     async def retrieve_payment_intent(self, intent_id: str) -> SimpleNamespace:

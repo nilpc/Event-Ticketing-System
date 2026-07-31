@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
+import time
 from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
+import stripe
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,6 +59,34 @@ def _webhook_service(session: AsyncSession) -> WebhookService:
         LockRepository(session=None),
         PaymentRepository(session),
     )
+
+
+def _real_stripe_event(
+    event_type: str,
+    metadata: dict,
+    intent_id: str = "pi_test_123",
+    event_id: str | None = None,
+) -> stripe.Event:
+    """Build a Stripe Event via the real SDK so metadata is a StripeObject (no .get)."""
+    payload_obj = {
+        "id": event_id or f"evt_{uuid4().hex}",
+        "object": "event",
+        "api_version": "2024-06-20",
+        "created": int(time.time()),
+        "livemode": False,
+        "pending_webhooks": 1,
+        "request": {"id": "req_test", "idempotency_key": "x"},
+        "type": event_type,
+        "data": {"object": {"id": intent_id, "metadata": metadata}},
+    }
+    payload = json.dumps(payload_obj)
+    secret = "whsec_test"
+    ts = int(time.time())
+    sig = "t=%d,v1=%s" % (
+        ts,
+        stripe.WebhookSignature._compute_signature(f"{ts}.{payload}", secret),
+    )
+    return stripe.Webhook.construct_event(payload.encode(), sig, secret)
 
 
 def _metadata(booking_fixture: dict) -> dict:
@@ -116,6 +147,34 @@ async def test_webhook_succeeded(db_session, booking_fixture) -> None:
     ).scalar_one_or_none()
     assert logged is not None
     assert logged.event_type == "payment_intent.succeeded"
+
+
+async def test_webhook_succeeded_with_real_stripe_metadata(db_session, booking_fixture) -> None:
+    """FR-9: Real Stripe SDK event (StripeObject metadata, no .get) still processes."""
+    intent_id = "pi_real_meta_123"
+    await _create_payment(db_session, booking_fixture["booking_id"], intent_id)
+
+    event = _real_stripe_event(
+        "payment_intent.succeeded",
+        _metadata(booking_fixture),
+        intent_id=intent_id,
+    )
+    svc = _webhook_service(db_session)
+    svc.provider = FakeWebhookProvider(event)
+
+    await svc.process_webhook(b"{}", "t=1,v1=deadbeef")
+
+    booking = (
+        await db_session.execute(
+            select(Booking).where(Booking.booking_id == booking_fixture["booking_id"])
+        )
+    ).scalar_one()
+    assert booking.status == BookingStatus.CONFIRMED
+
+    payment = (
+        await db_session.execute(select(Payment).where(Payment.provider_payment_id == intent_id))
+    ).scalar_one()
+    assert payment.status == "succeeded"
 
 
 async def test_webhook_payment_failed(db_session, booking_fixture) -> None:
