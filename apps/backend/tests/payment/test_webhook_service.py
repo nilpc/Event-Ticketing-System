@@ -82,7 +82,7 @@ def _real_stripe_event(
     payload = json.dumps(payload_obj)
     secret = "whsec_test"
     ts = int(time.time())
-    sig = "t=%d,v1=%s" % (
+    sig = "t={},v1={}".format(
         ts,
         stripe.WebhookSignature._compute_signature(f"{ts}.{payload}", secret),
     )
