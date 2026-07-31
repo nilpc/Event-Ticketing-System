@@ -4,7 +4,9 @@
 
 data "aws_lb" "gateway" {
   tags = {
-    "ingress.k8s.aws/stack" = "event-ticketing/gateway"
+    # Group-mode ingress: ALB controller tags the shared-group ALB with the
+    # group name only (not "namespace/ingress-name").
+    "ingress.k8s.aws/stack" = "event-ticketing"
   }
 }
 
