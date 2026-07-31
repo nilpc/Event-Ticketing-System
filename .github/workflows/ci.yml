@@ -62,7 +62,7 @@ jobs:
           cache: pip
           cache-dependency-path: apps/backend/pyproject.toml
       - run: pip install -e ".[dev]"
-      - run: python -m pytest tests/identity/ tests/booking/test_integration.py tests/booking/test_concurrency.py tests/gateway/test_rate_limit.py -x -q
+      - run: python -m pytest tests/identity/ tests/booking/test_integration.py tests/booking/test_concurrency.py tests/gateway/test_rate_limit.py tests/payment/ -x -q
 
   frontend-check:
     runs-on: ubuntu-latest
@@ -163,3 +163,49 @@ jobs:
           cache-dependency-path: apps/backend/pyproject.toml
       - run: pip install -e ".[dev]"
       - run: python -m pytest tests/gateway/test_websocket_manager.py -x -q
+
+  # ── Migration validation: fresh DB must migrate + seed cleanly ───
+  migration-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: event_ticketing
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://testuser:testpass@localhost:5432/event_ticketing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: apps/backend/pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: alembic upgrade head
+      - name: Seed a fresh DB (validates seed.py + admin bootstrap)
+        run: ADMIN_PASSWORD="CITestPass!234" python seed.py
+
+  # ── Docker build check: mirrors the images deploy.ps1 ships ──────
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build -t event-ticketing-api:ci --target api .
+      - name: Build Web image
+        run: >-
+          docker build -t event-ticketing-web:ci --target web
+          --build-arg VITE_STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} .

@@ -56,7 +56,7 @@ class WebhookService:
         terminal = False
 
         try:
-            async with self.session.begin():
+            async with self.session.begin_nested():
                 # §6: Idempotency guard — duplicate event_id raises IntegrityError
                 try:
                     await self.booking_repo.log_webhook_event(

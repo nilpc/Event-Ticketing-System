@@ -152,7 +152,7 @@ class PaymentService:
         )
 
         if intent.status == "succeeded" and booking.status == BookingStatus.PENDING:
-            async with self.session.begin():
+            async with self.session.begin_nested():
                 await self.payment_repo.update_payment_record(
                     payment_id=payment_id,
                     status=PaymentStatus.SUCCEEDED,
