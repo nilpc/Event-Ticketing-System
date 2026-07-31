@@ -12,10 +12,13 @@ Event Ticketing Backend - Requirements & Architecture Specification
 - Renamed check_idempotency_cache to is_idempotency_key_available to remove the double-negative naming.
 - Fixed NFR-1 wording: the backing index is unique on (user_id, show_id), i.e. one active booking per user per showtime, not one active booking per showtime overall.
 - Fixed FR-12 wording: /ready pings both DB and Redis, so it now returns 503 if either is unreachable, not only when Redis is down.
+- Consolidated the standalone FEATURE-2-RATE-LIMIT-CACHE.md and FEATURE-3-WEBSOCKET.md documents into this catalog: rate limiting is now **NFR-8** and live seat-map WebSockets are now **FR-14** (both are already implemented — the feature docs only existed as "proposed" while the code shipped ahead of them).
+- FR-5 clarified: the PaymentIntent is created **card-only** (`payment_method_types=["card"]`, Link/Klarna/Affirm disabled) and the frontend disables Stripe Link in the PaymentElement (`wallets.link = "never"`), because Link's phone validation blocked `confirmPayment` in production. Verified end-to-end: card payment succeeds and the webhook auto-confirms the booking.
+- FR-9 clarified: the webhook receiver now converts StripeObject metadata via `.to_dict()` before reading keys (previously an `AttributeError` → HTTP 500 on every real webhook), and unexpected webhook processing failures are logged via `logger.exception`.
 
 # 1\. Executive Summary
 
-This project is a high-concurrency, cloud-native event ticketing backend built in Python (FastAPI). It operates across a local Minikube cluster for continuous development and an Amazon EKS cluster for demonstration. To handle massive flash-sale traffic spikes, the system utilizes a highly available PostgreSQL database behind PgBouncer for transactional integrity, and an in-cluster Redis instance for distributed locking, caching, and queuing. The architecture enforces strict transactional boundaries, outbox-based event publishing, zero-trust network policies, and comprehensive observability.
+This project is a high-concurrency, cloud-native event ticketing platform built in Python (FastAPI) with a React (Vite/TypeScript) frontend. It operates across a local Minikube cluster for continuous development and a live Amazon EKS cluster for demonstration. To handle massive flash-sale traffic spikes, the system utilizes a highly available PostgreSQL database behind PgBouncer for transactional integrity, and an in-cluster Redis instance for distributed locking, caching, queuing, rate limiting, and WebSocket fan-out. The architecture enforces strict transactional boundaries, outbox-based event publishing, zero-trust network policies, and comprehensive observability. The complete card-payment journey (queue → lock → book → pay → webhook confirm) is verified end-to-end in production.
 
 # 2\. Requirements Catalog
 
@@ -34,6 +37,7 @@ This project is a high-concurrency, cloud-native event ticketing backend built i
 - **FR-11:** API Gateway enforces global JWT validation, strips any client-supplied identity headers, and injects trusted X-User-Id, X-Request-ID, and W3C traceparent headers on every proxied request.
 - **FR-12:** Distinct K8s probes: /health (liveness, process alive) and /ready (readiness, DB/Redis pings, returns 503 gracefully if Redis or DB is unreachable to prevent crash loops).
 - **FR-13:** Database state managed via zero-downtime Alembic migrations executed as a K8s Init Job prior to application rollout.
+- **FR-14:** Live seat-map updates over WebSockets. `ws://host/ws/showtime/{show_id}?token={jwt}` broadcasts seat status changes (lock, PENDING_PAYMENT, SOLD) in real time; an in-memory connection manager per gateway replica plus a Redis Pub/Sub backplane keep multi-replica clusters consistent; stale/abandoned connections are pruned on broadcast and clients fall back to polling on reconnect.
 
 ## Non-Functional Requirements (NFR)
 
@@ -44,6 +48,7 @@ This project is a high-concurrency, cloud-native event ticketing backend built i
 - **NFR-5:** Unhandled exceptions and application errors are captured in Sentry across all services, tagged with request_id and trace_id for correlation with logs and traces.
 - **NFR-6:** Strict Controller-Service-Repository (CSR) layered architecture using SQLAlchemy 2.0 ORM, Pydantic v2 validation, and Python Enums.
 - **NFR-7:** Ephemeral Redis prioritizes memory speed; financial data is strictly protected by Postgres atomicity.
+- **NFR-8:** Redis-backed distributed rate limiting (slowapi). Configurable per-route/role tiers — public (60/min), auth (10/min), and booking (5/min) — with HTTP 429 responses; limits are tunable via RATE_LIMIT_PUBLIC / RATE_LIMIT_AUTH / RATE_LIMIT_BOOKING env vars. Protects against bot abuse and DDoS on public endpoints without slowing legitimate flash-sale traffic.
 
 # 3\. Tech Stack
 
@@ -654,9 +659,21 @@ await self.booking_repo.mark_outbox_published(event.event_id)
 
 # 7\. Infrastructure & Testing Strategy
 
-- **CI/CD & GitOps:** GitHub Actions enforces ruff, mypy, pytest (unit + integration via testcontainers), and trivy container scanning. ArgoCD handles declarative K8s deployments.
-- **Database Migrations:** Alembic runs as a K8s Init Job before rolling out new FastAPI pods to prevent race conditions.
+- **CI/CD & GitOps:** GitHub Actions (`.github/workflows/ci.yml`) enforces ruff, mypy, pytest (backend/booking-concurrency/rate-limit/websocket/migration suites against Postgres 16 + Redis 7 services), and Docker image builds on every push to main. ArgoCD (ClusterIP, port-forward only) is the declarative controller of record for `k8s/prod/` and auto-syncs on every push to main (`automated.sync` on, `prune: false`, `selfHeal: false`).
+- **Database Migrations:** Alembic runs as a K8s Init Job before rolling out new FastAPI pods to prevent race conditions; CI validates a fresh DB migrates + seeds cleanly.
 - **Network Policies (Zero-Trust):** K8s NetworkPolicies restrict ingress to backend services so they only accept traffic from the API Gateway, preventing header spoofing.
 - **Connection Pooling:** PgBouncer runs in front of Postgres in transaction mode to prevent connection exhaustion during flash sales.
 - **Error Tracking (NFR-5):** Sentry SDK is initialized in every service; captured exceptions are tagged with request_id and trace_id so they can be correlated with Loki logs and OpenTelemetry traces.
 - **Testing:** Property-based tests (Hypothesis) verify zero double-bookings under randomized concurrent interleavings. E2E Locust tests verify queue dynamics and 409 rejection rates.
+- **Production runtime (Phase 7, live):** EKS 1.30 (`event-ticketing`, us-east-1), two node groups (on-demand t3.small + spot t3.medium), single-AZ RDS db.t4g.micro behind ESO-managed secrets, ALB Ingress + AWS LB Controller, CloudFront CDN in front of the SPA, WAF in Count mode, Redis via Bitnami Helm (auth enabled), cert-manager ACME issuers, KEDA, and node-termination-handler for spot draining. Deployments ship via ECR (`...:main`) + `scripts/deploy.ps1`.
+- **Verified E2E (Stripe):** the full purchase path — queue admission → seat lock → atomic booking → card-only PaymentIntent → card charge (test mode) → webhook auto-confirmation — has been verified against production with headless/headed browser automation; a booking auto-confirms ~2s after the card charge succeeds, and replaying a real webhook event recovers any straggler bookings.
+
+**Deployment & AWS Operations (runbook):**
+
+1. **Provision infrastructure:** `cd infra/terraform && terraform apply` — VPC, EKS 1.30, node groups (`on-demand` t3.small infra + `spot` t3.medium app), single-AZ RDS db.t4g.micro, IAM/IRSA, CloudFront, WAF (`waf_action` default `count`), CloudWatch dashboard, $150/mo budget alarm. All resources tagged with `merge(var.tags, {Name = ...})`.
+2. **Bootstrap cluster add-ons:** `scripts/init.ps1 -LbControllerRoleArn <out> -EsoRoleArn <out> -RdsEndpoint <out>` — installs AWS LB Controller, KEDA, External Secrets Operator, Bitnami Redis (auth enabled), node-termination-handler, cert-manager, and ArgoCD (ClusterIP only); writes secrets to SSM Parameter Store (`/event-ticketing/DB_PASSWORD`, `/event-ticketing/REDIS_PASSWORD`, JWT + Stripe keys).
+3. **Bootstrap GitOps:** `kubectl apply -f k8s/argocd/` once. ArgoCD Application `event-ticketing` auto-syncs `k8s/prod/` from `main` on every push (`automated.sync` ON, `prune: false`, `selfHeal: false`). Access via `kubectl port-forward -n argocd svc/argocd-server 8080:80`; admin password from `argocd-initial-admin-secret`.
+4. **Ship images:** `$env:VITE_STRIPE_PUBLISHABLE_KEY=...; scripts/deploy.ps1` — ECR login, build `api`/`web` Docker targets, push `:main`, `kubectl apply -k k8s/prod/`, rollout restart + wait (selfHeal is off, so the restart is not reverted).
+5. **Manifest-only changes:** commit + push to `main` → ArgoCD auto-syncs (no manual apply).
+6. **Security baseline:** JWT keys injected via `JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY` env vars at runtime (never baked into images; `entrypoint.sh` writes them to disk before app start); Redis requires auth (`REDIS_URL` includes `:password@`); CSP/HSTS/X-Frame-Options/X-Content-Type-Options/X-XSS-Protection/Referrer-Policy/Permissions-Policy set in both `nginx.conf` and FastAPI middleware; WAF stays in Count mode until traffic is analyzed, then set `waf_action = "block"`; HTTPS requires a custom domain + ACM cert (HTTP-only by default when `domain_name` is empty).
+7. **Destroy:** `terraform destroy` from `infra/terraform/` to conserve budget.

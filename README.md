@@ -1,22 +1,31 @@
 # Event Ticketing System
 
-A full-stack event ticketing platform built for flash-sale scenarios. Turborepo monorepo with React frontend + FastAPI backend + PostgreSQL + Redis.
+A full-stack event ticketing platform built for flash-sale scenarios. Turborepo monorepo with React frontend + FastAPI backend + PostgreSQL + Redis. **Live on AWS EKS** — full Stripe card checkout verified end-to-end.
+
+Source of truth: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) (requirement contract, FR/NFR catalog) and [`docs/PHASES.md`](docs/PHASES.md) (build order + status).
 
 ## Features
 
 - **React frontend** — Vite + TypeScript, Tailwind CSS, TanStack Query, React Router
-- **Admin panel** — Unified form to create events/movies, venues, and showtimes in one step; catalog management with delete
+- **Admin panel** — Unified form to create events/movies, venues, and showtimes in one step; catalog management with delete; promote users to admin via API
 - **Multi-seat booking** — Select up to 8 seats in one checkout; all locked and paid atomically via a `booking_seats` junction table
 - **Five-layer concurrency control** — Redis hoarding locks, distributed locks, DB state checks, atomic transactions, and a background sweeper to prevent double-bookings
 - **Virtual waiting room** — Redis-backed queue with token-based admission and crash recovery
 - **JWT auth (RS256)** — Access/refresh token rotation with reuse detection, Google OAuth2; admin users identified by `is_admin` column in DB
+- **Stripe payments (card-only, verified E2E)** — PCI-compliant PaymentIntent flow, card-only (Link/Klarna disabled so `confirmPayment` never blocks), webhook auto-confirmation of bookings
 - **Transactional outbox** — `FOR UPDATE SKIP LOCKED` relay for reliable async event publishing
-- **WebSocket live updates** — Real-time seat status broadcasting via Redis Pub/Sub backplane (`FR-7`)
-- **Catalog caching** — Redis cache-aside for venues/events with invalidation via Pub/Sub (`FR-4`)
-- **Rate limiting** — slowapi + Redis distributed rate limits (public/auth/booking tiers) (`NFR-4`)
-- **Observability** — structlog (JSON), Sentry, W3C traceparent, Grafana dashboard
+- **WebSocket live updates** — Real-time seat status broadcasting via Redis Pub/Sub backplane (`FR-14`)
+- **Catalog caching** — Redis cache-aside for venues/events with invalidation (`FR-4`)
+- **Rate limiting** — slowapi + Redis distributed rate limits (public/auth/booking tiers) (`NFR-8`)
+- **Observability** — structlog (JSON), Sentry, W3C traceparent, CloudWatch dashboard
 - **Docker Compose** — Full stack (backend + frontend + Redis) in one command; auto-migration + auto-seed on startup
-- **Kubernetes** — Kustomize manifests for Minikube and production; KEDA autoscalers, PDBs, network policies
+- **Kubernetes (EKS, live)** — EKS 1.30 + ALB + RDS + CloudFront + WAF (count mode), KEDA, PDBs, network policies, ArgoCD GitOps
+
+## Current Status
+
+- **Phase 1–9 complete** (see [`docs/PHASES.md`](docs/PHASES.md) for per-phase status).
+- **Live on AWS EKS**: Terraform (VPC, EKS, RDS, IAM, CloudWatch), ArgoCD auto-syncs `k8s/prod/` on push to `main`, ECR images via `scripts/deploy.ps1`.
+- **Payment flow verified in production**: queue → lock → book → card-only Stripe charge → webhook auto-confirms the booking in ~2s. Three real production bugs (webhook `StripeObject.metadata` 500, CSP blocking Stripe.js, Stripe Link blocking card confirmation) were found and fixed during this verification.
 
 ## Monorepo Structure
 
@@ -31,10 +40,11 @@ Event-Ticketing-System/
 ├── k8s/                   # Kustomize: base + minikube + prod overlays
 │   ├── base/              # Deployments, services, PDBs, KEDA scalers, network policies
 │   ├── minikube/          # Ingress, local Postgres/Redis, secrets
-│   └── prod/              # ALB ingress, External Secrets, GHCR image patch
+│   ├── prod/              # ALB ingress, External Secrets, ECR image patches
+│   └── argocd/            # ArgoCD Repository + Application (GitOps bootstrap)
 ├── infra/terraform/       # AWS EKS infrastructure (VPC, EKS, RDS, IAM, CloudWatch)
-├── scripts/               # Bootstrap (init.ps1) and deploy (deploy.ps1) scripts
-├── Dockerfile                # Monolithic multi-stage build (nginx + gunicorn)
+├── scripts/               # Bootstrap (init.ps1), deploy (deploy.ps1), minikube scripts
+├── Dockerfile                # Multi-stage build (api + web targets)
 ├── supervisord.conf          # Process manager for nginx + backend
 └── docker-compose.yml        # Postgres + Redis + app
 ```
@@ -113,21 +123,30 @@ Provision the cluster with Terraform, then bootstrap and deploy:
 cd infra/terraform
 terraform apply
 
-# 2. Bootstrap the cluster — Helm charts (ALB Controller, KEDA, ESO, Redis, ArgoCD),
-#    writes secrets to SSM Parameter Store
+# 2. Bootstrap the cluster — Helm charts (ALB Controller, KEDA, ESO, Redis, ArgoCD,
+#    cert-manager, node-termination-handler) + writes secrets to SSM Parameter Store
 .\scripts\init.ps1 `
     -LbControllerRoleArn "<from terraform output>" `
     -EsoRoleArn "<from terraform output>" `
     -RdsEndpoint "<from terraform output>"
 
-# 3. Build Docker image, push to GHCR, and apply prod overlay
+# 3. Point ArgoCD at the repo (one-time) — it then syncs k8s/prod/ on every push to main
+kubectl apply -f k8s/argocd/
+
+# 4. Build images, push to ECR, apply + restart the prod overlay
+$env:VITE_STRIPE_PUBLISHABLE_KEY = "pk_test_..."   # Stripe publishable key for the web build
 .\scripts\deploy.ps1
 
-# 4. Get the ALB URL
-kubectl -n event-ticketing get ingress/gateway
+# 5. Get the public URLs
+kubectl -n event-ticketing get ingress/gateway                       # ALB DNS
+terraform -chdir=infra/terraform output cloudfront_domain             # CloudFront URL (production SPA)
 ```
 
-Cost-optimized: single-AZ RDS db.t4g.micro (10GB, ~$13/mo), 1× on-demand t3.small for infra pods (~$15/mo), 1× spot t3.medium for app pods (~$9/mo), single NAT Gateway (~$33/mo), self-hosted Redis via Bitnami Helm ($0), no WAF, no Prometheus/Grafana. Monthly budget alarm at $150 (~$5.50/day). Destroy with `terraform destroy` when not in use.
+Image updates ship via `scripts/deploy.ps1` (build → push `:main` to ECR → `kubectl apply -k k8s/prod/` → rollout restart). Manifest-only changes are pushed to `main` and ArgoCD auto-syncs them (`automated.sync` on, `prune: false`, `selfHeal: false`). Access ArgoCD with `kubectl port-forward -n argocd svc/argocd-server 8080:80`; the admin password is in `argocd-initial-admin-secret`.
+
+**Secrets & security:** JWT keys are injected at runtime via `JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY` env vars (never baked into images — `entrypoint.sh` writes them to disk before app start); Redis requires auth (`REDIS_URL` includes `:password@`); DB/Redis/JWT/Stripe secrets live in SSM Parameter Store and are fetched by External Secrets Operator. WAF starts in **Count** mode (set `waf_action = "block"` only after analyzing CloudWatch Logs). HTTPS requires a custom domain + ACM cert; it's HTTP-only by default.
+
+Cost-optimized: single-AZ RDS db.t4g.micro (10GB), 1× on-demand t3.small for infra pods, 1× spot t3.medium for app pods, single NAT Gateway, self-hosted Redis via Bitnami Helm ($0), CloudFront CDN, WAF in Count mode. Monthly budget alarm at $150 (~$5.50/day). Destroy with `terraform destroy` (from `infra/terraform/`) when not in use.
 
 ### Database Management
 
@@ -249,7 +268,7 @@ docker run -d --name redis -p 6379:6379 redis:7-alpine
 
 ### Grant Admin Access to an Existing User
 
-There is no API endpoint to promote a user — `is_admin` must be set directly in the database.
+Admin users can promote others via `POST /v1/admin/users/{id}/promote` (JWT + `is_admin` required), or set `is_admin` directly in the database.
 
 #### Docker
 
@@ -291,27 +310,34 @@ UPDATE identity.users SET is_admin = true WHERE email = 'user@example.com';
 | GET | `/v1/venues` | List venues |
 | GET | `/v1/events` | List events |
 | GET | `/v1/events/{id}/showtimes` | Showtimes for an event |
+| GET | `/v1/showtimes` | List all showtimes |
 | GET | `/v1/showtimes/{id}` | Showtime details |
 | GET | `/v1/showtimes/{id}/seats` | Seat map |
+| POST | `/v1/webhooks/stripe` | Stripe webhook receiver (signature-verified, no auth) |
 
 ### Authenticated (JWT)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| POST | `/v1/auth/logout` | Logout (revoke refresh token) |
+| GET | `/v1/auth/google` | Google OAuth2 SSO redirect |
 | POST | `/v1/queue/join` | Join virtual queue |
 | GET | `/v1/queue/status` | Poll queue position |
 | GET | `/v1/queue/recover` | Recover queue session |
 | POST | `/v1/seats/lock` | Lock one or more seats (600s TTL, re-entrant) |
 | POST | `/v1/book` | Atomic multi-seat booking (requires X-Queue-Token header) |
 | GET | `/v1/bookings` | List user's bookings (includes all seats per booking) |
-| POST | `/v1/payments/intent` | Create Stripe PaymentIntent |
 | POST | `/v1/book/{id}/mock-confirm` | Demo: confirm all seats in a booking without payment |
+| POST | `/v1/payments/intent` | Create card-only Stripe PaymentIntent |
+| POST | `/v1/payments/{id}/sync` | Sync payment status with Stripe and confirm booking |
+| DELETE | `/v1/auth/me` | Delete account (GDPR soft-delete) |
+| POST | `/v1/auth/me/anonymize` | Anonymize account data (GDPR) |
 
 ### WebSocket
 
 | Endpoint | Description |
 |----------|-------------|
-| `ws://host/ws/showtime/{id}?token={jwt}` | Real-time seat status updates (FR-7) |
+| `ws://host/ws/showtime/{id}?token={jwt}` | Real-time seat status updates (FR-14) |
 
 ### Admin (JWT + is_admin)
 
@@ -327,6 +353,7 @@ UPDATE identity.users SET is_admin = true WHERE email = 'user@example.com';
 | POST | `/v1/admin/showtimes` | Create showtime (auto-generates seats) |
 | PUT | `/v1/admin/showtimes/{id}` | Update showtime |
 | DELETE | `/v1/admin/showtimes/{id}` | Delete showtime |
+| POST | `/v1/admin/users/{id}/promote` | Promote a user to admin |
 
 ### Health
 
@@ -345,10 +372,10 @@ Signup/Login → Join Queue → Admitted → Select Seats → Lock → Book → 
 2. **Multi-Seat Selection**: Admitted users see the seat map and select up to 8 seats (toggle to select/deselect, live total shown)
 3. **Lock**: Redis Lua script acquires exclusive locks for all selected seats (600s TTL); re-entrant for same user; atomic rollback on failure
 4. **Book**: Single atomic DB transaction transitions all seats to PENDING, creates one booking with `booking_seats` junction rows, emits outbox event
-5. **Pay**: Stripe PaymentIntent or mock-confirm for demo (pays total across all seats)
-6. **Confirm**: Booking marked CONFIRMED, all seats marked SOLD via junction table
+5. **Pay**: Card-only Stripe PaymentIntent or mock-confirm for demo (pays total across all seats); Stripe Link/Klarna disabled so `confirmPayment` never blocks
+6. **Confirm**: Stripe webhook (or `sync`) marks the booking CONFIRMED and all seats SOLD — verified to fire ~2s after the card charge succeeds
 
-## WebSocket Live Updates (`FR-7`)
+## WebSocket Live Updates (`FR-14`)
 
 Clients connect to `ws://host/ws/showtime/{show_id}?token={jwt}` to receive real-time seat status changes. The server pushes JSON messages:
 
@@ -361,11 +388,12 @@ Clients connect to `ws://host/ws/showtime/{show_id}?token={jwt}` to receive real
 }
 ```
 
+- Authenticated via the same JWT used for HTTP; invalid/missing token closes with code 4001
 - Single-instance: connections held in memory
 - Multi-instance: Redis Pub/Sub backplane broadcasts across all gateway replicas
 - Dead connections are silently pruned on broadcast
 
-## Rate Limiting (`NFR-4`)
+## Rate Limiting (`NFR-8`)
 
 Redis-backed distributed rate limiting via slowapi. Three tiers:
 
@@ -465,6 +493,7 @@ All run inside the backend container on startup:
 | 004 | Add `is_admin` boolean to `identity.users` |
 | 005 | Relax unique constraint — allow multiple CONFIRMED bookings per user per show |
 | 006 | Multi-seat booking — `booking_seats` junction table |
+| 007 | Add `is_master_admin` to `identity.users` |
 
 ## Tech Stack
 
@@ -476,14 +505,14 @@ All run inside the backend container on startup:
 | ORM | SQLAlchemy 2.0 (async) |
 | Database | PostgreSQL 16 (asyncpg), Redis 7 |
 | Auth | python-jose (RS256), bcrypt, Google OAuth2 |
-| Payments | Stripe SDK (mock-confirm for demo) |
+| Payments | Stripe SDK (card-only intents, webhook auto-confirm, mock-confirm for demo) |
 | Real-time | WebSockets, Redis Pub/Sub |
 | Caching | Redis cache-aside (venues, events, seat maps) |
 | Rate limiting | slowapi (Redis-backed, distributed) |
-| Observability | structlog, Sentry, OpenTelemetry |
-| Testing | pytest, testcontainers, Locust |
-| CI/CD | GitHub Actions (ruff, mypy, eslint, tsc, pytest, Turborepo) |
-| Deploy | Docker Compose, Kubernetes (Kustomize), Terraform (EKS) |
+| Observability | structlog, Sentry, OpenTelemetry, CloudWatch |
+| Testing | pytest, Locust |
+| CI/CD | GitHub Actions (ruff, mypy, eslint, tsc, pytest) |
+| Deploy | Docker Compose, Kubernetes (Kustomize), Terraform (EKS), ArgoCD, ECR |
 
 ## CI Checks
 
@@ -512,21 +541,16 @@ Runs on every push to `main` and on all pull requests.
 | Job | Trigger | What it does |
 |-----|---------|--------------|
 | `backend-lint` | push + PR | `ruff check` + `mypy` |
-| `backend-test` | push + PR | `pytest` with Postgres 16 + Redis 7 services |
-| `frontend-check` | push + PR | `typecheck` + `lint` + `build` for React app |
-| `turbo-build` | push + PR | Full Turborepo build |
-| `docker-build` | push to main only | Builds monolithic Docker image, pushes to GHCR with SHA + `main` tags |
-| `smoke-test` | after docker-build | Pulls the built image, starts it with Postgres/Redis, curls `/health` |
-| `cleanup-ghcr` | after docker-build | Deletes old GHCR images, keeps only the last 3 |
+| `backend-test` | push + PR | `pytest` for identity, booking integration/concurrency, rate limit, payment/webhook suites against Postgres 16 + Redis 7 services |
+| `rate-limit-cache-tests` | push + PR | `pytest` for catalog cache + rate limit tests |
+| `websocket-tests` | push + PR | `pytest` for websocket manager tests |
+| `migration-test` | push + PR | Fresh DB must `alembic upgrade head` + `seed.py` cleanly |
+| `frontend-check` | push + PR | `typecheck` + `lint` + `build` for React app (with Stripe publishable key) |
+| `docker-build` | push + PR | Builds both ECR images (`--target api` / `--target web`) to mirror `deploy.ps1` |
 
 ### Docker Images
 
-Published to `ghcr.io/<owner>` on every merge to `main`.
-
-- `main` tag — always the latest production image
-- `<sha>` tag — specific commit (for rollback)
-
-Only the **last 3 images** are kept to stay within the free tier (500 MB).
+Production images are built and pushed to **ECR** (`078682762568.dkr.ecr.us-east-1.amazonaws.com/event-ticketing-{api,web}:main`) by `scripts/deploy.ps1`, then applied + restarted via the `k8s/prod/` overlay. ArgoCD auto-syncs manifest changes from `main`.
 
 ## License
 
