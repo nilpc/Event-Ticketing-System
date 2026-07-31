@@ -79,7 +79,7 @@ variable "on_demand_max_size" {
 variable "on_demand_desired_size" {
   description = "Desired size of on-demand node group"
   type        = number
-  default     = 2
+  default     = 3
 }
 
 variable "domain_name" {
@@ -104,7 +104,7 @@ variable "redis_password" {
 variable "waf_action" {
   description = "WAF default rule action: 'count' (observe only) or 'block' (enforce). Start with 'count', switch to 'block' after validating in CloudWatch."
   type        = string
-  default     = "count"
+  default     = "block"
 }
 
 variable "tags" {

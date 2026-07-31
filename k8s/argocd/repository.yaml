@@ -1,0 +1,13 @@
+# ArgoCD bootstrap: register the public git repo as an ArgoCD repository.
+# The repo is public, so no credentials are required.
+# Apply with: kubectl apply -f k8s/argocd/
+apiVersion: v1
+kind: Secret
+metadata:
+  name: event-ticketing-repo
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: git
+  url: https://github.com/nilpc/Event-Ticketing-System.git

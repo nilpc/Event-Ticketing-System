@@ -1,0 +1,21 @@
+# Redis HA: the `redis` ClusterIP service load-balances across the master
+# and replica pods. The app uses plain (non-sentinel) Redis clients, so
+# writes must go ONLY to the master pod. This service pins the master
+# (redis-node-0) so writes never hit the read-only replica.
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-master
+  namespace: event-ticketing
+  labels:
+    app.kubernetes.io/name: redis-master
+    app.kubernetes.io/part-of: event-ticketing
+spec:
+  type: ClusterIP
+  selector:
+    statefulset.kubernetes.io/pod-name: redis-node-0
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+      protocol: TCP

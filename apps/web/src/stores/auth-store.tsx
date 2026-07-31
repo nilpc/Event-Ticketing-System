@@ -4,8 +4,9 @@ import { authApi } from "@/lib/api-routes";
 interface AuthContextValue {
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isMasterAdmin: boolean;
   userId: string | null;
-  login: (accessToken: string, refreshToken: string, is_admin?: boolean) => void;
+  login: (accessToken: string, refreshToken: string, is_admin?: boolean, is_master_admin?: boolean) => void;
   logout: () => void;
 }
 
@@ -14,6 +15,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 const IS_ADMIN_KEY = "is_admin";
+const IS_MASTER_ADMIN_KEY = "is_master_admin";
 
 function parseJwtSub(token: string): string | null {
   try {
@@ -36,6 +38,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return localStorage.getItem(IS_ADMIN_KEY) === "true";
   });
 
+  const [isMasterAdmin, setIsMasterAdmin] = useState<boolean>(() => {
+    return localStorage.getItem(IS_MASTER_ADMIN_KEY) === "true";
+  });
+
   const [userId, setUserId] = useState<string | null>(() => {
     const token = localStorage.getItem(ACCESS_TOKEN_KEY);
     return token ? parseJwtSub(token) : null;
@@ -49,11 +55,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       setIsAuthenticated(false);
       setIsAdmin(false);
+      setIsMasterAdmin(false);
       setUserId(null);
     }
   }, []);
 
-  const login = useCallback((accessToken: string, refreshToken: string, is_admin?: boolean) => {
+  const login = useCallback((accessToken: string, refreshToken: string, is_admin?: boolean, is_master_admin?: boolean) => {
     localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     setIsAuthenticated(true);
@@ -65,6 +72,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem(IS_ADMIN_KEY);
       setIsAdmin(false);
     }
+    if (is_master_admin) {
+      localStorage.setItem(IS_MASTER_ADMIN_KEY, "true");
+      setIsMasterAdmin(true);
+    } else {
+      localStorage.removeItem(IS_MASTER_ADMIN_KEY);
+      setIsMasterAdmin(false);
+    }
   }, []);
 
   const logout = useCallback(() => {
@@ -75,13 +89,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(IS_ADMIN_KEY);
+    localStorage.removeItem(IS_MASTER_ADMIN_KEY);
     setIsAuthenticated(false);
     setIsAdmin(false);
+    setIsMasterAdmin(false);
     setUserId(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isAdmin, userId, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isAdmin, isMasterAdmin, userId, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

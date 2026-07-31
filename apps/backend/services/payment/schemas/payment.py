@@ -19,3 +19,12 @@ class PaymentIntentResponse(BaseModel):
     payment_id: UUID
     client_secret: str
     status: str
+
+
+class PaymentSyncResponse(BaseModel):
+    """FR-5: Result of syncing payment status with Stripe."""
+
+    payment_id: UUID
+    payment_status: str
+    booking_id: UUID
+    booking_status: str

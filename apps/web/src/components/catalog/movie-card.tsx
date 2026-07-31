@@ -21,6 +21,12 @@ interface MovieCardProps {
 export function MovieCard({ event, showtimes, venueMap }: MovieCardProps) {
   const navigate = useNavigate();
 
+  const openCard = () => {
+    if (showtimes.length > 0) {
+      navigate(`/events/${showtimes[0].show_id}`);
+    }
+  };
+
   const venueNames = [
     ...new Set(
       showtimes
@@ -47,7 +53,18 @@ export function MovieCard({ event, showtimes, venueMap }: MovieCardProps) {
           <CardTitle className="text-lg group-hover:text-amber-500 transition-colors duration-300 flex items-center gap-2">
             <Film className="h-5 w-5 text-amber-500 shrink-0" />
             {event.name}
-            <ArrowUpRight className="h-4 w-4 ml-auto opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-amber-500" />
+            <button
+              type="button"
+              onClick={openCard}
+              aria-label={`View showtimes for ${event.name}`}
+              className={`ml-auto rounded-full p-1 transition-all duration-300 cursor-pointer hover:bg-amber-500/10 ${
+                showtimes.length > 0
+                  ? "opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0"
+                  : "opacity-30 cursor-not-allowed"
+              }`}
+            >
+              <ArrowUpRight className="h-4 w-4 text-amber-500" />
+            </button>
           </CardTitle>
           {venueNames.length > 0 && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

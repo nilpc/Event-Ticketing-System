@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.ids import generate_event_id
@@ -20,6 +21,7 @@ from services.booking.schemas.admin import (
     VenueCreate,
     VenueUpdate,
 )
+from services.identity.models.user import User
 
 
 class AdminService:
@@ -130,6 +132,18 @@ class AdminService:
         if showtime is None:
             raise LookupError(f"Showtime {show_id} not found")
         await self.repo.delete_showtime(uuid.UUID(show_id))
+
+    # ── User Promotion ────────────────────────────────────────────────
+    async def promote_user(self, user_id: str) -> User:
+        result = await self.session.execute(
+            select(User).where(User.user_id == uuid.UUID(user_id))
+        )
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise LookupError(f"User {user_id} not found")
+        user.is_admin = True
+        self.session.add(user)
+        return user
 
 
 def _generate_seats(show_id: uuid.UUID, capacity: int, base_price: float) -> list[Seat]:

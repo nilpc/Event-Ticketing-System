@@ -30,26 +30,36 @@
 
 ## Kustomize (k8s/prod/)
 - Extends `k8s/base`. Patches out minikube secrets and migration job.
-- Adds ALB Ingress with AWS LB Controller annotations.
-- Application pods (gateway, sweeper, relay, admitter) get `nodeSelector: node-type: spot` + spot tolerations.
+- Adds ALB Ingress with AWS LB Controller annotations. WAF ARN is hardcoded in `ingress.yaml` (no `__WAF_ACL_ARN__` placeholder — it's a stable terraform-managed ARN).
+- Ingress uses shared ALB group `alb.ingress.kubernetes.io/group.name: event-ticketing` so cert-manager's ACME HTTP-01 solver ingress joins the SAME ALB (no second ALB spawned for challenges).
+- cert-manager ClusterIssuers in `cluster-issuer.yaml`: `letsencrypt-staging` + `letsencrypt-prod` (HTTP-01, class `alb`). Ready without a domain; TLS starts working when an ingress `tls:` host resolves to the ALB.
+- Application pods (gateway, sweeper, relay, admitter) get `nodeSelector: node-type: on-demand` (no spot tolerations).
 - Secrets fetched via External Secrets Operator from SSM Parameter Store.
 - All deployments patched with `imagePullPolicy: Always`.
+- Adds a `redis-master-service.yaml` that pins the `redis-master` Service to `redis-node-0` (the Bitnami `redis` service round-robins master+replica, which breaks plain Redis clients).
+
+## GitOps (ArgoCD)
+- ArgoCD is the declarative controller of record for `k8s/prod/`. Bootstrap manifests live in `k8s/argocd/` (Repository secret + Application), applied once via `kubectl apply -f k8s/argocd/`.
+- Application `event-ticketing` syncs `k8s/prod/` from `https://github.com/nilpc/Event-Ticketing-System.git` (public repo, no credentials) on every push to `main`.
+- Sync policy: `automated.sync` ON, `prune: false` (NEVER deletes resources not in git, e.g. helm-managed redis), `selfHeal: false` (manual `kubectl apply`/rollout-restart is not reverted).
+- ArgoCD server is `ClusterIP` only — NO public NLB. Access via `kubectl port-forward -n argocd svc/argocd-server 8080:80`; admin password from `argocd-initial-admin-secret`.
+- Do NOT enable selfHeal/prune unless helm-managed resources (redis, cert-manager, keda, ESO) are first moved under git control.
 
 ## Helm Charts (installed via scripts/init.ps1)
 - `aws-load-balancer-controller` in kube-system
 - `keda` in keda namespace
 - `external-secrets` in external-secrets namespace (with IRSA role)
 - `bitnami/redis` (standalone, auth enabled) in event-ticketing namespace
-- `argocd/argo-cd` in argocd namespace (service type: LoadBalancer)
 - `eks/node-termination-handler` in kube-system (spot draining)
-- `prometheus-community/kube-prometheus-stack` in monitoring namespace (Prometheus + Grafana)
-- `metrics-server` in kube-system (for `kubectl top`)
+- `argo-cd` in argocd namespace (server service type: ClusterIP, port-forward only)
+- `jetstack/cert-manager` in cert-manager namespace (with `installCRDs=true`; ClusterIssuers applied via k8s/prod overlay)
 
 ## Observability
 - CloudWatch dashboard in `infra/terraform/cloudwatch.tf` — EKS nodes, ALB, RDS, NAT, billing
 
 ## Deployment
-- First-time: `terraform apply` → `scripts/init.ps1` → `kubectl apply -k k8s/prod/`
-- Updates: `scripts/deploy.ps1` (build → push → apply)
+- First-time: `terraform apply` → `scripts/init.ps1` → `kubectl apply -f k8s/argocd/` (ArgoCD then syncs `k8s/prod/`)
+- Manifest updates: commit + push to `main` → ArgoCD auto-syncs `k8s/prod/`
+- Image updates: `scripts/deploy.ps1` (build → push `:main` → `kubectl apply -k k8s/prod/` → rollout restart). selfHeal=off so the restart is not reverted.
 - Destroy: `terraform destroy` from `infra/terraform/`
 - Budget alarm: $150/month via AWS Budgets

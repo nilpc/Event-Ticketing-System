@@ -101,8 +101,12 @@ export default function SignupPage() {
           email: variables.email,
           password: variables.password,
         });
-        storeLogin(loginRes.data.access_token, loginRes.data.refresh_token);
-        navigate("/");
+        storeLogin(loginRes.data.access_token, loginRes.data.refresh_token, loginRes.data.is_admin, loginRes.data.is_master_admin);
+        if (loginRes.data.is_admin) {
+          navigate("/admin");
+        } else {
+          navigate("/");
+        }
       } catch {
         toast.info("Account created. Please sign in manually.");
         navigate("/login");

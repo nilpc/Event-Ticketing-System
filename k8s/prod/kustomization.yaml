@@ -7,6 +7,8 @@ resources:
   - ../base
   - ingress.yaml
   - external-secret.yaml
+  - cluster-issuer.yaml
+  - redis-master-service.yaml
 
 images:
   - name: event-ticketing-api

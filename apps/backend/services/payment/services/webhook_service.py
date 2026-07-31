@@ -34,6 +34,15 @@ class WebhookService:
         self.payment_repo = payment_repo or PaymentRepository(session)
         self.provider = StripeClient()
 
+    def _parse_seat_ids(self, metadata: dict) -> list[str] | None:
+        """Parse seat_ids from metadata — supports both old single seat_id and new multi-seat."""
+        seat_ids_str = metadata.get("seat_ids")
+        if seat_ids_str:
+            parts = [s.strip() for s in seat_ids_str.split(",") if s.strip()]
+            return parts if parts else None
+        seat_id_val = metadata.get("seat_id")
+        return [seat_id_val] if seat_id_val else None
+
     async def process_webhook(self, payload: bytes, signature: str) -> None:
         """FR-9: Process Stripe webhook event — §6 Layer 3."""
         try:
@@ -42,7 +51,8 @@ class WebhookService:
             logger.warning("webhook_signature_invalid", error=str(exc))
             raise ValueError("Invalid webhook signature.") from exc
 
-        show_id = seat_id = user_id = None
+        show_id = user_id = None
+        seat_ids: list[str] | None = None
         terminal = False
 
         try:
@@ -68,15 +78,14 @@ class WebhookService:
                     return
 
                 show_id_str = metadata.get("show_id")
-                seat_id_val = metadata.get("seat_id")
                 user_id_str = metadata.get("user_id")
 
                 if show_id_str:
                     show_id = UUID(show_id_str)
-                if seat_id_val:
-                    seat_id = seat_id_val
                 if user_id_str:
                     user_id = UUID(user_id_str)
+
+                seat_ids = self._parse_seat_ids(metadata)
 
                 booking = await self.booking_repo.get_booking_by_id(booking_id)
 
@@ -85,12 +94,10 @@ class WebhookService:
                     return
 
                 if event.type == "payment_intent.succeeded":
-                    # §6: Update payment record status
                     await self.payment_repo.update_payment_status_by_intent(
                         event.data.object.id, "succeeded"
                     )
                     if booking.status == BookingStatus.FAILED:
-                        # §6: Late-webhook guard — sweeper beat us
                         await self.booking_repo.add_outbox_event(
                             aggregate_type="Payment",
                             aggregate_id=booking_id,
@@ -101,53 +108,51 @@ class WebhookService:
                             },
                         )
                     elif booking.status == BookingStatus.PENDING:
-                        if show_id is None or seat_id is None:
+                        if show_id is None or not seat_ids:
                             return  # §6: missing metadata — cannot finalize
-                        await self.seat_repo.finalize_sold_seat(show_id, seat_id)
+                        await self.seat_repo.finalize_sold_seats(show_id, seat_ids)
                         await self.booking_repo.update_booking_status(
                             booking_id,
                             BookingStatus.CONFIRMED,
                             source="webhook",
                         )
-                        await self.booking_repo.add_outbox_event(
-                            aggregate_type="Booking",
-                            aggregate_id=booking_id,
-                            event_type="BOOKING_CONFIRMED",
-                            payload={
-                                "booking_id": str(booking_id),
-                                "show_id": str(show_id),
-                                "seat_id": seat_id,
-                            },
-                        )
+                        for seat_id in seat_ids:
+                            await self.booking_repo.add_outbox_event(
+                                aggregate_type="Booking",
+                                aggregate_id=booking_id,
+                                event_type="BOOKING_CONFIRMED",
+                                payload={
+                                    "booking_id": str(booking_id),
+                                    "show_id": str(show_id),
+                                    "seat_id": seat_id,
+                                },
+                            )
                         terminal = True
-                    # else: already CONFIRMED/FAILED — intermediate or stale event
 
                 elif event.type in (
                     "payment_intent.payment_failed",
                     "payment_intent.canceled",
                 ):
-                    # §6: Update payment record status
                     await self.payment_repo.update_payment_status_by_intent(
                         event.data.object.id, "failed"
                     )
                     if booking.status == BookingStatus.PENDING:
-                        if show_id is None or seat_id is None:
+                        if show_id is None or not seat_ids:
                             return  # §6: missing metadata — cannot revert
-                        await self.seat_repo.revert_seat_to_available(show_id, seat_id)
+                        for seat_id in seat_ids:
+                            await self.seat_repo.revert_seat_to_available(show_id, seat_id)
                         await self.booking_repo.update_booking_status(
                             booking_id,
                             BookingStatus.FAILED,
                             source="webhook",
                         )
                         terminal = True
-                    # else: already non-PENDING — nothing to revert
 
         except IntegrityError:
-            # Defensive: duplicate event raced past the inner guard
             return
 
-        # §6: Redis cleanup stays OUTSIDE the DB transaction, gated to
-        # terminal outcomes only — prevents broken state on partial failure.
-        if terminal and show_id is not None and seat_id is not None and user_id is not None:
-            await self.lock_repo.release_seat_lock_safe(show_id, seat_id, user_id)
+        # §6: Redis cleanup stays OUTSIDE the DB transaction
+        if terminal and show_id is not None and seat_ids and user_id is not None:
+            for seat_id in seat_ids:
+                await self.lock_repo.release_seat_lock_safe(show_id, seat_id, user_id)
             await self.lock_repo.release_user_hold_limit(show_id, user_id)

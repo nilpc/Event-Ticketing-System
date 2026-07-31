@@ -40,7 +40,13 @@ docker build -t $apiTag --target api -f "$repoRoot/Dockerfile" $repoRoot
 if ($LASTEXITCODE -ne 0) { throw "Docker build (api) failed" }
 
 Write-Host "  Building Web image..." -ForegroundColor Gray
-docker build -t $webTag --target web -f "$repoRoot/Dockerfile" $repoRoot
+$stripeKey = $env:VITE_STRIPE_PUBLISHABLE_KEY
+if ([string]::IsNullOrEmpty($stripeKey)) {
+    Write-Warning "VITE_STRIPE_PUBLISHABLE_KEY not set — Stripe will be unavailable"
+    docker build -t $webTag --target web -f "$repoRoot/Dockerfile" $repoRoot
+} else {
+    docker build -t $webTag --target web --build-arg VITE_STRIPE_PUBLISHABLE_KEY=$stripeKey -f "$repoRoot/Dockerfile" $repoRoot
+}
 if ($LASTEXITCODE -ne 0) { throw "Docker build (web) failed" }
 
 Write-Host "=== Pushing images to ECR ===" -ForegroundColor Cyan
@@ -56,23 +62,17 @@ Write-Host "=== Updating kubeconfig ===" -ForegroundColor Cyan
 aws eks update-kubeconfig --name $ClusterName --region $Region
 if ($LASTEXITCODE -ne 0) { throw "kubeconfig update failed" }
 
-Write-Host "=== Fetching WAF ARN from Terraform output ===" -ForegroundColor Cyan
-$wafArn = & terraform -chdir="$repoRoot/infra/terraform" output -raw waf_acl_arn 2>$null
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrEmpty($wafArn)) {
-    Write-Warning "Could not read WAF ARN from Terraform. Deploying without WAF association."
-    $wafArn = $null
-} else {
-    Write-Host "  WAF ARN: $wafArn" -ForegroundColor Green
-}
-
 Write-Host "=== Applying Kustomize overlay ===" -ForegroundColor Cyan
 $kustomizeDir = "$repoRoot/k8s/prod/"
-if ($wafArn) {
-    kubectl kustomize $kustomizeDir | ForEach-Object { $_ -replace '__WAF_ACL_ARN__', $wafArn } | kubectl apply -f -
-} else {
-    kubectl apply -k $kustomizeDir
-}
+kubectl apply -k $kustomizeDir
 if ($LASTEXITCODE -ne 0) { throw "kubectl apply failed" }
+
+Write-Host "=== Restarting deployments to pick up new images ===" -ForegroundColor Cyan
+kubectl -n event-ticketing rollout restart deployment/gateway-api
+kubectl -n event-ticketing rollout restart deployment/gateway-web
+kubectl -n event-ticketing rollout restart deployment/sweeper
+kubectl -n event-ticketing rollout restart deployment/relay
+kubectl -n event-ticketing rollout restart deployment/admitter
 
 Write-Host "=== Waiting for rollout to complete ===" -ForegroundColor Cyan
 kubectl -n event-ticketing rollout status deployment/gateway-api --timeout=180s

@@ -31,6 +31,7 @@ class LoginResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     is_admin: bool = False
+    is_master_admin: bool = False
 
 
 class RefreshRequest(BaseModel):

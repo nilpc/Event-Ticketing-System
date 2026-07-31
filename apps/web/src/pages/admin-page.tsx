@@ -1,24 +1,29 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Trash2, Key, Film, MapPin, Calendar } from "lucide-react";
+import { Loader2, Plus, Trash2, Key, Film, MapPin, Calendar, Users } from "lucide-react";
 import { toast } from "sonner";
 import { PageTransition } from "@/components/layout/page-transition";
 import { adminApi, catalogApi } from "@/lib/api-routes";
+import { useAuth } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EventType, EventResponse, VenueResponse } from "@/types/api";
 
-type Tab = "catalog" | "newshow";
+type Tab = "catalog" | "newshow" | "users";
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("catalog");
+  const { isMasterAdmin } = useAuth();
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: "catalog", label: "Catalog", icon: <Film className="h-4 w-4" /> },
     { key: "newshow", label: "New Show", icon: <Plus className="h-4 w-4" /> },
   ];
+  if (isMasterAdmin) {
+    tabs.push({ key: "users", label: "Users", icon: <Users className="h-4 w-4" /> });
+  }
 
   return (
     <PageTransition>
@@ -50,6 +55,7 @@ export default function AdminPage() {
 
           {tab === "catalog" && <CatalogTab />}
           {tab === "newshow" && <NewShowTab />}
+          {tab === "users" && <UsersTab />}
         </div>
       </div>
     </PageTransition>
@@ -333,6 +339,59 @@ function NewShowTab() {
         {submit.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
         Create Show
       </Button>
+    </div>
+  );
+}
+
+// ── Users Tab ─────────────────────────────────────────────────────────────
+
+function UsersTab() {
+  const [userId, setUserId] = useState("");
+  const [result, setResult] = useState<{ email: string } | null>(null);
+
+  const promoteUser = useMutation({
+    mutationFn: (uid: string) => adminApi.promoteUser(uid).then(r => r.data),
+    onSuccess: (data) => {
+      toast.success(`${data.email} promoted to admin.`);
+      setResult({ email: data.email });
+      setUserId("");
+    },
+    onError: (err: { response?: { data?: { detail?: string } } }) => {
+      toast.error(err.response?.data?.detail ?? "Failed to promote user.");
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="p-6 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl space-y-4">
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-medium text-muted-foreground">Promote User to Admin</h2>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Enter a user&apos;s UUID to grant them admin privileges.
+        </p>
+        <div className="flex gap-3">
+          <Input
+            placeholder="User ID (UUID)"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            className="rounded-xl flex-1 font-mono text-xs"
+          />
+          <Button
+            onClick={() => promoteUser.mutate(userId.trim())}
+            disabled={!userId.trim() || promoteUser.isPending}
+            className="rounded-full"
+          >
+            {promoteUser.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Promote"}
+          </Button>
+        </div>
+      </div>
+      {result && (
+        <div className="p-4 rounded-2xl border border-green-500/20 bg-green-500/5 text-sm text-green-400">
+          Promoted {result.email} to admin.
+        </div>
+      )}
     </div>
   );
 }

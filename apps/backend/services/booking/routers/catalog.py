@@ -51,6 +51,14 @@ async def list_showtimes_for_event(
     return await svc.list_showtimes_by_event(event_id)
 
 
+@router.get("/showtimes", response_model=list[ShowtimeResponse])
+async def list_showtimes(
+    svc: CatalogService = Depends(_get_catalog_service),
+) -> list[ShowtimeResponse]:
+    """FR-4: List all showtimes in one call."""
+    return await svc.list_showtimes()
+
+
 @router.get("/showtimes/{show_id}", response_model=ShowtimeResponse)
 async def get_showtime(
     show_id: UUID,

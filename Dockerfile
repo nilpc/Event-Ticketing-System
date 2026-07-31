@@ -1,5 +1,9 @@
 # ── Stage 1: Build React SPA ─────────────────────────────────────
 FROM node:22-alpine AS frontend-builder
+
+ARG VITE_STRIPE_PUBLISHABLE_KEY
+ENV VITE_STRIPE_PUBLISHABLE_KEY=$VITE_STRIPE_PUBLISHABLE_KEY
+
 RUN corepack enable && corepack prepare pnpm@9 --activate
 WORKDIR /app
 

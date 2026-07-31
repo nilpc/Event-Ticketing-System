@@ -25,6 +25,7 @@ import type {
   EventCreateRequest,
   VenueCreateRequest,
   ShowtimeCreateRequest,
+  UserPromoteResponse,
 } from "../types/api";
 
 export const authApi = {
@@ -70,6 +71,9 @@ export const catalogApi = {
   getShowtimesByEvent(eventId: string) {
     return api.get<ShowtimeResponse[]>(`/events/${eventId}/showtimes`);
   },
+  getAllShowtimes() {
+    return api.get<ShowtimeResponse[]>("/showtimes");
+  },
 };
 
 export const queueApi = {
@@ -104,6 +108,11 @@ export const paymentApi = {
   createIntent(data: PaymentIntentRequest) {
     return api.post<PaymentIntentResponse>("/payments/intent", data);
   },
+  syncPayment(paymentId: string) {
+    return api.post<{ payment_id: string; payment_status: string; booking_id: string; booking_status: string }>(
+      `/payments/${paymentId}/sync`,
+    );
+  },
 };
 
 export const confirmApi = {
@@ -113,6 +122,9 @@ export const confirmApi = {
 };
 
 export const adminApi = {
+  promoteUser(userId: string) {
+    return api.post<UserPromoteResponse>(`/admin/users/${userId}/promote`);
+  },
   createEvent(data: EventCreateRequest) {
     return api.post<EventResponse>("/admin/events", data);
   },

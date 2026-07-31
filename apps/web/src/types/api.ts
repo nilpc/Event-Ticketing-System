@@ -18,6 +18,7 @@ export interface LoginResponse {
   refresh_token: string;
   token_type: string;
   is_admin: boolean;
+  is_master_admin: boolean;
 }
 
 export interface RefreshRequest {
@@ -155,6 +156,12 @@ export interface EventCreateRequest {
 export interface VenueCreateRequest {
   name: string;
   capacity: number;
+}
+
+export interface UserPromoteResponse {
+  user_id: string;
+  email: string;
+  is_admin: boolean;
 }
 
 export interface ShowtimeCreateRequest {

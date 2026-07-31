@@ -40,3 +40,9 @@ class CatalogRepository:
     async def get_showtimes_by_event(self, event_id: str) -> list[Showtime]:
         result = await self.session.execute(select(Showtime).where(Showtime.event_id == event_id))
         return list(result.scalars().all())
+
+    async def list_showtimes(self) -> list[Showtime]:
+        result = await self.session.execute(
+            select(Showtime).order_by(Showtime.start_time)
+        )
+        return list(result.scalars().all())

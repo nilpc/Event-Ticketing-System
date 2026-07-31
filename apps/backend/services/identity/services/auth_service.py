@@ -114,6 +114,7 @@ class AuthService:
             access_token=access_token,
             refresh_token=raw_token,
             is_admin=user.is_admin,
+            is_master_admin=user.is_master_admin,
         )
 
     async def soft_delete(self, user_id: UUID) -> None:

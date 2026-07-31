@@ -69,6 +69,13 @@ class PaymentRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_payment_by_id(self, payment_id: UUID) -> Payment | None:
+        """FR-5: Fetch payment by PK."""
+        result = await self.session.execute(
+            select(Payment).where(Payment.payment_id == payment_id)
+        )
+        return result.scalar_one_or_none()
+
     async def update_payment_status_by_intent(self, provider_payment_id: str, status: str) -> None:
         """FR-5: Webhook handler — update status by Stripe intent ID."""
         await self.session.execute(

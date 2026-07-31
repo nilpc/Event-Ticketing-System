@@ -106,4 +106,6 @@ class OAuthService:
         return LoginResponse(
             access_token=access_token,
             refresh_token=raw_refresh,
+            is_admin=user.is_admin,
+            is_master_admin=user.is_master_admin,
         )

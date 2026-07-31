@@ -15,6 +15,7 @@ from services.booking.schemas.admin import (
     EventUpdate,
     ShowtimeCreate,
     ShowtimeUpdate,
+    UserPromoteResponse,
     VenueCreate,
     VenueUpdate,
 )
@@ -38,6 +39,18 @@ async def _require_admin(
     user = result.scalar_one_or_none()
     if user is None or not user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required.")
+    return user_id
+
+
+async def _require_master_admin(
+    user_id: UUID = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db_session),
+) -> UUID:
+    """JWT + is_master_admin gate — only master admins can promote users."""
+    result = await session.execute(select(User).where(User.user_id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None or not user.is_master_admin:
+        raise HTTPException(status_code=403, detail="Master admin access required.")
     return user_id
 
 
@@ -169,3 +182,21 @@ async def delete_showtime(
         await svc.delete_showtime(show_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.post("/users/{user_id}/promote", response_model=UserPromoteResponse)
+async def promote_user(
+    user_id: str,
+    _master: UUID = Depends(_require_master_admin),
+    svc: AdminService = Depends(_get_admin_service),
+) -> UserPromoteResponse:
+    """Promote a user to admin. Caller must be master admin."""
+    try:
+        user = await svc.promote_user(user_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return UserPromoteResponse(
+        user_id=str(user.user_id),
+        email=user.email,
+        is_admin=user.is_admin,
+    )

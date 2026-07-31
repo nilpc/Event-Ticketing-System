@@ -10,7 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.db.session import get_db_session
 from core.security.auth import get_current_user_id
 from services.payment.providers.stripe_client import StripeClient
-from services.payment.schemas.payment import PaymentIntentRequest, PaymentIntentResponse
+from services.payment.schemas.payment import (
+    PaymentIntentRequest,
+    PaymentIntentResponse,
+    PaymentSyncResponse,
+)
 from services.payment.services.payment_service import PaymentService
 
 router = APIRouter(prefix="/v1/payments", tags=["payments"])
@@ -31,5 +35,18 @@ async def create_intent(
     """FR-5, FR-11: Create a Stripe PaymentIntent — requires authenticated user."""
     return await svc.create_intent(
         booking_id=payload.booking_id,
+        user_id=user_id,
+    )
+
+
+@router.post("/{payment_id}/sync", response_model=PaymentSyncResponse)
+async def sync_payment(
+    payment_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    svc: PaymentService = Depends(_get_payment_service),
+) -> PaymentSyncResponse:
+    """FR-5: Sync payment status with Stripe — confirms booking if succeeded."""
+    return await svc.sync_payment(
+        payment_id=payment_id,
         user_id=user_id,
     )

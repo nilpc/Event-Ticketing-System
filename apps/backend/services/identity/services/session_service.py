@@ -33,9 +33,12 @@ class SessionService:
         """FR-3: Issue access + refresh token pair."""
         raw_refresh, _ = await create_refresh_token(user_id, self.session)
         access_token = create_access_token(str(user_id))
+        user = await self.user_repo.find_by_id(user_id)
         return LoginResponse(
             access_token=access_token,
             refresh_token=raw_refresh,
+            is_admin=user.is_admin if user else False,
+            is_master_admin=user.is_master_admin if user else False,
         )
 
     async def refresh_access_token(self, refresh_token_raw: str) -> LoginResponse:
@@ -73,6 +76,8 @@ class SessionService:
         return LoginResponse(
             access_token=access_token,
             refresh_token=new_raw,
+            is_admin=user.is_admin,
+            is_master_admin=user.is_master_admin,
         )
 
     async def logout(self, refresh_token_raw: str) -> None:

@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useQuery, useQueries } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   Film,
@@ -76,26 +76,25 @@ export default function CatalogPage() {
     queryFn: () => catalogApi.getVenues().then((r) => r.data),
   });
 
-  const showtimeQueries = useQueries({
-    queries: (events ?? []).map((event) => ({
-      queryKey: ["showtimes", event.event_id],
-      queryFn: () =>
-        catalogApi.getShowtimesByEvent(event.event_id).then((r) => r.data),
-      enabled: !!events,
-    })),
+  const {
+    data: allShowtimes,
+    error: showtimesError,
+  } = useQuery({
+    queryKey: ["showtimes"],
+    queryFn: () => catalogApi.getAllShowtimes().then((r) => r.data),
   });
 
   const showtimesByEvent = new Map<string, ShowtimeResponse[]>();
-  showtimeQueries.forEach((q, i) => {
-    if (q.data && events?.[i]) {
-      showtimesByEvent.set(events[i].event_id, q.data);
-    }
+  allShowtimes?.forEach((st) => {
+    const existing = showtimesByEvent.get(st.event_id) ?? [];
+    existing.push(st);
+    showtimesByEvent.set(st.event_id, existing);
   });
 
   const venueMap = new Map<string, VenueResponse>();
   venues?.forEach((v) => venueMap.set(v.venue_id, v));
 
-  if (eventsError || venuesError) {
+  if (eventsError || venuesError || showtimesError) {
     toast.error("Failed to load catalog data. Please try again.");
   }
 

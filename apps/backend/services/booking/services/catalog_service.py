@@ -145,6 +145,33 @@ class CatalogService:
 
         return result
 
+    async def list_showtimes(self) -> list[ShowtimeResponse]:
+        """FR-4: Read-through cache for all showtimes (single catalog call)."""
+        cache_key = "showtimes:all"
+        try:
+            cached = await self.cache.get(cache_key)
+            if cached is not None:
+                return [ShowtimeResponse.model_validate(s) for s in json.loads(cached)]
+        except Exception:
+            logger.warning("cache_read_failed", key=cache_key)
+
+        showtimes = await self.catalog_repo.list_showtimes()
+        responses = [ShowtimeResponse.model_validate(s) for s in showtimes]
+
+        try:
+            await self.cache.set(
+                cache_key,
+                json.dumps(
+                    [r.model_dump(mode="json") for r in responses],
+                    cls=_DecimalEncoder,
+                ),
+                ttl=SHOWTIME_CACHE_TTL,
+            )
+        except Exception:
+            logger.warning("cache_write_failed", key=cache_key)
+
+        return responses
+
     async def list_showtimes_by_event(self, event_id: str) -> list[ShowtimeResponse]:
         """FR-4: Read-through cache for showtimes by event."""
         cache_key = f"showtimes:event:{event_id}"

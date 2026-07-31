@@ -13,7 +13,7 @@ from uuid import uuid4
 import pytest
 
 from services.booking.repositories.cache_repo import CacheRepository
-from services.booking.schemas.catalog import VenueResponse
+from services.booking.schemas.catalog import ShowtimeResponse, VenueResponse
 from services.booking.services.catalog_service import CatalogService
 
 
@@ -74,6 +74,31 @@ class TestCatalogCacheAside:
 
         mock_cache_repo.get.assert_called_once_with("events:all")
         mock_cache_repo.set.assert_not_called()
+
+    async def test_list_showtimes_uses_cache(
+        self, catalog_service: CatalogService, mock_cache_repo: AsyncMock
+    ) -> None:
+        """list_showtimes should check cache.get with key 'showtimes:all', skip DB on hit."""
+        show_id = uuid4()
+        mock_cache_repo.get.return_value = json.dumps(
+            [
+                {
+                    "show_id": str(show_id),
+                    "event_id": f"STE{uuid4().hex[:6].upper()}",
+                    "venue_id": str(uuid4()),
+                    "base_price": "25.00",
+                    "start_time": "2026-08-01T18:00:00Z",
+                    "end_time": "2026-08-01T21:00:00Z",
+                }
+            ]
+        )
+
+        result = await catalog_service.list_showtimes()
+
+        mock_cache_repo.get.assert_called_once_with("showtimes:all")
+        mock_cache_repo.set.assert_not_called()
+        assert len(result) == 1
+        assert isinstance(result[0], ShowtimeResponse)
 
     async def test_invalidate_seat_map_calls_cache_and_publishes(
         self, catalog_service: CatalogService, mock_cache_repo: AsyncMock

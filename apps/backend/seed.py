@@ -220,11 +220,20 @@ async def seed(reset: bool = False):
                 await session.execute(
                     text(
                         "INSERT INTO identity.users"
-                        " (user_id, email, password_hash, is_active, is_admin)"
-                        " VALUES (:uid, :email, :pw, true, true)"
+                        " (user_id, email, password_hash, is_active, is_admin, is_master_admin)"
+                        " VALUES (:uid, :email, :pw, true, true, true)"
                     ),
                     {"uid": admin_id, "email": ADMIN_EMAIL,
                      "pw": _hash_password(ADMIN_PASSWORD)},
+                )
+            else:
+                # Ensure existing admin has master_admin privileges
+                await session.execute(
+                    text(
+                        "UPDATE identity.users SET is_admin = true, is_master_admin = true"
+                        " WHERE user_id = :uid"
+                    ),
+                    {"uid": admin_id},
                 )
 
             venue_count_result = await session.execute(text("SELECT COUNT(*) FROM booking.venues"))

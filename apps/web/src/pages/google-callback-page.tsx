@@ -27,8 +27,12 @@ export default function GoogleCallbackPage() {
       .handleGoogleCallback(code, state)
       .then((res) => {
         if (cancelled) return;
-        storeLogin(res.data.access_token, res.data.refresh_token, res.data.is_admin);
-        navigate("/");
+        storeLogin(res.data.access_token, res.data.refresh_token, res.data.is_admin, res.data.is_master_admin);
+        if (res.data.is_admin) {
+          navigate("/admin");
+        } else {
+          navigate("/");
+        }
       })
       .catch(() => {
         if (cancelled) return;

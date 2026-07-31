@@ -4,26 +4,30 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2,
   Check,
-  CreditCard,
   Clock,
   AlertCircle,
   Ticket,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import type { AxiosError } from "axios";
 import { PageTransition } from "@/components/layout/page-transition";
 import { useBookingFlow } from "@/stores/booking-store";
 import {
   bookingApi,
   catalogApi,
-  confirmApi,
+  paymentApi,
   queueApi,
 } from "@/lib/api-routes";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import type { SeatResponse } from "@/types/api";
+import StripePaymentForm from "./stripe-payment-form";
+
+const stripePromise = loadStripe(
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "",
+);
 
 type CheckoutStage = "locking" | "booking" | "payment" | "complete";
 
@@ -61,10 +65,9 @@ export default function CheckoutPage() {
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [seatPrices, setSeatPrices] = useState<SeatResponse[]>([]);
-  const [processing, setProcessing] = useState(false);
-  const [cardNumber, setCardNumber] = useState("");
-  const [expiry, setExpiry] = useState("");
-  const [cvc, setCvc] = useState("");
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stageIndex = STAGES.findIndex((s) => s.key === stage);
@@ -210,60 +213,48 @@ export default function CheckoutPage() {
     setBookingResult,
   ]);
 
-  // Fetch seat prices for display
+  // Fetch seat prices and create PaymentIntent on entering payment stage
   useEffect(() => {
     if (!showId || selectedSeatIds.length === 0 || stage !== "payment") return;
-    catalogApi
-      .getSeatMap(showId)
-      .then((r) => {
-        const selected = r.data.seats.filter((s) =>
+    let cancelled = false;
+
+    const init = async () => {
+      try {
+        const [mapResult, intentResult] = await Promise.all([
+          catalogApi.getSeatMap(showId),
+          paymentApi.createIntent({ booking_id: bookingId! }),
+        ]);
+        if (cancelled) return;
+        const selected = mapResult.data.seats.filter((s) =>
           selectedSeatIds.includes(s.seat_id),
         );
         setSeatPrices(selected);
-      })
-      .catch(() => {});
-  }, [showId, selectedSeatIds, stage]);
+        setClientSecret(intentResult.data.client_secret);
+        setPaymentId(intentResult.data.payment_id);
+      } catch (err) {
+        if (!cancelled) {
+          const axiosErr = err as AxiosError<{ detail?: string }>;
+          setError(axiosErr.response?.data?.detail ?? "Failed to initialize payment.");
+        }
+      }
+    };
+
+    if (bookingId) init();
+    return () => { cancelled = true; };
+  }, [showId, selectedSeatIds, stage, bookingId]);
 
   const totalPrice = seatPrices.reduce((sum, s) => sum + parseFloat(s.price), 0);
 
-  const formatCardNumber = (val: string) => {
-    const digits = val.replace(/\D/g, "").slice(0, 16);
-    return digits.replace(/(.{4})/g, "$1 ").trim();
+  const handlePaymentSuccess = () => {
+    setStage("complete");
+    resetBookingFlow();
+    setTimeout(() => navigate("/account"), 1500);
   };
 
-  const formatExpiry = (val: string) => {
-    const digits = val.replace(/\D/g, "").slice(0, 4);
-    if (digits.length > 2) return digits.slice(0, 2) + "/" + digits.slice(2);
-    return digits;
-  };
-
-  const handlePayment = async () => {
-    if (!cardNumber || !expiry || !cvc) {
-      toast.error("Please fill in all card details.");
-      return;
-    }
-    if (!bookingId) {
-      toast.error("No booking to confirm.");
-      return;
-    }
-    setProcessing(true);
-    try {
-      await new Promise((r) => setTimeout(r, 2000));
-      await confirmApi.mockConfirm(bookingId);
-      setStage("complete");
-      resetBookingFlow();
-      setTimeout(() => navigate("/account"), 1500);
-    } catch (err) {
-      const axiosErr = err as AxiosError<{ detail?: string }>;
-      const status = axiosErr.response?.status ?? (err as { status?: number }).status;
-      const detail = axiosErr.response?.data?.detail;
-      if (status === 409) {
-        setError("Booking has expired. Please start over.");
-      } else {
-        setError(detail ?? "Payment confirmation failed. Please try again.");
-      }
-    } finally {
-      setProcessing(false);
+  const handlePaymentError = (msg: string) => {
+    setPaymentError(msg);
+    if (msg.includes("expired") || msg.includes("Expired")) {
+      setError("Booking has expired. Please start over.");
     }
   };
 
@@ -388,26 +379,26 @@ export default function CheckoutPage() {
               </motion.div>
             )}
 
-            {stage === "payment" && !processing && (
+            {stage === "payment" && !clientSecret && !paymentError && (
               <motion.div
-                key="payment-form"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.4, ease: PREMIUM_EASE }}
-                className="p-8 space-y-6 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl"
+                key="loading-stripe"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="p-8 text-center space-y-4 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl"
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10">
-                    <CreditCard className="h-4 w-4 text-primary" />
-                  </div>
-                  <h2 className="text-xl font-semibold tracking-tight">
-                    Complete Payment
-                  </h2>
-                </div>
+                <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                <p className="text-muted-foreground">Preparing payment...</p>
+              </motion.div>
+            )}
 
+            {stage === "payment" && clientSecret && (
+              <Elements
+                stripe={stripePromise}
+                options={{ clientSecret, appearance: { theme: "night" } }}
+              >
                 {seatPrices.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="p-4 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl space-y-2">
                     {seatPrices.map((s) => (
                       <div key={s.seat_id} className="flex justify-between text-sm">
                         <span className="text-muted-foreground">
@@ -426,77 +417,13 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                 )}
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground text-xs font-medium">Card Number</Label>
-                    <Input
-                      placeholder="4242 4242 4242 4242"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                      maxLength={19}
-                      inputMode="numeric"
-                      className="rounded-xl font-mono tracking-wider"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-muted-foreground text-xs font-medium">Expiry</Label>
-                      <Input
-                        placeholder="MM/YY"
-                        value={expiry}
-                        onChange={(e) => setExpiry(formatExpiry(e.target.value))}
-                        maxLength={5}
-                        inputMode="numeric"
-                        className="rounded-xl font-mono tracking-wider"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-muted-foreground text-xs font-medium">CVC</Label>
-                      <Input
-                        placeholder="123"
-                        value={cvc}
-                        onChange={(e) => setCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                        maxLength={4}
-                        inputMode="numeric"
-                        className="rounded-xl font-mono tracking-wider"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handlePayment}
-                  className="w-full"
-                  size="lg"
-                  disabled={processing}
-                >
-                  Pay ₹{totalPrice.toFixed(2)}
-                </Button>
-              </motion.div>
-            )}
-
-            {stage === "payment" && processing && (
-              <motion.div
-                key="processing"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="p-8 text-center space-y-6 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl"
-              >
-                <div className="h-1.5 w-full rounded-full overflow-hidden bg-muted/30">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-primary/60 via-primary to-primary/60 rounded-full"
-                    animate={{
-                      opacity: [0.5, 1, 0.5],
-                      backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-                    }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  />
-                </div>
-                <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-                <p className="text-muted-foreground">Processing payment...</p>
-              </motion.div>
+                <StripePaymentForm
+                  totalPrice={totalPrice}
+                  paymentId={paymentId!}
+                  onSuccess={handlePaymentSuccess}
+                  onError={handlePaymentError}
+                />
+              </Elements>
             )}
 
             {stage === "complete" && (

@@ -53,7 +53,7 @@ export default function LoginPage() {
   const loginMutation = useMutation({
     mutationFn: (data: LoginForm) => authApi.login(data).then((r) => r.data),
     onSuccess: (data) => {
-      storeLogin(data.access_token, data.refresh_token, data.is_admin);
+      storeLogin(data.access_token, data.refresh_token, data.is_admin, data.is_master_admin);
       if (data.is_admin) {
         navigate("/admin");
       } else {

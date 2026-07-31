@@ -190,20 +190,33 @@ helm upgrade --install node-termination-handler eks/node-termination-handler `
 if ($LASTEXITCODE -ne 0) { throw "Node Termination Handler install failed" }
 
 # ============================================================================
-# Step 8: Install ArgoCD
+# Step 8: Install ArgoCD (GitOps) — ClusterIP only, no public NLB.
+# Access via port-forward: kubectl port-forward -n argocd svc/argocd-server 8080:80
 # ============================================================================
 Write-Host "=== Step 8: Installing ArgoCD ===" -ForegroundColor Cyan
 helm repo add argo https://argoproj.github.io/argo-helm 2>$null | Out-Null
 helm repo update
 helm upgrade --install argocd argo/argo-cd -n argocd --create-namespace `
-    --set server.service.type=LoadBalancer `
-    --set configs.params."server\.insecure"=true
+    --set server.service.type=ClusterIP `
+    --set configs.params."server\.insecure"=true `
+    --set server.ingress.enabled=false
 if ($LASTEXITCODE -ne 0) { throw "ArgoCD install failed" }
 
 # ============================================================================
-# Step 9: Write secrets to SSM Parameter Store
+# Step 9: Install cert-manager (Let's Encrypt ClusterIssuers via k8s/prod overlay)
 # ============================================================================
-Write-Host "=== Step 9: Writing secrets to SSM Parameter Store ===" -ForegroundColor Cyan
+Write-Host "=== Step 9: Installing cert-manager ===" -ForegroundColor Cyan
+helm repo add jetstack https://charts.jetstack.io 2>$null | Out-Null
+helm repo update
+helm upgrade --install cert-manager jetstack/cert-manager `
+    -n cert-manager --create-namespace `
+    --set installCRDs=true
+if ($LASTEXITCODE -ne 0) { throw "cert-manager install failed" }
+
+# ============================================================================
+# Step 10: Write secrets to SSM Parameter Store
+# ============================================================================
+Write-Host "=== Step 10: Writing secrets to SSM Parameter Store ===" -ForegroundColor Cyan
 
 # Database
 if ($RdsEndpoint -ne "") {
@@ -270,9 +283,11 @@ Write-Host "=== Bootstrap Complete! ===" -ForegroundColor Green
 Write-Host ""
 Write-Host "Next steps:"
 Write-Host "  1. Verify ALB Controller: kubectl get pods -n kube-system"
-Write-Host "  2. Apply production manifests: kubectl apply -k k8s/prod/"
-Write-Host "  3. Get ALB DNS: kubectl get ingress -n event-ticketing"
-Write-Host "  4. Get ArgoCD password: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
+Write-Host "  2. Bootstrap ArgoCD (repo + Application): kubectl apply -f k8s/argocd/"
+Write-Host "  3. Apply production manifests (or let ArgoCD sync): kubectl apply -k k8s/prod/"
+Write-Host "  4. Get ALB DNS: kubectl get ingress -n event-ticketing"
+Write-Host "  5. ArgoCD UI: kubectl port-forward -n argocd svc/argocd-server 8080:80"
+Write-Host "     Admin password: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
 $dashboardUrl = "https://console.aws.amazon.com/cloudwatch/home?region=$Region"
 $dashboardUrl = "$dashboardUrl#dashboards:name=$ClusterName-operations"
-Write-Host "  5. Open CloudWatch dashboard: $dashboardUrl"
+Write-Host "  6. Open CloudWatch dashboard: $dashboardUrl"

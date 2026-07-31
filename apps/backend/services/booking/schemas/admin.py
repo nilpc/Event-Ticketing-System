@@ -48,3 +48,10 @@ class ShowtimeUpdate(BaseModel):
     base_price: Decimal | None = Field(default=None, decimal_places=2, ge=0)
     start_time: datetime | None = None
     end_time: datetime | None = None
+
+
+# ── User Promotion ───────────────────────────────────────────────────────
+class UserPromoteResponse(BaseModel):
+    user_id: str
+    email: str
+    is_admin: bool

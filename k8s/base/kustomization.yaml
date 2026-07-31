@@ -13,6 +13,7 @@ resources:
   - gateway-web-deployment.yaml
   - gateway-service.yaml
   - pdb.yaml
+  - hpa.yaml
   - sweeper-deployment.yaml
   - relay-deployment.yaml
   - admitter-deployment.yaml
