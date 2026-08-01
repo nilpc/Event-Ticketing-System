@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any, Protocol
 
 import stripe
 import structlog
@@ -11,6 +12,28 @@ from core.config import settings
 from core.exceptions import PaymentProviderError
 
 logger = structlog.get_logger()
+
+
+class PaymentIntentProvider(Protocol):
+    """FR-5: Structural interface for PaymentIntent operations (StripeClient + fakes)."""
+
+    async def create_payment_intent(
+        self,
+        amount_cents: int,
+        currency: str,
+        metadata: dict | None = None,
+        payment_method_types: list[str] | None = None,
+    ) -> Any: ...
+
+    async def retrieve_payment_intent(self, intent_id: str) -> Any: ...
+
+    async def cancel_payment_intent(self, intent_id: str) -> None: ...
+
+
+class WebhookEventProvider(Protocol):
+    """FR-9: Structural interface for webhook event construction (StripeClient + fakes)."""
+
+    def construct_webhook_event(self, payload: bytes, sig_header: str) -> Any: ...
 
 
 class StripeClient:

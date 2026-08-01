@@ -10,7 +10,7 @@ from core.enums import BookingStatus
 from services.booking.repositories.booking_repo import BookingRepository
 from services.booking.repositories.lock_repo import LockRepository
 from services.booking.repositories.seat_repo import SeatRepository
-from services.payment.providers.stripe_client import StripeClient
+from services.payment.providers.stripe_client import StripeClient, WebhookEventProvider
 from services.payment.repositories.payment_repo import PaymentRepository
 
 logger = structlog.get_logger()
@@ -32,7 +32,7 @@ class WebhookService:
         self.seat_repo = seat_repo
         self.lock_repo = lock_repo
         self.payment_repo = payment_repo or PaymentRepository(session)
-        self.provider = StripeClient()
+        self.provider: WebhookEventProvider = StripeClient()
 
     def _parse_seat_ids(self, metadata: dict) -> list[str] | None:
         """Parse seat_ids from metadata — supports both old single seat_id and new multi-seat."""

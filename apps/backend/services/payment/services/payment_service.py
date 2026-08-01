@@ -13,7 +13,7 @@ from core.enums import BookingStatus, PaymentStatus
 from core.exceptions import BookingConflictError, NotFoundError
 from services.booking.repositories.booking_repo import BookingRepository
 from services.booking.repositories.seat_repo import SeatRepository
-from services.payment.providers.stripe_client import StripeClient
+from services.payment.providers.stripe_client import PaymentIntentProvider
 from services.payment.repositories.payment_repo import PaymentRepository
 from services.payment.schemas.payment import PaymentIntentResponse, PaymentSyncResponse
 
@@ -25,7 +25,7 @@ EXPIRY_GUARD_MINUTES = 2
 class PaymentService:
     """FR-5: Mirrors §6 CSR example — write-before-call, cancel-on-failure."""
 
-    def __init__(self, session: AsyncSession, provider: StripeClient) -> None:
+    def __init__(self, session: AsyncSession, provider: PaymentIntentProvider) -> None:
         self.session = session
         self.provider = provider
         self.booking_repo = BookingRepository(session)
