@@ -35,9 +35,27 @@ export function EventCard({ event, showtimes, venueMap }: EventCardProps) {
     ),
   ];
 
+  const isClickable = showtimes.length > 0;
+
   return (
     <motion.div variants={cardVariants}>
-      <Card className="h-full group overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-500">
+      <Card
+        className={`h-full group overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-500 ${
+          isClickable
+            ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            : "cursor-default"
+        }`}
+        onClick={openCard}
+        role="button"
+        tabIndex={isClickable ? 0 : -1}
+        aria-disabled={!isClickable}
+        onKeyDown={(e) => {
+          if (isClickable && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            openCard();
+          }
+        }}
+      >
         {/* Premium accent bar */}
         <div className="h-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500" />
 
@@ -55,7 +73,10 @@ export function EventCard({ event, showtimes, venueMap }: EventCardProps) {
             {event.name}
             <button
               type="button"
-              onClick={openCard}
+              onClick={(e) => {
+                e.stopPropagation();
+                openCard();
+              }}
               aria-label={`View showtimes for ${event.name}`}
               className={`ml-auto rounded-full p-1 transition-all duration-300 cursor-pointer hover:bg-primary/10 ${
                 showtimes.length > 0
@@ -102,7 +123,10 @@ export function EventCard({ event, showtimes, venueMap }: EventCardProps) {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => navigate(`/events/${st.show_id}`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/events/${st.show_id}`);
+                    }}
                     className="h-7 px-2.5 rounded-full text-xs text-primary hover:bg-primary/10"
                   >
                     Get Tickets

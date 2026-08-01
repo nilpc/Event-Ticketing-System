@@ -124,7 +124,9 @@ export default function ShowtimePage() {
   const { showId } = useParams<{ showId: string }>();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const { queueToken, queueShowId, selectedSeatIds, toggleSeat } = useBookingFlow();
+  const { queueToken, queueShowId, selectedSeatIds, toggleSeat, showId: selectionShowId } = useBookingFlow();
+
+  const selectionIsForThisShow = !!showId && selectionShowId === showId;
 
   const {
     data: showtime,
@@ -174,11 +176,15 @@ export default function ShowtimePage() {
   const soldCount = seatMap?.seats.filter((s) => s.status === "SOLD").length ?? 0;
   const pendingCount = seatMap?.seats.filter((s) => s.status === "PENDING_PAYMENT").length ?? 0;
 
-  const selectedSeatsTotal = seatMap
-    ? seatMap.seats
-        .filter((s) => selectedSeatIds.includes(s.seat_id))
-        .reduce((sum, s) => sum + parseFloat(s.price), 0)
+  const selectedSeatsTotal = selectionIsForThisShow
+    ? seatMap
+        ? seatMap.seats
+            .filter((s) => selectedSeatIds.includes(s.seat_id))
+            .reduce((sum, s) => sum + parseFloat(s.price), 0)
+        : 0
     : 0;
+
+  const effectiveSelectedCount = selectionIsForThisShow ? selectedSeatIds.length : 0;
 
   return (
     <PageTransition>
@@ -320,7 +326,7 @@ export default function ShowtimePage() {
 
           {/* Selected seats bar */}
           <AnimatePresence>
-            {selectedSeatIds.length > 0 && (
+            {selectionIsForThisShow && selectedSeatIds.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -408,10 +414,11 @@ export default function ShowtimePage() {
                   </h3>
                   <div className="flex flex-wrap gap-2 justify-center">
                     {seats.map((seat) => {
-                      const isSelected = selectedSeatIds.includes(seat.seat_id);
+                      const isSelected =
+                        selectionIsForThisShow && selectedSeatIds.includes(seat.seat_id);
                       const isDisabled =
                         seat.status !== "AVAILABLE" ||
-                        (!isSelected && selectedSeatIds.length >= MAX_SEATS);
+                        (!isSelected && effectiveSelectedCount >= MAX_SEATS);
                       return (
                         <motion.button
                           key={seat.seat_id}

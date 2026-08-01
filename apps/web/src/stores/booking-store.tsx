@@ -41,23 +41,34 @@ function readPersistedQueueShowId(): string | null {
   }
 }
 
-function readPersistedSeatIds(): string[] {
+function readPersistedSeats(): { showId: string | null; seatIds: string[] } {
   try {
     const raw = localStorage.getItem(SELECTED_SEATS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return { showId: null, seatIds: [] };
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return { showId: null, seatIds: parsed };
+    }
+    return {
+      showId: typeof parsed.showId === "string" ? parsed.showId : null,
+      seatIds: Array.isArray(parsed.seatIds) ? parsed.seatIds : [],
+    };
   } catch {
-    return [];
+    return { showId: null, seatIds: [] };
   }
 }
 
 export function BookingFlowProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<BookingFlowState>({
-    showId: null,
-    selectedSeatIds: readPersistedSeatIds(),
-    queueToken: readPersistedQueueToken(),
-    queueShowId: readPersistedQueueShowId(),
-    bookingId: null,
-    idempotencyKey: null,
+  const [state, setState] = useState<BookingFlowState>(() => {
+    const persistedSeats = readPersistedSeats();
+    return {
+      showId: persistedSeats.showId,
+      selectedSeatIds: persistedSeats.seatIds,
+      queueToken: readPersistedQueueToken(),
+      queueShowId: readPersistedQueueShowId(),
+      bookingId: null,
+      idempotencyKey: null,
+    };
   });
 
   const setShowId = useCallback((showId: string) => {
@@ -90,7 +101,10 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
 
       try {
         if (nextSeatIds.length > 0) {
-          localStorage.setItem(SELECTED_SEATS_KEY, JSON.stringify(nextSeatIds));
+          localStorage.setItem(
+            SELECTED_SEATS_KEY,
+            JSON.stringify({ showId, seatIds: nextSeatIds }),
+          );
         } else {
           localStorage.removeItem(SELECTED_SEATS_KEY);
         }
@@ -112,7 +126,7 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
     } catch {
       // storage unavailable
     }
-    setState((prev) => ({ ...prev, selectedSeatIds: [] }));
+    setState((prev) => ({ ...prev, showId: null, selectedSeatIds: [] }));
   }, []);
 
   const setLockedSeats = useCallback((seatIds: string[], idempotencyKey: string, showId: string) => {
