@@ -17,6 +17,9 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: event-ticketing
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    # CloudFront-only ingress: SG (terraform, security_groups.tf) allows port 80
+    # only from the CloudFront origin-facing prefix list. Direct ALB access is blocked.
+    alb.ingress.kubernetes.io/security-groups: sg-0d24d03bb2ce5f7f3
     # cert-manager: issue/rotate via the letsencrypt-prod ClusterIssuer.
     # The HTTP-01 solver ingress uses the same ALB class (see cluster-issuer.yaml).
     cert-manager.io/cluster-issuer: letsencrypt-prod
