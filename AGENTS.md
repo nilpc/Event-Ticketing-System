@@ -10,6 +10,18 @@
 - Cite FR-x / NFR-x in docstrings of the code that implements them.
 - Source of truth: docs/PHASES.md (build order) and docs/REQUIREMENTS.md (contract).
 
+# Local Test Environment
+- Docker test services: `ci-pg-test` (postgres:16) on **5433**, `ci-redis-test` (redis:7) on **6380**.
+- Creds: `testuser` / `testpass`, DB `event_ticketing`.
+- Run tests with:
+  - `DATABASE_URL=postgresql+asyncpg://testuser:testpass@localhost:5433/event_ticketing`
+  - `REDIS_URL=redis://localhost:6380/0`
+  - `LOG_FORMAT=console`
+- `pytest` conftest creates/drops schemas via `Base.metadata.create_all` (NOT alembic). The host Postgres at 5432 has a wrong `testuser` password — always use 5433.
+- To validate migrations on a fresh DB, drop ALL schemas first — the alembic version table lives in the `alembic` schema (`migrations/env.py`), so dropping only `public.alembic_version` is NOT enough and `upgrade head` will no-op:
+  - `DROP SCHEMA IF EXISTS identity CASCADE; DROP SCHEMA IF EXISTS booking CASCADE; DROP SCHEMA IF EXISTS alembic CASCADE;`
+  - then `alembic upgrade head` (all 7 migrations) and `seed.py` (needs `ADMIN_PASSWORD`).
+
 # Phase 7: EKS Infrastructure Rules
 ## Terraform
 - All infra code in `infra/terraform/`. Flat files (no nested modules).

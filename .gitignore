@@ -72,6 +72,7 @@ infra/terraform/*.tfstate
 infra/terraform/*.tfstate.backup
 infra/terraform/.terraform.tfstate.lock.info
 infra/terraform/*.plan
+infra/terraform/*.tfplan
 infra/terraform/terraform.tfvars
 !infra/terraform/terraform.tfvars.example
 
