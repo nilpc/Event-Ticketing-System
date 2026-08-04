@@ -29,6 +29,10 @@ class AdminRepository:
         result = await self.session.execute(select(Event).where(Event.event_id == event_id))
         return result.scalar_one_or_none()
 
+    async def list_events(self) -> list[Event]:
+        result = await self.session.execute(select(Event).order_by(Event.name))
+        return list(result.scalars().all())
+
     async def get_event_owner(self, event_id: str) -> UUID | None:
         event = await self.get_event(event_id)
         return event.created_by if event else None

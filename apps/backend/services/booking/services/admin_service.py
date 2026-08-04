@@ -51,6 +51,9 @@ class AdminService:
     async def get_event(self, event_id: str) -> Event | None:
         return await self.repo.get_event(event_id)
 
+    async def list_events(self) -> list[Event]:
+        return await self.repo.list_events()
+
     async def update_event(self, event_id: str, data: EventUpdate) -> Event:
         event = await self.repo.get_event(event_id)
         if event is None:

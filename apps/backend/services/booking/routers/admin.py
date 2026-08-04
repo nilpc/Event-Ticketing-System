@@ -18,6 +18,7 @@ from core.redis import get_redis
 from core.security.auth import get_current_user_id
 from services.booking.repositories.cache_repo import CacheRepository
 from services.booking.schemas.admin import (
+    AdminEventResponse,
     EventCreate,
     EventUpdate,
     ShowtimeCreate,
@@ -27,7 +28,6 @@ from services.booking.schemas.admin import (
     VenueUpdate,
 )
 from services.booking.schemas.catalog import (
-    EventResponse,
     ShowtimeResponse,
     VenueResponse,
 )
@@ -61,44 +61,64 @@ async def _require_master_admin(
     return user
 
 
-# ── Events ─────────────────────────────────────────────────────────────
-
-
 def _get_admin_service(session: AsyncSession = Depends(get_db_session)) -> AdminService:
     return AdminService(session, cache_repo=CacheRepository(redis_client=get_redis()))
 
 
-@router.post("/events", response_model=EventResponse, status_code=201)
+async def _assert_can_manage_event(
+    event_id: str, merchant: User, svc: AdminService
+) -> None:
+    """FR-4: Merchants may only mutate events they created; master admins bypass.
+
+    An event with no owner (created_by is NULL, e.g. seeded) is only
+    manageable by a master admin — never by an arbitrary merchant.
+    """
+    event = await svc.get_event(event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail=f"Event {event_id} not found.")
+    if event.created_by != merchant.user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot modify events created by others.",
+        )
+
+
+# ── Events ─────────────────────────────────────────────────────────────
+
+
+@router.get("/events", response_model=list[AdminEventResponse])
+async def list_events(
+    _merchant: User = Depends(_require_merchant),
+    svc: AdminService = Depends(_get_admin_service),
+) -> list[AdminEventResponse]:
+    events = await svc.list_events()
+    return [AdminEventResponse.model_validate(e) for e in events]
+
+
+@router.post("/events", response_model=AdminEventResponse, status_code=201)
 async def create_event(
     data: EventCreate,
     merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
-) -> EventResponse:
+) -> AdminEventResponse:
     event = await svc.create_event(data, created_by=merchant.user_id)
-    return EventResponse.model_validate(event)
+    return AdminEventResponse.model_validate(event)
 
 
-@router.put("/events/{event_id}", response_model=EventResponse)
+@router.put("/events/{event_id}", response_model=AdminEventResponse)
 async def update_event(
     event_id: str,
     data: EventUpdate,
     merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
-) -> EventResponse:
+) -> AdminEventResponse:
     if not merchant.is_master_admin:
-        event = await svc.get_event(event_id)
-        if event is None:
-            raise HTTPException(status_code=404, detail=f"Event {event_id} not found.")
-        if event.created_by is not None and event.created_by != merchant.user_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Cannot modify events created by others.",
-            )
+        await _assert_can_manage_event(event_id, merchant, svc)
     try:
         event = await svc.update_event(event_id, data)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    return EventResponse.model_validate(event)
+    return AdminEventResponse.model_validate(event)
 
 
 @router.delete("/events/{event_id}", status_code=204)
@@ -108,14 +128,7 @@ async def delete_event(
     svc: AdminService = Depends(_get_admin_service),
 ) -> None:
     if not merchant.is_master_admin:
-        event = await svc.get_event(event_id)
-        if event is None:
-            raise HTTPException(status_code=404, detail=f"Event {event_id} not found.")
-        if event.created_by is not None and event.created_by != merchant.user_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Cannot delete events created by others.",
-            )
+        await _assert_can_manage_event(event_id, merchant, svc)
     try:
         await svc.delete_event(event_id)
     except LookupError as exc:
@@ -139,7 +152,7 @@ async def create_venue(
 async def update_venue(
     venue_id: str,
     data: VenueUpdate,
-    _merchant: User = Depends(_require_merchant),
+    _master: User = Depends(_require_master_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> VenueResponse:
     try:
@@ -152,7 +165,7 @@ async def update_venue(
 @router.delete("/venues/{venue_id}", status_code=204)
 async def delete_venue(
     venue_id: str,
-    _merchant: User = Depends(_require_merchant),
+    _master: User = Depends(_require_master_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> None:
     try:
@@ -176,9 +189,17 @@ async def list_showtimes(
 @router.post("/showtimes", response_model=ShowtimeResponse, status_code=201)
 async def create_showtime(
     data: ShowtimeCreate,
-    _merchant: User = Depends(_require_merchant),
+    merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
 ) -> ShowtimeResponse:
+    event = await svc.get_event(data.event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail=f"Event {data.event_id} not found.")
+    if not merchant.is_master_admin and event.created_by != merchant.user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot create showtimes for events created by others.",
+        )
     showtime = await svc.create_showtime(data)
     return ShowtimeResponse.model_validate(showtime)
 
@@ -195,7 +216,7 @@ async def update_showtime(
         if showtime is None:
             raise HTTPException(status_code=404, detail=f"Showtime {show_id} not found.")
         owner = await svc.get_event_owner(showtime.event_id)
-        if owner is not None and owner != merchant.user_id:
+        if owner != merchant.user_id:
             raise HTTPException(
                 status_code=403,
                 detail="Cannot modify showtimes for events created by others.",
@@ -218,7 +239,7 @@ async def delete_showtime(
         if showtime is None:
             raise HTTPException(status_code=404, detail=f"Showtime {show_id} not found.")
         owner = await svc.get_event_owner(showtime.event_id)
-        if owner is not None and owner != merchant.user_id:
+        if owner != merchant.user_id:
             raise HTTPException(
                 status_code=403,
                 detail="Cannot delete showtimes for events created by others.",

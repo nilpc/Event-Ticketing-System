@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from core.enums import EventType
+from services.booking.schemas.catalog import EventResponse
 
 
 # ── Event ──────────────────────────────────────────────────────────────
@@ -21,6 +23,15 @@ class EventUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=255)
     description: str | None = None
     event_type: EventType | None = None
+
+
+class AdminEventResponse(EventResponse):
+    """Event view for admins — includes owner so merchants can see their own.
+
+    Deliberately NOT exposed on the public catalog (FR-4, NFR-2).
+    """
+
+    created_by: UUID | None = None
 
 
 # ── Venue ──────────────────────────────────────────────────────────────
