@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -36,6 +36,55 @@ export function parseDateTimeText(value: string): string | null {
   return date.toISOString();
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
+export function formatDateTimeMask(value: string): string {
+  const pmHint = /PM$/i.test(value.trim());
+  const amHint = /AM$/i.test(value.trim());
+  const digits = value.replace(/\D/g, "").slice(0, 12);
+  if (!digits) return "";
+  const dd = digits.slice(0, 2);
+  const mm = digits.slice(2, 4);
+  const yyyy = digits.slice(4, 8);
+  const hh = digits.slice(8, 10);
+  const min = digits.slice(10, 12);
+
+  let out = dd;
+  if (digits.length > 2) out += `-${mm}`;
+  if (digits.length > 4) out += `-${yyyy}`;
+
+  if (digits.length > 8) {
+    out += " ";
+    if (hh.length < 2) {
+      out += hh;
+    } else {
+      let hour = parseInt(hh, 10);
+      if (hour > 23) hour = 23;
+      if (pmHint && hour < 12) hour += 12;
+      if (amHint && hour >= 12) hour -= 12;
+      const ampm = hour >= 12 ? "PM" : "AM";
+      let h12 = hour % 12;
+      if (h12 === 0) h12 = 12;
+      out += pad(h12);
+      if (min) {
+        let minute = parseInt(min, 10);
+        if (minute > 59) minute = 59;
+        out += `:${min.length < 2 ? String(minute) : pad(minute)}`;
+      }
+      out += ` ${ampm}`;
+    }
+  }
+  return out;
+}
+
+function streamFromDisplay(value: string): string {
+  const iso = parseDateTimeText(value);
+  if (iso) {
+    const d = new Date(iso);
+    return `${pad(d.getDate())}${pad(d.getMonth() + 1)}${d.getFullYear()}${pad(d.getHours())}${pad(d.getMinutes())}`;
+  }
+  return value.replace(/\D/g, "").slice(0, 12);
+}
+
 export function DateTimeInput({
   value,
   onChange,
@@ -46,6 +95,17 @@ export function DateTimeInput({
   placeholder?: string;
 }) {
   const pickerRef = useRef<HTMLInputElement>(null);
+  const lastRawRef = useRef(value);
+  const rawRef = useRef<string>(streamFromDisplay(value));
+
+  useEffect(() => {
+    if (value.trim() === "") {
+      rawRef.current = "";
+    } else if (formatDateTimeMask(rawRef.current) !== value) {
+      rawRef.current = streamFromDisplay(value);
+    }
+    lastRawRef.current = value;
+  }, [value]);
 
   const openPicker = () => {
     const el = pickerRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
@@ -62,6 +122,26 @@ export function DateTimeInput({
     }
   };
 
+  const handleChange = (raw: string) => {
+    const prev = lastRawRef.current;
+    lastRawRef.current = raw;
+    if (raw.trim() === "") {
+      rawRef.current = "";
+      onChange("");
+    } else if (raw.length < prev.length && prev.startsWith(raw)) {
+      rawRef.current = rawRef.current.slice(0, -1);
+      onChange(formatDateTimeMask(rawRef.current));
+    } else if (raw.length > prev.length && raw.startsWith(prev)) {
+      const appended = streamFromDisplay(raw.slice(prev.length));
+      rawRef.current = (rawRef.current + appended).slice(0, 12);
+      onChange(formatDateTimeMask(rawRef.current));
+    } else {
+      const display = formatDateTimeMask(raw);
+      rawRef.current = streamFromDisplay(display);
+      onChange(display);
+    }
+  };
+
   return (
     <div className="relative">
       <Input
@@ -69,7 +149,7 @@ export function DateTimeInput({
         inputMode="numeric"
         placeholder={placeholder}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => handleChange(e.target.value)}
         className="rounded-xl pr-10"
       />
       <button
@@ -86,7 +166,9 @@ export function DateTimeInput({
         className="sr-only"
         onChange={(e) => {
           if (e.target.value) {
-            onChange(toDisplayText(new Date(e.target.value)));
+            const d = new Date(e.target.value);
+            rawRef.current = `${pad(d.getDate())}${pad(d.getMonth() + 1)}${d.getFullYear()}${pad(d.getHours())}${pad(d.getMinutes())}`;
+            onChange(toDisplayText(d));
           }
         }}
       />
