@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterator
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.enums import SeatStatus
 from core.ids import generate_event_id
 from services.booking.models.event import Event
-from services.booking.models.seat import Seat
 from services.booking.models.showtime import Showtime
 from services.booking.models.venue import Venue
 from services.booking.repositories.admin_repo import AdminRepository
@@ -130,8 +131,10 @@ class AdminService:
         if data.auto_seats:
             venue = await self.repo.get_venue(uuid.UUID(data.venue_id))
             if venue:
-                seats = _generate_seats(result.show_id, venue.capacity, float(data.base_price))
-                await self.repo.create_seats(seats)
+                for chunk in _seat_chunks(
+                    result.show_id, venue.capacity, float(data.base_price)
+                ):
+                    await self.repo.create_seats(chunk)
 
         await self._invalidate_catalog(
             ["showtimes:all", f"showtimes:event:{data.event_id}"]
@@ -196,18 +199,21 @@ class AdminService:
         return await self.repo.get_event_owner(event_id)
 
 
-def _generate_seats(show_id: uuid.UUID, capacity: int, base_price: float) -> list[Seat]:
-    """Generate seat rows/tiers based on venue capacity and base price.
+_SEAT_CHUNK = 1000
 
-    Tiers: VIP (10%), Premium (30%), Standard (60%).
-    Rows: A-Z, seats per row based on capacity.
-    Prices derived from showtime base_price.
+
+def _seat_chunks(
+    show_id: uuid.UUID, capacity: int, base_price: float
+) -> Iterator[list[dict]]:
+    """Yield seat rows in bounded chunks to keep memory flat.
+
+    NFR-x: never materializes the full seat list (venues up to 90k).
     """
     vip_count = max(1, int(capacity * 0.10))
     premium_count = max(1, int(capacity * 0.30))
     standard_count = capacity - vip_count - premium_count
 
-    seats: list[Seat] = []
+    chunk: list[dict] = []
     seat_num = 0
     row_idx = 0
 
@@ -220,15 +226,19 @@ def _generate_seats(show_id: uuid.UUID, capacity: int, base_price: float) -> lis
         for _ in range(count):
             row = chr(ord("A") + row_idx % 26)
             seat_num += 1
-            seats.append(
-                Seat(
-                    show_id=show_id,
-                    seat_id=f"{row}{seat_num}",
-                    tier=tier,
-                    price=tier_price,
-                    status="AVAILABLE",
-                )
+            chunk.append(
+                {
+                    "show_id": show_id,
+                    "seat_id": f"{row}{seat_num}",
+                    "tier": tier,
+                    "price": tier_price,
+                    "status": SeatStatus.AVAILABLE,
+                }
             )
             row_idx += 1
+            if len(chunk) >= _SEAT_CHUNK:
+                yield chunk
+                chunk = []
 
-    return seats
+    if chunk:
+        yield chunk

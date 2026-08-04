@@ -328,3 +328,32 @@ async def test_merchant_cannot_modify_showtime_for_unowned_event(client: AsyncCl
     assert r.status_code == 403, (
         f"Expected 403 delete unowned showtime, got {r.status_code}: {r.text}"
     )
+
+
+async def test_large_venue_auto_seats_generates_all_rows(client: AsyncClient) -> None:
+    """NFR-x: auto-generating seats for a large venue must stay bounded.
+
+    Regression: bulk seat generation for big venues used to materialize
+    every Seat ORM object in one list, OOM'ing the API pod (256Mi limit).
+    """
+    token = await _make_user(client, f"big_{uuid.uuid4().hex[:8]}@test.com", is_admin=True)
+    event_id = await _create_event(client, token, "Big Venue Event")
+
+    r = await client.post(
+        "/v1/admin/venues",
+        json={"name": "Big Seat Arena", "capacity": 5000},
+        headers=_auth(token),
+    )
+    assert r.status_code == 201, f"Create big venue failed: {r.status_code} {r.text}"
+    venue_id = r.json()["venue_id"]
+
+    payload = _showtime_payload(event_id, venue_id)
+    payload["auto_seats"] = True
+    r = await client.post("/v1/admin/showtimes", json=payload, headers=_auth(token))
+    assert r.status_code == 201, f"Showtime create failed: {r.status_code} {r.text}"
+    show_id = r.json()["show_id"]
+
+    r = await client.get(f"/v1/showtimes/{show_id}/seats")
+    assert r.status_code == 200, f"Seat map fetch failed: {r.status_code} {r.text}"
+    seats = r.json()["seats"]
+    assert len(seats) == 5000, f"Expected 5000 auto seats, got {len(seats)}"

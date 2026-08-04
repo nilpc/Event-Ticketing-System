@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.booking.models.event import Event
@@ -105,6 +105,14 @@ class AdminRepository:
         await self.session.execute(delete(Showtime).where(Showtime.show_id == show_id))
 
     # ── Seats ──────────────────────────────────────────────────────
-    async def create_seats(self, seats: list[Seat]) -> None:
-        self.session.add_all(seats)
+    async def create_seats(self, rows: list[dict]) -> None:
+        """Bulk-insert seat rows without populating the ORM identity map.
+
+        NFR-x: keeps memory bounded when auto-generating seats for large
+        venues (e.g. 20k+ capacity) instead of holding every Seat ORM
+        object until commit.
+        """
+        if not rows:
+            return
+        await self.session.execute(insert(Seat), rows)
         await self.session.flush()
