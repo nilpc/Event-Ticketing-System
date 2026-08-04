@@ -14,8 +14,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
-const IS_ADMIN_KEY = "is_admin";
-const IS_MASTER_ADMIN_KEY = "is_master_admin";
+export const IS_ADMIN_KEY = "is_admin";
+export const IS_MASTER_ADMIN_KEY = "is_master_admin";
 
 function parseJwtSub(token: string): string | null {
   try {

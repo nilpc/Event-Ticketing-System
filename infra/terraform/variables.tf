@@ -55,13 +55,13 @@ variable "db_username" {
 variable "eks_version" {
   description = "Kubernetes version for EKS"
   type        = string
-  default     = "1.30"
+  default     = "1.35"
 }
 
 variable "on_demand_instance_types" {
-  description = "Instance types for on-demand node group"
+  description = "Instance types for on-demand node group (free-tier-eligible only: t3.medium launches are blocked on this account)"
   type        = list(string)
-  default     = ["t3.medium", "t3.small"]
+  default     = ["t3.small"]
 }
 
 variable "on_demand_min_size" {
@@ -104,7 +104,7 @@ variable "redis_password" {
 variable "waf_action" {
   description = "WAF default rule action: 'count' (observe only) or 'block' (enforce). Start with 'count', switch to 'block' after validating in CloudWatch."
   type        = string
-  default     = "block"
+  default     = "count"
 }
 
 variable "tags" {

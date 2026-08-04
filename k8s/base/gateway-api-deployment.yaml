@@ -39,6 +39,11 @@ spec:
           image: event-ticketing-api:latest
           imagePullPolicy: IfNotPresent
           command: ["alembic", "upgrade", "head"]
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           envFrom:
             - secretRef:
                 name: event-ticketing-secrets
@@ -54,6 +59,11 @@ spec:
         - name: api
           image: event-ticketing-api:latest
           imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - name: http
               containerPort: 8000

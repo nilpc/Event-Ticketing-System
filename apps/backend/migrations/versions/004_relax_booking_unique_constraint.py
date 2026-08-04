@@ -1,13 +1,13 @@
 """NFR-1: Relax unique booking constraint — allow multiple CONFIRMED bookings per user per show.
 
-Revision ID: 005
-Revises: 004
+Revision ID: 004
+Revises: 003
 """
 import sqlalchemy as sa
 from alembic import op
 
-revision = "005"
-down_revision = "004"
+revision = "004"
+down_revision = "003"
 branch_labels = None
 depends_on = None
 

@@ -153,15 +153,20 @@ export interface EventCreateRequest {
   description?: string;
 }
 
+export interface EventUpdateRequest {
+  name?: string;
+  description?: string;
+  event_type?: EventType;
+}
+
 export interface VenueCreateRequest {
   name: string;
   capacity: number;
 }
 
-export interface UserPromoteResponse {
-  user_id: string;
-  email: string;
-  is_admin: boolean;
+export interface VenueUpdateRequest {
+  name?: string;
+  capacity?: number;
 }
 
 export interface ShowtimeCreateRequest {
@@ -171,4 +176,17 @@ export interface ShowtimeCreateRequest {
   start_time: string;
   end_time: string;
   auto_seats?: boolean;
+}
+
+export interface ShowtimeUpdateRequest {
+  base_price?: number;
+  start_time?: string;
+  end_time?: string;
+}
+
+export interface UserPromoteResponse {
+  user_id: string;
+  email: string;
+  is_admin: boolean;
+  is_master_admin: boolean;
 }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +14,7 @@ from services.booking.models.seat import Seat
 from services.booking.models.showtime import Showtime
 from services.booking.models.venue import Venue
 from services.booking.repositories.admin_repo import AdminRepository
+from services.booking.repositories.cache_repo import CacheRepository
 from services.booking.schemas.admin import (
     EventCreate,
     EventUpdate,
@@ -23,22 +25,26 @@ from services.booking.schemas.admin import (
 )
 from services.identity.models.user import User
 
+logger = structlog.get_logger()
+
 
 class AdminService:
     """Admin catalog management — FR-4, NFR-6, NFR-1."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, cache_repo: CacheRepository | None = None) -> None:
         self.session = session
         self.repo = AdminRepository(session)
+        self.cache_repo = cache_repo
 
     # ── Events ─────────────────────────────────────────────────────
-    async def create_event(self, data: EventCreate) -> Event:
+    async def create_event(self, data: EventCreate, created_by: uuid.UUID | None = None) -> Event:
         event_id = await generate_event_id(self.session, data.event_type)
         event = Event(
             event_id=event_id,
             event_type=data.event_type,
             name=data.name,
             description=data.description,
+            created_by=created_by,
         )
         return await self.repo.create_event(event)
 
@@ -60,7 +66,13 @@ class AdminService:
         event = await self.repo.get_event(event_id)
         if event is None:
             raise LookupError(f"Event {event_id} not found")
+        showtimes = await self.repo.list_showtimes_by_event(event_id)
         await self.repo.delete_event(event_id)
+        await self._invalidate_catalog(
+            ["events:all", "showtimes:all", f"showtimes:event:{event_id}"]
+            + [f"showtime:{s.show_id}" for s in showtimes]
+            + [f"seatmap:{s.show_id}" for s in showtimes]
+        )
 
     # ── Venues ─────────────────────────────────────────────────────
     async def create_venue(self, data: VenueCreate) -> Venue:
@@ -88,7 +100,14 @@ class AdminService:
         venue = await self.repo.get_venue(uuid.UUID(venue_id))
         if venue is None:
             raise LookupError(f"Venue {venue_id} not found")
+        showtimes = await self.repo.list_showtimes_by_venue(uuid.UUID(venue_id))
         await self.repo.delete_venue(uuid.UUID(venue_id))
+        await self._invalidate_catalog(
+            ["venues:all", "showtimes:all"]
+            + [f"showtime:{s.show_id}" for s in showtimes]
+            + [f"showtimes:event:{s.event_id}" for s in showtimes]
+            + [f"seatmap:{s.show_id}" for s in showtimes]
+        )
 
     # ── Showtimes ──────────────────────────────────────────────────
     async def list_showtimes(self) -> list[Showtime]:
@@ -111,6 +130,10 @@ class AdminService:
                 seats = _generate_seats(result.show_id, venue.capacity, float(data.base_price))
                 await self.repo.create_seats(seats)
 
+        await self._invalidate_catalog(
+            ["showtimes:all", f"showtimes:event:{data.event_id}"]
+        )
+
         return result
 
     async def get_showtime(self, show_id: str) -> Showtime | None:
@@ -132,6 +155,27 @@ class AdminService:
         if showtime is None:
             raise LookupError(f"Showtime {show_id} not found")
         await self.repo.delete_showtime(uuid.UUID(show_id))
+        await self._invalidate_catalog(
+            [
+                "showtimes:all",
+                f"showtime:{show_id}",
+                f"seatmap:{show_id}",
+                f"showtimes:event:{showtime.event_id}",
+            ]
+        )
+
+    async def _invalidate_catalog(self, keys: list[str]) -> None:
+        """FR-4: Post-mutation cache invalidation — failure-tolerant.
+
+        Redis outages never break admin responses (AGENTS.md).
+        """
+        if self.cache_repo is None:
+            return
+        for key in set(keys):
+            try:
+                await self.cache_repo.invalidate(key)
+            except Exception:
+                logger.warning("catalog_invalidation_failed", key=key)
 
     # ── User Promotion ────────────────────────────────────────────────
     async def promote_user(self, user_id: str) -> User:
@@ -144,6 +188,9 @@ class AdminService:
         user.is_admin = True
         self.session.add(user)
         return user
+
+    async def get_event_owner(self, event_id: str) -> uuid.UUID | None:
+        return await self.repo.get_event_owner(event_id)
 
 
 def _generate_seats(show_id: uuid.UUID, capacity: int, base_price: float) -> list[Seat]:

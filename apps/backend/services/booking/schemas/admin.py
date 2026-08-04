@@ -55,3 +55,4 @@ class UserPromoteResponse(BaseModel):
     user_id: str
     email: str
     is_admin: bool
+    is_master_admin: bool = False

@@ -11,6 +11,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    ForeignKeyConstraint,
     Numeric,
     String,
 )
@@ -30,7 +31,16 @@ class Booking(Base):
     """booking.bookings — FR-8 atomic init, FR-9 sweeper, NFR-1 unique constraint."""
 
     __tablename__ = "bookings"
-    __table_args__ = {"schema": "booking"}
+    __table_args__ = (
+        # FR-4: CASCADE so admin deletion of showtimes/events/venues is not
+        # blocked by legacy single-seat booking history (migration 005).
+        ForeignKeyConstraint(
+            ["show_id", "seat_id"],
+            ["booking.seats.show_id", "booking.seats.seat_id"],
+            ondelete="CASCADE",
+        ),
+        {"schema": "booking"},
+    )
 
     booking_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4

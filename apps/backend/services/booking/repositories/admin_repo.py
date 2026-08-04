@@ -29,6 +29,10 @@ class AdminRepository:
         result = await self.session.execute(select(Event).where(Event.event_id == event_id))
         return result.scalar_one_or_none()
 
+    async def get_event_owner(self, event_id: str) -> UUID | None:
+        event = await self.get_event(event_id)
+        return event.created_by if event else None
+
     async def update_event(self, event: Event, **kwargs: object) -> Event:
         for key, value in kwargs.items():
             if value is not None:
@@ -62,6 +66,18 @@ class AdminRepository:
     # ── Showtimes ──────────────────────────────────────────────────
     async def list_showtimes(self) -> list[Showtime]:
         result = await self.session.execute(select(Showtime).order_by(Showtime.start_time))
+        return list(result.scalars().all())
+
+    async def list_showtimes_by_event(self, event_id: str) -> list[Showtime]:
+        result = await self.session.execute(
+            select(Showtime).where(Showtime.event_id == event_id)
+        )
+        return list(result.scalars().all())
+
+    async def list_showtimes_by_venue(self, venue_id: UUID) -> list[Showtime]:
+        result = await self.session.execute(
+            select(Showtime).where(Showtime.venue_id == venue_id)
+        )
         return list(result.scalars().all())
 
     async def create_showtime(self, showtime: Showtime) -> Showtime:

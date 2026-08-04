@@ -20,7 +20,7 @@
 - `pytest` conftest creates/drops schemas via `Base.metadata.create_all` (NOT alembic). The host Postgres at 5432 has a wrong `testuser` password — always use 5433.
 - To validate migrations on a fresh DB, drop ALL schemas first — the alembic version table lives in the `alembic` schema (`migrations/env.py`), so dropping only `public.alembic_version` is NOT enough and `upgrade head` will no-op:
   - `DROP SCHEMA IF EXISTS identity CASCADE; DROP SCHEMA IF EXISTS booking CASCADE; DROP SCHEMA IF EXISTS alembic CASCADE;`
-  - then `alembic upgrade head` (all 7 migrations) and `seed.py` (needs `ADMIN_PASSWORD`).
+  - then `alembic upgrade head` (all 5 migrations) and `seed.py` (needs `ADMIN_PASSWORD`).
 
 # Phase 7: EKS Infrastructure Rules
 ## Terraform
@@ -29,7 +29,8 @@
 - EKS cluster named `event-ticketing`, version 1.30.
 - Two node groups: `on-demand` (t3.small for infra pods) and `spot` (t3.medium/t4g for app pods).
 - RDS: db.t4g.micro, single-AZ, `skip_final_snapshot = true` for dev.
-- WAF: `waf_action` variable controls count/block — default `count`.
+- WAF: `waf_action` variable controls count/block — default `count`. Managed-rule groups get `override_action count{}` when count, `none{}` when block.
+- `metrics-server` is an EKS managed addon (`aws_eks_addon.metrics_server` in `eks.tf`) — required for the CPU HPAs in `k8s/base/hpa.yaml`; KEDA only serves `external.metrics.k8s.io`.
 - DB password auto-generated via `random_password`, stored in SSM `/event-ticketing/DB_PASSWORD`.
 - NAT Gateway: single (cost-optimized). Upgrade to 3 for HA later.
 

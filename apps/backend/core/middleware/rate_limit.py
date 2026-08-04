@@ -54,4 +54,10 @@ def create_limiter() -> Limiter:
         key_func=get_remote_address,
         storage_uri=settings.REDIS_URL,
         default_limits=[settings.RATE_LIMIT_PUBLIC],
+        # NFR-4: If Redis (the shared limit storage) is unreachable, slowapi
+        # degrades to per-pod in-memory limits instead of raising a
+        # ConnectionError through the middleware, which previously crashed
+        # workers with AttributeError in _rate_limit_exceeded_handler.
+        in_memory_fallback=[settings.RATE_LIMIT_PUBLIC],
+        in_memory_fallback_enabled=True,
     )

@@ -35,6 +35,11 @@ spec:
           image: event-ticketing-api:latest
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "services.workers", "relay"]
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           resources:
             requests:
               cpu: 50m

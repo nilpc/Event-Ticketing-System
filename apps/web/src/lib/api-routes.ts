@@ -23,8 +23,11 @@ import type {
   MockConfirmResponse,
   BookingListItem,
   EventCreateRequest,
+  EventUpdateRequest,
   VenueCreateRequest,
+  VenueUpdateRequest,
   ShowtimeCreateRequest,
+  ShowtimeUpdateRequest,
   UserPromoteResponse,
 } from "../types/api";
 
@@ -128,11 +131,17 @@ export const adminApi = {
   createEvent(data: EventCreateRequest) {
     return api.post<EventResponse>("/admin/events", data);
   },
+  updateEvent(eventId: string, data: EventUpdateRequest) {
+    return api.put<EventResponse>(`/admin/events/${eventId}`, data);
+  },
   deleteEvent(eventId: string) {
     return api.delete<void>(`/admin/events/${eventId}`);
   },
   createVenue(data: VenueCreateRequest) {
     return api.post<VenueResponse>("/admin/venues", data);
+  },
+  updateVenue(venueId: string, data: VenueUpdateRequest) {
+    return api.put<VenueResponse>(`/admin/venues/${venueId}`, data);
   },
   deleteVenue(venueId: string) {
     return api.delete<void>(`/admin/venues/${venueId}`);
@@ -142,6 +151,9 @@ export const adminApi = {
   },
   createShowtime(data: ShowtimeCreateRequest) {
     return api.post<ShowtimeResponse>("/admin/showtimes", data);
+  },
+  updateShowtime(showId: string, data: ShowtimeUpdateRequest) {
+    return api.put<ShowtimeResponse>(`/admin/showtimes/${showId}`, data);
   },
   deleteShowtime(showId: string) {
     return api.delete<void>(`/admin/showtimes/${showId}`);

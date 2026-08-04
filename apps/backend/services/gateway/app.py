@@ -6,7 +6,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -29,14 +29,27 @@ async def lifespan(app: FastAPI):
     # NFR-5: Initialize Sentry error tracking
     init_sentry(dsn=settings.SENTRY_DSN, environment=settings.SENTRY_ENVIRONMENT)
 
-    # FR-9, NFR-3: Start background workers
+    # FR-9, NFR-3: Start background workers with supervisor restart
     from services.workers.admitter import run_admitter
     from services.workers.relay import run_relay
     from services.workers.sweeper import run_sweeper
 
-    sweeper_task = asyncio.create_task(run_sweeper())
-    relay_task = asyncio.create_task(run_relay())
-    admitter_task = asyncio.create_task(run_admitter())
+    async def _supervised(name: str, coro_fn):
+        """Restart a worker coroutine if it dies unexpectedly."""
+        while True:
+            try:
+                logger.info(f"{name}_worker_starting")
+                await coro_fn()
+            except asyncio.CancelledError:
+                logger.info(f"{name}_worker_cancelled")
+                raise
+            except Exception as exc:
+                logger.error(f"{name}_worker_died", error=str(exc))
+                await asyncio.sleep(5)  # back-off before restart
+
+    sweeper_task = asyncio.create_task(_supervised("sweeper", run_sweeper))
+    relay_task = asyncio.create_task(_supervised("relay", run_relay))
+    admitter_task = asyncio.create_task(_supervised("admitter", run_admitter))
 
     yield
 
@@ -119,6 +132,7 @@ def create_app() -> FastAPI:
     app.add_middleware(IdentityMiddleware)
 
     # NFR-4: Rate limiting via slowapi
+    from fastapi.responses import JSONResponse
     from slowapi import _rate_limit_exceeded_handler
     from slowapi.errors import RateLimitExceeded
     from slowapi.middleware import SlowAPIMiddleware
@@ -127,7 +141,30 @@ def create_app() -> FastAPI:
 
     limiter = create_limiter()
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
+    def _rate_limit_handler(request: Request, exc: Exception):
+        # NFR-4: Only slowapi's RateLimitExceeded should map to a 429. When the
+        # Redis-backed storage is unreachable slowapi can route a ConnectionError
+        # here; the stock handler crashes with AttributeError on exc.detail, so
+        # degrade to a 503 instead of killing the worker.
+        if isinstance(exc, RateLimitExceeded):
+            return _rate_limit_exceeded_handler(request, exc)
+        logger.warning("rate_limit_backend_unavailable", error=str(exc))
+        return JSONResponse(
+            status_code=503, content={"detail": "Rate limit backend unavailable"}
+        )
+
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)  # type: ignore[arg-type]
+    # NFR-4: slowapi's middleware looks up handlers by EXACT exception type
+    # (app.exception_handlers.get(type(e))). Register the same defensive
+    # handler for Redis connection errors so a storage outage never reaches
+    # the stock _rate_limit_exceeded_handler (which crashes on exc.detail).
+    try:
+        from redis.exceptions import ConnectionError as RedisConnectionError
+
+        app.add_exception_handler(RedisConnectionError, _rate_limit_handler)  # type: ignore[arg-type]
+    except ImportError:  # pragma: no cover - redis is a hard dependency
+        pass
     app.add_middleware(SlowAPIMiddleware)
 
     # --- Routers ---

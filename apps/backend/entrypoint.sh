@@ -17,8 +17,11 @@ if [ ! -f certs/private.pem ] || [ ! -f certs/public.pem ]; then
     openssl rsa -in certs/private.pem -pubout -out certs/public.pem 2>/dev/null
 fi
 
-echo "==> Checking database..."
-python -c "
+# K8s pods run migrations via an initContainer/Job and keep seed data in RDS,
+# so DB init is opt-out at the container level (RUN_DB_INIT=false).
+if [ "${RUN_DB_INIT:-true}" = "true" ]; then
+    echo "==> Checking database..."
+    python -c "
 import os, asyncio
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
@@ -46,11 +49,14 @@ async def check():
 asyncio.run(check())
 "
 
-echo "==> Running migrations..."
-alembic upgrade head
+    echo "==> Running migrations..."
+    alembic upgrade head
 
-echo "==> Seeding database..."
-python seed.py
+    echo "==> Seeding database..."
+    python seed.py
+else
+    echo "==> RUN_DB_INIT=false — skipping migrations/seed (managed by k8s initContainer/Job)"
+fi
 
 echo "==> Starting server..."
 exec gunicorn services.gateway.app:create_app \

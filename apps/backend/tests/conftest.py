@@ -15,9 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Ensure test env vars are set before any app imports
 os.environ.setdefault(
     "DATABASE_URL",
-    "postgresql+asyncpg://testuser:testpass@localhost:5432/event_ticketing",
+    "postgresql+asyncpg://testuser:testpass@localhost:5433/event_ticketing",
 )
-os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6380/0")
 os.environ.setdefault("LOG_FORMAT", "console")
 
 _CERTS_DIR = Path(__file__).resolve().parent.parent / "certs"

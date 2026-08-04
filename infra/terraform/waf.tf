@@ -44,8 +44,17 @@ resource "aws_wafv2_web_acl" "this" {
     name     = "aws-core-rule-set"
     priority = 1
 
-    override_action {
-      none {}
+    dynamic "override_action" {
+      for_each = var.waf_action == "count" ? [1] : []
+      content {
+        count {}
+      }
+    }
+    dynamic "override_action" {
+      for_each = var.waf_action == "block" ? [1] : []
+      content {
+        none {}
+      }
     }
 
     statement {
@@ -67,8 +76,17 @@ resource "aws_wafv2_web_acl" "this" {
     name     = "aws-sql-rule-set"
     priority = 2
 
-    override_action {
-      none {}
+    dynamic "override_action" {
+      for_each = var.waf_action == "count" ? [1] : []
+      content {
+        count {}
+      }
+    }
+    dynamic "override_action" {
+      for_each = var.waf_action == "block" ? [1] : []
+      content {
+        none {}
+      }
     }
 
     statement {
@@ -90,8 +108,17 @@ resource "aws_wafv2_web_acl" "this" {
     name     = "aws-known-bad-inputs"
     priority = 3
 
-    override_action {
-      none {}
+    dynamic "override_action" {
+      for_each = var.waf_action == "count" ? [1] : []
+      content {
+        count {}
+      }
+    }
+    dynamic "override_action" {
+      for_each = var.waf_action == "block" ? [1] : []
+      content {
+        none {}
+      }
     }
 
     statement {

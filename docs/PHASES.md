@@ -46,7 +46,7 @@ Event Ticketing Backend - Phased Build Plan
 
 _Before writing application logic, establish the stateful backends, ORM models, and strict transactional boundaries._
 
-**Status: ✅ Complete.** Two Postgres schemas (`identity`, `booking`) with cross-schema FKs; SQLAlchemy 2.0 ORM repositories (Seat/Booking/Lock/Payment/Cache); Alembic migrations 001–007 (including `is_admin`, multi-seat `booking_seats`, partial unique indexes).
+**Status: ✅ Complete.** Two Postgres schemas (`identity`, `booking`) with cross-schema FKs; SQLAlchemy 2.0 ORM repositories (Seat/Booking/Lock/Payment/Cache); Alembic migrations 001–005 (admin roles, multi-seat `booking_seats`, partial unique indexes, seat CASCADE FKs).
 
 **1\. Provision Cloud PostgreSQL & PgBouncer:** Create a PostgreSQL database. Create two schemas: identity and booking. Deploy PgBouncer in transaction mode.
 

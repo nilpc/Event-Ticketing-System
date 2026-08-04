@@ -75,11 +75,13 @@ async def sweep_zombie_bookings() -> None:
 
 
 async def run_sweeper() -> None:
-    """FR-9: Background loop — sweep every 60 seconds."""
+    """FR-9: Supervised background loop — auto-restarts on unexpected death."""
     logger.info("sweeper_started", interval=SWEEP_INTERVAL_SECONDS)
     while True:
         try:
             await sweep_zombie_bookings()
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:
             logger.error("sweeper_iteration_failed", error=str(exc))
         await asyncio.sleep(SWEEP_INTERVAL_SECONDS)

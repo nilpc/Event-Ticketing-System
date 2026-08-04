@@ -1,18 +1,23 @@
-"""Add is_master_admin to identity.users for superadmin role.
+"""Add is_admin and is_master_admin to identity.users.
 
-Revision ID: 007
-Revises: 006
+Revision ID: 003
+Revises: 002
 """
 import sqlalchemy as sa
 from alembic import op
 
-revision = "007"
-down_revision = "006"
+revision = "003"
+down_revision = "002"
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
+    op.add_column(
+        "users",
+        sa.Column("is_admin", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        schema="identity",
+    )
     op.add_column(
         "users",
         sa.Column("is_master_admin", sa.Boolean(), server_default=sa.text("false"), nullable=False),
@@ -22,3 +27,4 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_column("users", "is_master_admin", schema="identity")
+    op.drop_column("users", "is_admin", schema="identity")

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 load_dotenv()
 
 
-ADMIN_EMAIL = "admin@event-ticketing.dev"
+ADMIN_EMAIL = "merchant@event-ticketing.dev"
 # Never hardcode the admin password. Injected via ADMIN_PASSWORD env var; a
 # random fallback means a fresh DB never gets a publicly-known credential.
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD") or secrets.token_urlsafe(24)
@@ -284,13 +284,14 @@ async def seed(reset: bool = False):
                 event_ids.append(eid)
                 await session.execute(text(
                     "INSERT INTO booking.events "
-                    "(event_id, event_type, name, description) "
-                    "VALUES (:eid, :etype, :name, :desc)"
+                    "(event_id, event_type, name, description, created_by) "
+                    "VALUES (:eid, :etype, :name, :desc, :created_by)"
                 ), {
                     "eid": eid,
                     "etype": ev["event_type"],
                     "name": ev["name"],
                     "desc": ev["description"],
+                    "created_by": admin_id,
                 })
 
                 vid = venue_ids[ev["venue_idx"]]
@@ -334,8 +335,8 @@ async def seed(reset: bool = False):
     print("=" * 60)
     print("SEED COMPLETE — 10 events created")
     print("=" * 60)
-    print(f"  Admin user: {ADMIN_EMAIL}")
-    print(f"  Admin pass: {ADMIN_PASSWORD}")
+    print(f"  Master admin user: {ADMIN_EMAIL}")
+    print(f"  Master admin pass: {ADMIN_PASSWORD}")
     print("=" * 60)
     for i, ev in enumerate(EVENTS):
         print(f"  {i + 1}. [{ev['event_type']}] {ev['name']}")

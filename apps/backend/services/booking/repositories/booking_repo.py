@@ -15,6 +15,7 @@ from services.booking.models.booking_event import BookingEvent
 from services.booking.models.booking_seat import BookingSeat
 from services.booking.models.outbox_event import OutboxEvent
 from services.booking.models.processed_webhook import ProcessedWebhookEvent
+from services.booking.models.seat import Seat
 
 
 class BookingRepository:
@@ -137,19 +138,32 @@ class BookingRepository:
         )
         rows = result.all()
 
-        # Fetch seats for each booking
+        if not rows:
+            return []
+
+        # Single bulk query for all seats across all bookings (fixes N+1)
+        booking_ids = [row.booking_id for row in rows]
+        seats_result = await self.session.execute(
+            select(BookingSeat.booking_id, BookingSeat.seat_id, BookingSeat.price, Seat.tier)
+            .join(
+                Seat,
+                (BookingSeat.show_id == Seat.show_id)
+                & (BookingSeat.seat_id == Seat.seat_id),
+            )
+            .where(BookingSeat.booking_id.in_(booking_ids))
+        )
+        all_seat_rows = seats_result.all()
+
+        # Group seats by booking_id
+        seats_by_booking: dict[UUID, list[dict]] = {}
+        for s in all_seat_rows:
+            seats_by_booking.setdefault(s.booking_id, []).append(
+                {"seat_id": s.seat_id, "price": str(s.price), "tier": s.tier}
+            )
+
         bookings = []
         for row in rows:
-            seats_result = await self.session.execute(
-                select(BookingSeat.seat_id, BookingSeat.price).where(
-                    BookingSeat.booking_id == row.booking_id
-                )
-            )
-            seat_rows = seats_result.all()
-            seats = [
-                {"seat_id": s.seat_id, "price": str(s.price)}
-                for s in seat_rows
-            ]
+            seats = seats_by_booking.get(row.booking_id, [])
             bookings.append(
                 {
                     "booking_id": str(row.booking_id),

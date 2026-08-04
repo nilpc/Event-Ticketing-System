@@ -28,6 +28,8 @@ patches:
       $patch: delete
 
   # ── Gateway API: 2 replicas, on-demand node selector ──
+  # RUN_DB_INIT=false: migrations run in the initContainer; the api container
+  # must not re-run alembic/seed on every pod boot (seed data lives in RDS).
   - target:
       kind: Deployment
       name: gateway-api
@@ -42,6 +44,14 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
+      - op: replace
+        path: /spec/template/spec/initContainers/0/imagePullPolicy
+        value: Always
+      - op: add
+        path: /spec/template/spec/containers/0/env
+        value:
+          - name: RUN_DB_INIT
+            value: "false"
 
   # ── Gateway Web: 2 replicas, on-demand node selector ──
   - target:

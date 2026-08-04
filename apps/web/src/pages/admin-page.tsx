@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Trash2, Key, Film, MapPin, Calendar, Users } from "lucide-react";
+import { Loader2, Plus, Trash2, Key, Film, MapPin, Calendar, Users, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTransition } from "@/components/layout/page-transition";
 import { adminApi, catalogApi } from "@/lib/api-routes";
@@ -9,7 +9,8 @@ import { useAuth } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { EventType, EventResponse, VenueResponse } from "@/types/api";
+import { DateTimeInput, parseDateTimeText } from "@/components/ui/date-time-input";
+import type { EventType, EventResponse, VenueResponse, ShowtimeResponse } from "@/types/api";
 
 type Tab = "catalog" | "newshow" | "users";
 
@@ -33,7 +34,7 @@ export default function AdminPage() {
             <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10">
               <Key className="h-4 w-4 text-primary" />
             </div>
-            <h1 className="text-xl font-semibold tracking-tight">Admin Dashboard</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Merchant Dashboard</h1>
           </div>
 
           <div className="flex gap-1 p-1 rounded-xl bg-muted/30">
@@ -66,6 +67,7 @@ export default function AdminPage() {
 
 function CatalogTab() {
   const queryClient = useQueryClient();
+  const { isMasterAdmin } = useAuth();
 
   const { data: events, isLoading: eventsLoading } = useQuery({
     queryKey: ["adminEvents"],
@@ -85,14 +87,36 @@ function CatalogTab() {
   const deleteEvent = useMutation({
     mutationFn: (id: string) => adminApi.deleteEvent(id),
     onSuccess: () => { toast.success("Event deleted."); queryClient.invalidateQueries({ queryKey: ["adminEvents"] }); },
+    onError: (err: { response?: { data?: { detail?: string } } }) => { toast.error(err.response?.data?.detail ?? "Failed to delete event."); },
   });
   const deleteVenue = useMutation({
     mutationFn: (id: string) => adminApi.deleteVenue(id),
     onSuccess: () => { toast.success("Venue deleted."); queryClient.invalidateQueries({ queryKey: ["adminVenues"] }); },
+    onError: () => { toast.error("Failed to delete venue."); },
   });
   const deleteShowtime = useMutation({
     mutationFn: (id: string) => adminApi.deleteShowtime(id),
     onSuccess: () => { toast.success("Showtime deleted."); queryClient.invalidateQueries({ queryKey: ["adminShowtimes"] }); },
+    onError: () => { toast.error("Failed to delete showtime."); },
+  });
+
+  const updateEvent = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; description?: string; event_type?: EventType } }) =>
+      adminApi.updateEvent(id, data),
+    onSuccess: () => { toast.success("Event updated."); queryClient.invalidateQueries({ queryKey: ["adminEvents"] }); },
+    onError: (err: { response?: { data?: { detail?: string } } }) => { toast.error(err.response?.data?.detail ?? "Failed to update event."); },
+  });
+  const updateVenue = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; capacity?: number } }) =>
+      adminApi.updateVenue(id, data),
+    onSuccess: () => { toast.success("Venue updated."); queryClient.invalidateQueries({ queryKey: ["adminVenues"] }); },
+    onError: () => { toast.error("Failed to update venue."); },
+  });
+  const updateShowtime = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { base_price?: number; start_time?: string; end_time?: string } }) =>
+      adminApi.updateShowtime(id, data),
+    onSuccess: () => { toast.success("Showtime updated."); queryClient.invalidateQueries({ queryKey: ["adminShowtimes"] }); },
+    onError: () => { toast.error("Failed to update showtime."); },
   });
 
   const eventMap = (events ?? []).reduce<Record<string, EventResponse>>((m, e) => { m[e.event_id] = e; return m; }, {});
@@ -103,16 +127,27 @@ function CatalogTab() {
       <Section title="Events & Movies" icon={<Film className="h-4 w-4" />} loading={eventsLoading} empty="No events yet."
         count={events?.length}>
         {events?.map((e) => (
-          <Row key={e.event_id} label={e.name} sub={`${e.event_id} · ${e.event_type}`}
-            onDelete={() => deleteEvent.mutate(e.event_id)} deleting={deleteEvent.isPending} />
+          <EditableEventRow
+            key={e.event_id}
+            event={e}
+            isMasterAdmin={isMasterAdmin}
+            onUpdate={(data) => updateEvent.mutate({ id: e.event_id, data })}
+            onDelete={() => deleteEvent.mutate(e.event_id)}
+            isPending={updateEvent.isPending || deleteEvent.isPending}
+          />
         ))}
       </Section>
 
       <Section title="Venues" icon={<MapPin className="h-4 w-4" />} loading={venuesLoading} empty="No venues yet."
         count={venues?.length}>
         {venues?.map((v) => (
-          <Row key={v.venue_id} label={v.name} sub={`${v.venue_id} · ${v.capacity} seats`}
-            onDelete={() => deleteVenue.mutate(v.venue_id)} deleting={deleteVenue.isPending} />
+          <EditableVenueRow
+            key={v.venue_id}
+            venue={v}
+            onUpdate={(data) => updateVenue.mutate({ id: v.venue_id, data })}
+            onDelete={() => deleteVenue.mutate(v.venue_id)}
+            isPending={updateVenue.isPending || deleteVenue.isPending}
+          />
         ))}
       </Section>
 
@@ -122,10 +157,16 @@ function CatalogTab() {
           const ev = eventMap[s.event_id];
           const vn = venueMap[s.venue_id];
           return (
-            <Row key={s.show_id}
-              label={`${ev?.name ?? s.event_id} @ ${vn?.name ?? s.venue_id}`}
-              sub={`${s.show_id.slice(0, 8)}… · ₹${s.base_price} · ${new Date(s.start_time).toLocaleDateString()}`}
-              onDelete={() => deleteShowtime.mutate(s.show_id)} deleting={deleteShowtime.isPending} />
+            <EditableShowtimeRow
+              key={s.show_id}
+              showtime={s}
+              eventLabel={ev?.name ?? s.event_id}
+              venueLabel={vn?.name ?? s.venue_id}
+              isMasterAdmin={isMasterAdmin}
+              onUpdate={(data) => updateShowtime.mutate({ id: s.show_id, data })}
+              onDelete={() => deleteShowtime.mutate(s.show_id)}
+              isPending={updateShowtime.isPending || deleteShowtime.isPending}
+            />
           );
         })}
       </Section>
@@ -155,19 +196,184 @@ function Section({ title, icon, loading, empty, count, children }: {
   );
 }
 
-function Row({ label, sub, onDelete, deleting }: {
-  label: string; sub: string; onDelete: () => void; deleting: boolean;
+// ── Editable Event Row ─────────────────────────────────────────────────────
+
+function EditableEventRow({ event, isMasterAdmin, onUpdate, onDelete, isPending }: {
+  event: EventResponse;
+  isMasterAdmin: boolean;
+  onUpdate: (data: { name?: string; description?: string; event_type?: EventType }) => void;
+  onDelete: () => void;
+  isPending: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(event.name);
+  const [desc, setDesc] = useState(event.description ?? "");
+  const [eventType, setEventType] = useState<EventType>(event.event_type);
+
+  const save = () => { onUpdate({ name, description: desc || undefined, event_type: eventType }); setEditing(false); };
+  const cancel = () => { setName(event.name); setDesc(event.description ?? ""); setEventType(event.event_type); setEditing(false); };
+
+  if (editing) {
+    return (
+      <div className="p-3 rounded-xl bg-muted/20 space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 text-sm rounded-lg" placeholder="Name" />
+          <select value={eventType} onChange={(e) => setEventType(e.target.value as EventType)}
+            className="h-8 rounded-lg border border-white/[0.06] bg-background px-2 text-sm">
+            <option value="MOVIE">Movie</option>
+            <option value="EVENT">Event</option>
+          </select>
+        </div>
+        <Input value={desc} onChange={(e) => setDesc(e.target.value)} className="h-8 text-sm rounded-lg" placeholder="Description" />
+        <div className="flex gap-1 justify-end">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancel} disabled={isPending}><X className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-green-400" onClick={save} disabled={isPending || !name.trim()}>
+            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20">
       <div>
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-xs text-muted-foreground">{sub}</p>
+        <p className="text-sm font-medium">{event.name}</p>
+        <p className="text-xs text-muted-foreground">{event.event_id} · {event.event_type}</p>
       </div>
-      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-400"
-        onClick={onDelete} disabled={deleting}>
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      <div className="flex gap-0.5">
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          onClick={() => setEditing(true)} disabled={isPending}>
+          <Pencil className="h-4 w-4" />
+        </Button>
+        {isMasterAdmin && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-400"
+            onClick={onDelete} disabled={isPending}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Editable Venue Row ─────────────────────────────────────────────────────
+
+function EditableVenueRow({ venue, onUpdate, onDelete, isPending }: {
+  venue: VenueResponse;
+  onUpdate: (data: { name?: string; capacity?: number }) => void;
+  onDelete: () => void;
+  isPending: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(venue.name);
+  const [capacity, setCapacity] = useState(String(venue.capacity));
+
+  const save = () => { onUpdate({ name, capacity: parseInt(capacity, 10) }); setEditing(false); };
+  const cancel = () => { setName(venue.name); setCapacity(String(venue.capacity)); setEditing(false); };
+
+  if (editing) {
+    return (
+      <div className="p-3 rounded-xl bg-muted/20 space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 text-sm rounded-lg" placeholder="Name" />
+          <Input type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} className="h-8 text-sm rounded-lg" placeholder="Capacity" />
+        </div>
+        <div className="flex gap-1 justify-end">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancel} disabled={isPending}><X className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-green-400" onClick={save} disabled={isPending || !name.trim() || parseInt(capacity, 10) < 1}>
+            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20">
+      <div>
+        <p className="text-sm font-medium">{venue.name}</p>
+        <p className="text-xs text-muted-foreground">{venue.venue_id} · {venue.capacity} seats</p>
+      </div>
+      <div className="flex gap-0.5">
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          onClick={() => setEditing(true)} disabled={isPending}>
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-400"
+          onClick={onDelete} disabled={isPending}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Editable Showtime Row ──────────────────────────────────────────────────
+
+function EditableShowtimeRow({ showtime, eventLabel, venueLabel, isMasterAdmin, onUpdate, onDelete, isPending }: {
+  showtime: ShowtimeResponse;
+  eventLabel: string;
+  venueLabel: string;
+  isMasterAdmin: boolean;
+  onUpdate: (data: { base_price?: number; start_time?: string; end_time?: string }) => void;
+  onDelete: () => void;
+  isPending: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [price, setPrice] = useState(showtime.base_price);
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+
+  const save = () => {
+    const data: { base_price?: number; start_time?: string; end_time?: string } = {};
+    if (price !== showtime.base_price) data.base_price = parseFloat(price);
+    const parsedStart = parseDateTimeText(start);
+    const parsedEnd = parseDateTimeText(end);
+    if (parsedStart) data.start_time = parsedStart;
+    if (parsedEnd) data.end_time = parsedEnd;
+    if (Object.keys(data).length > 0) onUpdate(data);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="p-3 rounded-xl bg-muted/20 space-y-2">
+        <p className="text-xs text-muted-foreground">{eventLabel} @ {venueLabel}</p>
+        <div className="grid grid-cols-3 gap-2">
+          <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="h-8 text-sm rounded-lg" placeholder="Price" />
+          <DateTimeInput value={start} onChange={setStart} />
+          <DateTimeInput value={end} onChange={setEnd} />
+        </div>
+        <p className="text-xs text-muted-foreground">Leave start/end blank to keep current values.</p>
+        <div className="flex gap-1 justify-end">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditing(false)} disabled={isPending}><X className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-green-400" onClick={save} disabled={isPending}>
+            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20">
+      <div>
+        <p className="text-sm font-medium">{eventLabel} @ {venueLabel}</p>
+        <p className="text-xs text-muted-foreground">{showtime.show_id.slice(0, 8)}… · ₹{showtime.base_price} · {new Date(showtime.start_time).toLocaleDateString()}</p>
+      </div>
+      <div className="flex gap-0.5">
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          onClick={() => setEditing(true)} disabled={isPending}>
+          <Pencil className="h-4 w-4" />
+        </Button>
+        {isMasterAdmin && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-400"
+            onClick={onDelete} disabled={isPending}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -229,8 +435,8 @@ function NewShowTab() {
         event_id: eventId,
         venue_id: venueId,
         base_price: parseFloat(price),
-        start_time: new Date(startTime).toISOString(),
-        end_time: new Date(endTime).toISOString(),
+        start_time: parseDateTimeText(startTime) ?? "",
+        end_time: parseDateTimeText(endTime) ?? "",
       });
     },
     onSuccess: () => {
@@ -250,10 +456,13 @@ function NewShowTab() {
     },
   });
 
+  const validStart = !!startTime && parseDateTimeText(startTime) !== null;
+  const validEnd = !!endTime && parseDateTimeText(endTime) !== null;
+
   const canSubmit =
     (eventMode === "select" ? !!selectedEventId : !!newEventName.trim()) &&
     (venueMode === "select" ? !!selectedVenueId : !!newVenueName.trim() && !!newVenueCapacity && parseInt(newVenueCapacity, 10) >= 1) &&
-    !!price && !!startTime && !!endTime;
+    !!price && validStart && validEnd;
 
   return (
     <div className="space-y-6">
@@ -324,10 +533,10 @@ function NewShowTab() {
             <Input type="number" placeholder="e.g. 75.00" value={price} onChange={(e) => setPrice(e.target.value)} className="rounded-xl" />
           </Field>
           <Field label="Start Time">
-            <Input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="rounded-xl" />
+            <DateTimeInput value={startTime} onChange={setStartTime} />
           </Field>
           <Field label="End Time">
-            <Input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="rounded-xl" />
+            <DateTimeInput value={endTime} onChange={setEndTime} />
           </Field>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -352,7 +561,7 @@ function UsersTab() {
   const promoteUser = useMutation({
     mutationFn: (uid: string) => adminApi.promoteUser(uid).then(r => r.data),
     onSuccess: (data) => {
-      toast.success(`${data.email} promoted to admin.`);
+      toast.success(`${data.email} promoted to merchant.`);
       setResult({ email: data.email });
       setUserId("");
     },
@@ -366,10 +575,10 @@ function UsersTab() {
       <div className="p-6 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl space-y-4">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-medium text-muted-foreground">Promote User to Admin</h2>
+          <h2 className="text-sm font-medium text-muted-foreground">Promote User to Merchant</h2>
         </div>
         <p className="text-xs text-muted-foreground">
-          Enter a user&apos;s UUID to grant them admin privileges.
+          Enter a user&apos;s UUID to grant them merchant privileges.
         </p>
         <div className="flex gap-3">
           <Input
@@ -389,7 +598,7 @@ function UsersTab() {
       </div>
       {result && (
         <div className="p-4 rounded-2xl border border-green-500/20 bg-green-500/5 text-sm text-green-400">
-          Promoted {result.email} to admin.
+          Promoted {result.email} to merchant.
         </div>
       )}
     </div>

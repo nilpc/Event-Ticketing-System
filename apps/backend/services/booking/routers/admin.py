@@ -1,4 +1,9 @@
-"""Admin CRUD router — protected endpoints for catalog management."""
+"""Admin/Merchant CRUD router — protected endpoints for catalog management.
+
+Roles:
+- Master admin: full CRUD on all events, venues, showtimes. Can promote users.
+- Merchant (is_admin): CRUD on own events + showtimes. Cannot delete others' events.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +14,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.session import get_db_session
+from core.redis import get_redis
 from core.security.auth import get_current_user_id
+from services.booking.repositories.cache_repo import CacheRepository
 from services.booking.schemas.admin import (
     EventCreate,
     EventUpdate,
@@ -30,44 +37,44 @@ from services.identity.models.user import User
 router = APIRouter(prefix="/v1/admin", tags=["admin"])
 
 
-async def _require_admin(
+async def _require_merchant(
     user_id: UUID = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_db_session),
-) -> UUID:
-    """JWT + is_admin gate — FR-4: only admin users can mutate."""
+) -> User:
+    """JWT + is_admin gate — FR-4: merchant (admin) users can mutate catalog."""
     result = await session.execute(select(User).where(User.user_id == user_id))
     user = result.scalar_one_or_none()
     if user is None or not user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required.")
-    return user_id
+        raise HTTPException(status_code=403, detail="Merchant access required.")
+    return user
 
 
 async def _require_master_admin(
     user_id: UUID = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_db_session),
-) -> UUID:
+) -> User:
     """JWT + is_master_admin gate — only master admins can promote users."""
     result = await session.execute(select(User).where(User.user_id == user_id))
     user = result.scalar_one_or_none()
     if user is None or not user.is_master_admin:
         raise HTTPException(status_code=403, detail="Master admin access required.")
-    return user_id
+    return user
 
 
 # ── Events ─────────────────────────────────────────────────────────────
 
 
 def _get_admin_service(session: AsyncSession = Depends(get_db_session)) -> AdminService:
-    return AdminService(session)
+    return AdminService(session, cache_repo=CacheRepository(redis_client=get_redis()))
 
 
 @router.post("/events", response_model=EventResponse, status_code=201)
 async def create_event(
     data: EventCreate,
-    _admin: UUID = Depends(_require_admin),
+    merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
 ) -> EventResponse:
-    event = await svc.create_event(data)
+    event = await svc.create_event(data, created_by=merchant.user_id)
     return EventResponse.model_validate(event)
 
 
@@ -75,9 +82,18 @@ async def create_event(
 async def update_event(
     event_id: str,
     data: EventUpdate,
-    _admin: UUID = Depends(_require_admin),
+    merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
 ) -> EventResponse:
+    if not merchant.is_master_admin:
+        event = await svc.get_event(event_id)
+        if event is None:
+            raise HTTPException(status_code=404, detail=f"Event {event_id} not found.")
+        if event.created_by is not None and event.created_by != merchant.user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot modify events created by others.",
+            )
     try:
         event = await svc.update_event(event_id, data)
     except LookupError as exc:
@@ -88,9 +104,18 @@ async def update_event(
 @router.delete("/events/{event_id}", status_code=204)
 async def delete_event(
     event_id: str,
-    _admin: UUID = Depends(_require_admin),
+    merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
 ) -> None:
+    if not merchant.is_master_admin:
+        event = await svc.get_event(event_id)
+        if event is None:
+            raise HTTPException(status_code=404, detail=f"Event {event_id} not found.")
+        if event.created_by is not None and event.created_by != merchant.user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot delete events created by others.",
+            )
     try:
         await svc.delete_event(event_id)
     except LookupError as exc:
@@ -103,7 +128,7 @@ async def delete_event(
 @router.post("/venues", response_model=VenueResponse, status_code=201)
 async def create_venue(
     data: VenueCreate,
-    _admin: UUID = Depends(_require_admin),
+    _merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
 ) -> VenueResponse:
     venue = await svc.create_venue(data)
@@ -114,7 +139,7 @@ async def create_venue(
 async def update_venue(
     venue_id: str,
     data: VenueUpdate,
-    _admin: UUID = Depends(_require_admin),
+    _merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
 ) -> VenueResponse:
     try:
@@ -127,7 +152,7 @@ async def update_venue(
 @router.delete("/venues/{venue_id}", status_code=204)
 async def delete_venue(
     venue_id: str,
-    _admin: UUID = Depends(_require_admin),
+    _merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
 ) -> None:
     try:
@@ -141,7 +166,7 @@ async def delete_venue(
 
 @router.get("/showtimes", response_model=list[ShowtimeResponse])
 async def list_showtimes(
-    _admin: UUID = Depends(_require_admin),
+    _merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
 ) -> list[ShowtimeResponse]:
     showtimes = await svc.list_showtimes()
@@ -151,7 +176,7 @@ async def list_showtimes(
 @router.post("/showtimes", response_model=ShowtimeResponse, status_code=201)
 async def create_showtime(
     data: ShowtimeCreate,
-    _admin: UUID = Depends(_require_admin),
+    _merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
 ) -> ShowtimeResponse:
     showtime = await svc.create_showtime(data)
@@ -162,9 +187,19 @@ async def create_showtime(
 async def update_showtime(
     show_id: str,
     data: ShowtimeUpdate,
-    _admin: UUID = Depends(_require_admin),
+    merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
 ) -> ShowtimeResponse:
+    if not merchant.is_master_admin:
+        showtime = await svc.get_showtime(show_id)
+        if showtime is None:
+            raise HTTPException(status_code=404, detail=f"Showtime {show_id} not found.")
+        owner = await svc.get_event_owner(showtime.event_id)
+        if owner is not None and owner != merchant.user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot modify showtimes for events created by others.",
+            )
     try:
         showtime = await svc.update_showtime(show_id, data)
     except LookupError as exc:
@@ -175,9 +210,19 @@ async def update_showtime(
 @router.delete("/showtimes/{show_id}", status_code=204)
 async def delete_showtime(
     show_id: str,
-    _admin: UUID = Depends(_require_admin),
+    merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
 ) -> None:
+    if not merchant.is_master_admin:
+        showtime = await svc.get_showtime(show_id)
+        if showtime is None:
+            raise HTTPException(status_code=404, detail=f"Showtime {show_id} not found.")
+        owner = await svc.get_event_owner(showtime.event_id)
+        if owner is not None and owner != merchant.user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot delete showtimes for events created by others.",
+            )
     try:
         await svc.delete_showtime(show_id)
     except LookupError as exc:
@@ -187,10 +232,10 @@ async def delete_showtime(
 @router.post("/users/{user_id}/promote", response_model=UserPromoteResponse)
 async def promote_user(
     user_id: str,
-    _master: UUID = Depends(_require_master_admin),
+    _master: User = Depends(_require_master_admin),
     svc: AdminService = Depends(_get_admin_service),
 ) -> UserPromoteResponse:
-    """Promote a user to admin. Caller must be master admin."""
+    """Promote a user to merchant (admin). Caller must be master admin."""
     try:
         user = await svc.promote_user(user_id)
     except LookupError as exc:
@@ -199,4 +244,5 @@ async def promote_user(
         user_id=str(user.user_id),
         email=user.email,
         is_admin=user.is_admin,
+        is_master_admin=user.is_master_admin,
     )

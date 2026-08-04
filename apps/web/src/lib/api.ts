@@ -1,4 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
+import { IS_ADMIN_KEY, IS_MASTER_ADMIN_KEY } from "@/stores/auth-store";
 
 const api = axios.create({
   baseURL: "/v1",
@@ -57,6 +58,10 @@ api.interceptors.response.use(
     const refreshToken = localStorage.getItem("refresh_token");
     if (!refreshToken) {
       isRefreshing = false;
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem(IS_ADMIN_KEY);
+      localStorage.removeItem(IS_MASTER_ADMIN_KEY);
       window.location.href = "/login";
       return Promise.reject(error);
     }
@@ -65,6 +70,16 @@ api.interceptors.response.use(
       const { data } = await axios.post("/v1/auth/refresh", { refresh_token: refreshToken });
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
+      if (data.is_admin) {
+        localStorage.setItem(IS_ADMIN_KEY, "true");
+      } else {
+        localStorage.removeItem(IS_ADMIN_KEY);
+      }
+      if (data.is_master_admin) {
+        localStorage.setItem(IS_MASTER_ADMIN_KEY, "true");
+      } else {
+        localStorage.removeItem(IS_MASTER_ADMIN_KEY);
+      }
       processQueue(null, data.access_token);
       if (originalRequest.headers) {
         originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
@@ -74,6 +89,8 @@ api.interceptors.response.use(
       processQueue(refreshError, null);
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
+      localStorage.removeItem(IS_ADMIN_KEY);
+      localStorage.removeItem(IS_MASTER_ADMIN_KEY);
       window.location.href = "/login";
       return Promise.reject(refreshError);
     } finally {

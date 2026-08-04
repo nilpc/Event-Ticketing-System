@@ -3,6 +3,10 @@ resource "aws_eks_cluster" "this" {
   version  = var.eks_version
   role_arn = aws_iam_role.cluster.arn
 
+  upgrade_policy {
+    support_type = "STANDARD"
+  }
+
   vpc_config {
     subnet_ids              = aws_subnet.private[*].id
     endpoint_public_access  = true
@@ -34,7 +38,7 @@ resource "aws_iam_openid_connect_provider" "this" {
 resource "aws_eks_addon" "vpc_cni" {
   cluster_name  = aws_eks_cluster.this.name
   addon_name    = "vpc-cni"
-  addon_version = "v1.18.3-eksbuild.1"
+  addon_version = "v1.22.4-eksbuild.3"
 
   depends_on = [aws_eks_cluster.this]
 }
@@ -42,7 +46,7 @@ resource "aws_eks_addon" "vpc_cni" {
 resource "aws_eks_addon" "coredns" {
   cluster_name  = aws_eks_cluster.this.name
   addon_name    = "coredns"
-  addon_version = "v1.11.3-eksbuild.1"
+  addon_version = "v1.13.2-eksbuild.11"
 
   depends_on = [aws_eks_cluster.this]
 }
@@ -50,7 +54,7 @@ resource "aws_eks_addon" "coredns" {
 resource "aws_eks_addon" "kube_proxy" {
   cluster_name  = aws_eks_cluster.this.name
   addon_name    = "kube-proxy"
-  addon_version = "v1.30.14-eksbuild.42"
+  addon_version = "v1.35.3-eksbuild.17"
 
   depends_on = [aws_eks_cluster.this]
 }
@@ -58,26 +62,30 @@ resource "aws_eks_addon" "kube_proxy" {
 resource "aws_eks_addon" "ebs_csi" {
   cluster_name  = aws_eks_cluster.this.name
   addon_name    = "aws-ebs-csi-driver"
-  addon_version = "v1.35.0-eksbuild.1"
+  addon_version = "v1.63.1-eksbuild.1"
 
   configuration_values = jsonencode({
     controller = {
-      serviceAccount = {
-        annotations = {
-          "eks.amazonaws.com/role-arn" = aws_iam_role.ebs_csi.arn
-        }
-      }
+      replicaCount = 1
     }
   })
 
   depends_on = [aws_iam_openid_connect_provider.this]
 }
 
+resource "aws_eks_addon" "metrics_server" {
+  cluster_name  = aws_eks_cluster.this.name
+  addon_name    = "metrics-server"
+  addon_version = "v0.9.0-eksbuild.5"
+
+  depends_on = [aws_eks_cluster.this]
+}
+
 resource "aws_eks_node_group" "on_demand" {
-  cluster_name    = aws_eks_cluster.this.name
-  node_group_name = "${var.cluster_name}-on-demand"
-  node_role_arn   = aws_iam_role.node.arn
-  subnet_ids      = aws_subnet.private[*].id
+  cluster_name           = aws_eks_cluster.this.name
+  node_group_name_prefix = "${var.cluster_name}-on-demand-${replace(var.eks_version, ".", "-")}-"
+  node_role_arn          = aws_iam_role.node.arn
+  subnet_ids             = aws_subnet.private[*].id
 
   instance_types = var.on_demand_instance_types
 
@@ -101,6 +109,10 @@ resource "aws_eks_node_group" "on_demand" {
   })
 
   depends_on = [aws_eks_cluster.this]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 

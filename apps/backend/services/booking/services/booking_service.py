@@ -219,7 +219,7 @@ class BookingService:
         results = []
         for row in rows:
             seats = [
-                BookingSeatInfo(seat_id=s["seat_id"], tier="", price=s["price"])
+                BookingSeatInfo(seat_id=s["seat_id"], tier=s["tier"], price=s["price"])
                 for s in row["seats"]
             ]
             results.append(

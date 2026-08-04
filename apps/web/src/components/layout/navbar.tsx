@@ -41,7 +41,7 @@ export default function Navbar() {
                 <Button variant="ghost" asChild className="rounded-full">
                   <Link to="/admin">
                     <Key className="h-4 w-4 mr-1.5" />
-                    Admin
+                    Merchant
                   </Link>
                 </Button>
               )}

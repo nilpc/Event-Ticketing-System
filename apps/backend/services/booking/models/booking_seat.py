@@ -25,7 +25,7 @@ class BookingSeat(Base):
         ForeignKeyConstraint(
             ["show_id", "seat_id"],
             ["booking.seats.show_id", "booking.seats.seat_id"],
-            ondelete="RESTRICT",
+            ondelete="CASCADE",
         ),
         {"schema": "booking"},
     )

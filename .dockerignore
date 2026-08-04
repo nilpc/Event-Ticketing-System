@@ -20,6 +20,20 @@ apps/
 !apps/backend/
 !apps/web/
 
+# Backend dev artifacts — keep the prod image lean
+apps/backend/.venv/
+apps/backend/.mypy_cache/
+apps/backend/.pytest_cache/
+apps/backend/.ruff_cache/
+apps/backend/certs/
+apps/backend/tests/
+apps/backend/event_ticketing_backend.egg-info/
+apps/backend/.coverage
+
+# Frontend dev artifacts
+apps/web/dist/
+apps/web/.vite/
+
 .env
 .env.*
 !.env.example
