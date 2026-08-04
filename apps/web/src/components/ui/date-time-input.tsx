@@ -1,8 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 const pad = (n: number) => String(n).padStart(2, "0");
+
+type AmPm = "AM" | "PM";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function toDisplayText(d: Date) {
@@ -36,53 +38,136 @@ export function parseDateTimeText(value: string): string | null {
   return date.toISOString();
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
-export function formatDateTimeMask(value: string): string {
-  const pmHint = /PM$/i.test(value.trim());
-  const amHint = /AM$/i.test(value.trim());
-  const digits = value.replace(/\D/g, "").slice(0, 12);
-  if (!digits) return "";
-  const dd = digits.slice(0, 2);
-  const mm = digits.slice(2, 4);
-  const yyyy = digits.slice(4, 8);
-  const hh = digits.slice(8, 10);
-  const min = digits.slice(10, 12);
+type FieldName = "day" | "month" | "year" | "hour" | "minute";
 
-  let out = dd;
-  if (digits.length > 2) out += `-${mm}`;
-  if (digits.length > 4) out += `-${yyyy}`;
+const FIELD_ORDER: FieldName[] = ["day", "month", "year", "hour", "minute"];
+const FIELD_WIDTH: Record<FieldName, number> = { day: 2, month: 2, year: 4, hour: 2, minute: 2 };
+const SEP_AFTER: Record<FieldName, string> = { day: "-", month: "-", year: " ", hour: ":", minute: " " };
 
-  if (digits.length > 8) {
-    out += " ";
-    if (hh.length < 2) {
-      out += hh;
-    } else {
-      let hour = parseInt(hh, 10);
-      if (hour > 23) hour = 23;
-      if (pmHint && hour < 12) hour += 12;
-      if (amHint && hour >= 12) hour -= 12;
-      const ampm = hour >= 12 ? "PM" : "AM";
-      let h12 = hour % 12;
-      if (h12 === 0) h12 = 12;
-      out += pad(h12);
-      if (min) {
-        let minute = parseInt(min, 10);
-        if (minute > 59) minute = 59;
-        out += `:${min.length < 2 ? String(minute) : pad(minute)}`;
+const isDigit = (c: string) => c >= "0" && c <= "9";
+
+interface ParseResult {
+  fields: Record<FieldName, string>;
+  suffix: AmPm | null;
+  trailingAfter: FieldName | null;
+}
+
+function parseMask(raw: string): ParseResult {
+  const fields: Record<FieldName, string> = { day: "", month: "", year: "", hour: "", minute: "" };
+
+  const letter = raw.match(/[ap]/i);
+  const suffix: AmPm | null = letter
+    ? letter[0].toLowerCase() === "p"
+      ? "PM"
+      : "AM"
+    : null;
+
+  const sufMatch = raw.match(/(\s*)(AM|PM)/i);
+  const text = sufMatch
+    ? raw.slice(0, sufMatch.index ?? 0) + raw.slice((sufMatch.index ?? 0) + sufMatch[0].length)
+    : raw;
+
+  let current = 0;
+  let trailingAfter: FieldName | null = null;
+
+  for (const c of text) {
+    const name = FIELD_ORDER[current];
+    if (!name) break;
+    if (isDigit(c)) {
+      if (name === "hour" && fields.hour.length === 1 && parseInt(fields.hour + c, 10) > 23) {
+        current = FIELD_ORDER.indexOf("minute");
+        fields.minute += c;
+        trailingAfter = null;
+        continue;
       }
-      out += ` ${ampm}`;
+      if (name === "minute" && fields.minute.length === 1 && parseInt(fields.minute + c, 10) > 59) {
+        continue;
+      }
+      if (fields[name].length < FIELD_WIDTH[name]) {
+        fields[name] += c;
+        trailingAfter = null;
+      } else {
+        let next = current + 1;
+        while (next < FIELD_ORDER.length && fields[FIELD_ORDER[next]].length >= FIELD_WIDTH[FIELD_ORDER[next]]) {
+          next += 1;
+        }
+        if (next < FIELD_ORDER.length) {
+          current = next;
+          fields[FIELD_ORDER[current]] += c;
+          trailingAfter = null;
+        }
+      }
+    } else if (c === SEP_AFTER[name] && fields[name].length > 0) {
+      trailingAfter = name;
+      current += 1;
     }
   }
+
+  return { fields, suffix, trailingAfter };
+}
+
+function renderMask({ fields, suffix, trailingAfter }: ParseResult): string {
+  const { hour, minute } = fields;
+
+  let out = "";
+  for (const name of ["day", "month", "year"] as FieldName[]) {
+    const v = fields[name];
+    if (v) {
+      if (out) out += "-";
+      out += v;
+    }
+  }
+
+  if (hour) {
+    if (out) out += " ";
+    let hour24 = Math.min(parseInt(hour, 10), 23);
+    const showSuffix = hour.length >= 2 || minute.length >= 1;
+    const ampm = suffix || (hour24 >= 12 ? "PM" : "AM");
+    if (showSuffix) {
+      if (ampm === "PM" && hour24 < 12) hour24 += 12;
+      else if (ampm === "AM" && hour24 >= 12) hour24 -= 12;
+      out += pad(hour24 % 12 || 12);
+    } else {
+      out += hour;
+    }
+    if (minute) {
+      const m = Math.min(parseInt(minute, 10), 59);
+      out += `:${minute.length < 2 ? String(m) : pad(m)}`;
+    }
+    if (showSuffix) out += ` ${ampm}`;
+  }
+
+  if (trailingAfter && (trailingAfter === "day" || trailingAfter === "month") && fields[trailingAfter]) {
+    out += SEP_AFTER[trailingAfter];
+  }
+
   return out;
 }
 
-function streamFromDisplay(value: string): string {
-  const iso = parseDateTimeText(value);
-  if (iso) {
-    const d = new Date(iso);
-    return `${pad(d.getDate())}${pad(d.getMonth() + 1)}${d.getFullYear()}${pad(d.getHours())}${pad(d.getMinutes())}`;
+function getSuffixFromDisplay(value: string): AmPm | null {
+  const m = value.trim().match(/(AM|PM)\s*$/i);
+  return m ? (m[1].toUpperCase() as AmPm) : null;
+}
+
+function getHourFromDisplay(value: string): string {
+  const m = value.trim().match(/(\d{1,2})(?::\d{1,2})?\s*(?:AM|PM)?$/i);
+  return m ? m[1] : "";
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function formatDateTimeMask(value: string, lastValue = ""): string {
+  const text = value.trim();
+  if (!text) return "";
+  const parsed = parseMask(text);
+  if (!parsed.suffix) {
+    const hour = parsed.fields.hour;
+    if (hour !== getHourFromDisplay(lastValue)) {
+      parsed.suffix = hour ? (parseInt(hour, 10) >= 12 ? "PM" : "AM") : null;
+    } else {
+      parsed.suffix = getSuffixFromDisplay(lastValue);
+    }
   }
-  return value.replace(/\D/g, "").slice(0, 12);
+  return renderMask(parsed);
 }
 
 export function DateTimeInput({
@@ -95,17 +180,7 @@ export function DateTimeInput({
   placeholder?: string;
 }) {
   const pickerRef = useRef<HTMLInputElement>(null);
-  const lastRawRef = useRef(value);
-  const rawRef = useRef<string>(streamFromDisplay(value));
-
-  useEffect(() => {
-    if (value.trim() === "") {
-      rawRef.current = "";
-    } else if (formatDateTimeMask(rawRef.current) !== value) {
-      rawRef.current = streamFromDisplay(value);
-    }
-    lastRawRef.current = value;
-  }, [value]);
+  const lastValueRef = useRef(value);
 
   const openPicker = () => {
     const el = pickerRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
@@ -123,23 +198,14 @@ export function DateTimeInput({
   };
 
   const handleChange = (raw: string) => {
-    const prev = lastRawRef.current;
-    lastRawRef.current = raw;
     if (raw.trim() === "") {
-      rawRef.current = "";
+      lastValueRef.current = "";
       onChange("");
-    } else if (raw.length < prev.length && prev.startsWith(raw)) {
-      rawRef.current = rawRef.current.slice(0, -1);
-      onChange(formatDateTimeMask(rawRef.current));
-    } else if (raw.length > prev.length && raw.startsWith(prev)) {
-      const appended = streamFromDisplay(raw.slice(prev.length));
-      rawRef.current = (rawRef.current + appended).slice(0, 12);
-      onChange(formatDateTimeMask(rawRef.current));
-    } else {
-      const display = formatDateTimeMask(raw);
-      rawRef.current = streamFromDisplay(display);
-      onChange(display);
+      return;
     }
+    const formatted = formatDateTimeMask(raw, lastValueRef.current);
+    lastValueRef.current = formatted;
+    onChange(formatted);
   };
 
   return (
@@ -166,9 +232,7 @@ export function DateTimeInput({
         className="sr-only"
         onChange={(e) => {
           if (e.target.value) {
-            const d = new Date(e.target.value);
-            rawRef.current = `${pad(d.getDate())}${pad(d.getMonth() + 1)}${d.getFullYear()}${pad(d.getHours())}${pad(d.getMinutes())}`;
-            onChange(toDisplayText(d));
+            onChange(toDisplayText(new Date(e.target.value)));
           }
         }}
       />
