@@ -9,7 +9,8 @@ import { useAuth } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DateTimeInput, parseDateTimeText } from "@/components/ui/date-time-input";
+import { DateTimeInput } from "@/components/ui/date-time-input";
+import { parseDateTimeText } from "@/components/ui/date-time-mask";
 import type { EventType, AdminEventResponse, VenueResponse, ShowtimeResponse } from "@/types/api";
 
 type Tab = "catalog" | "newshow" | "users";
