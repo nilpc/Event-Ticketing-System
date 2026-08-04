@@ -8,6 +8,7 @@ import type {
   OAuthAuthorizeResponse,
   VenueResponse,
   EventResponse,
+  AdminEventResponse,
   ShowtimeResponse,
   SeatMapResponse,
   QueueJoinRequest,
@@ -128,11 +129,14 @@ export const adminApi = {
   promoteUser(userId: string) {
     return api.post<UserPromoteResponse>(`/admin/users/${userId}/promote`);
   },
+  getAllEvents() {
+    return api.get<AdminEventResponse[]>("/admin/events");
+  },
   createEvent(data: EventCreateRequest) {
-    return api.post<EventResponse>("/admin/events", data);
+    return api.post<AdminEventResponse>("/admin/events", data);
   },
   updateEvent(eventId: string, data: EventUpdateRequest) {
-    return api.put<EventResponse>(`/admin/events/${eventId}`, data);
+    return api.put<AdminEventResponse>(`/admin/events/${eventId}`, data);
   },
   deleteEvent(eventId: string) {
     return api.delete<void>(`/admin/events/${eventId}`);

@@ -45,6 +45,10 @@ export interface EventResponse {
   description: string | null;
 }
 
+export interface AdminEventResponse extends EventResponse {
+  created_by: string | null;
+}
+
 export interface ShowtimeResponse {
   show_id: string;
   event_id: string;

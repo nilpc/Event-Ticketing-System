@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DateTimeInput, parseDateTimeText } from "@/components/ui/date-time-input";
-import type { EventType, EventResponse, VenueResponse, ShowtimeResponse } from "@/types/api";
+import type { EventType, AdminEventResponse, VenueResponse, ShowtimeResponse } from "@/types/api";
 
 type Tab = "catalog" | "newshow" | "users";
 
@@ -67,11 +67,14 @@ export default function AdminPage() {
 
 function CatalogTab() {
   const queryClient = useQueryClient();
-  const { isMasterAdmin } = useAuth();
+  const { userId, isMasterAdmin } = useAuth();
+
+  const canManageEvent = (e: AdminEventResponse) =>
+    isMasterAdmin || (e.created_by != null && e.created_by === userId);
 
   const { data: events, isLoading: eventsLoading } = useQuery({
     queryKey: ["adminEvents"],
-    queryFn: () => catalogApi.getEvents().then((r) => r.data),
+    queryFn: () => adminApi.getAllEvents().then((r) => r.data),
   });
 
   const { data: venues, isLoading: venuesLoading } = useQuery({
@@ -119,7 +122,7 @@ function CatalogTab() {
     onError: () => { toast.error("Failed to update showtime."); },
   });
 
-  const eventMap = (events ?? []).reduce<Record<string, EventResponse>>((m, e) => { m[e.event_id] = e; return m; }, {});
+  const eventMap = (events ?? []).reduce<Record<string, AdminEventResponse>>((m, e) => { m[e.event_id] = e; return m; }, {});
   const venueMap = (venues ?? []).reduce<Record<string, VenueResponse>>((m, v) => { m[v.venue_id] = v; return m; }, {});
 
   return (
@@ -130,7 +133,7 @@ function CatalogTab() {
           <EditableEventRow
             key={e.event_id}
             event={e}
-            isMasterAdmin={isMasterAdmin}
+            canManage={canManageEvent(e)}
             onUpdate={(data) => updateEvent.mutate({ id: e.event_id, data })}
             onDelete={() => deleteEvent.mutate(e.event_id)}
             isPending={updateEvent.isPending || deleteEvent.isPending}
@@ -144,6 +147,7 @@ function CatalogTab() {
           <EditableVenueRow
             key={v.venue_id}
             venue={v}
+            isMasterAdmin={isMasterAdmin}
             onUpdate={(data) => updateVenue.mutate({ id: v.venue_id, data })}
             onDelete={() => deleteVenue.mutate(v.venue_id)}
             isPending={updateVenue.isPending || deleteVenue.isPending}
@@ -156,13 +160,16 @@ function CatalogTab() {
         {showtimes?.map((s) => {
           const ev = eventMap[s.event_id];
           const vn = venueMap[s.venue_id];
+          const canManage =
+            isMasterAdmin ||
+            (ev != null && ev.created_by != null && ev.created_by === userId);
           return (
             <EditableShowtimeRow
               key={s.show_id}
               showtime={s}
               eventLabel={ev?.name ?? s.event_id}
               venueLabel={vn?.name ?? s.venue_id}
-              isMasterAdmin={isMasterAdmin}
+              canManage={canManage}
               onUpdate={(data) => updateShowtime.mutate({ id: s.show_id, data })}
               onDelete={() => deleteShowtime.mutate(s.show_id)}
               isPending={updateShowtime.isPending || deleteShowtime.isPending}
@@ -198,9 +205,9 @@ function Section({ title, icon, loading, empty, count, children }: {
 
 // ── Editable Event Row ─────────────────────────────────────────────────────
 
-function EditableEventRow({ event, isMasterAdmin, onUpdate, onDelete, isPending }: {
-  event: EventResponse;
-  isMasterAdmin: boolean;
+function EditableEventRow({ event, canManage, onUpdate, onDelete, isPending }: {
+  event: AdminEventResponse;
+  canManage: boolean;
   onUpdate: (data: { name?: string; description?: string; event_type?: EventType }) => void;
   onDelete: () => void;
   isPending: boolean;
@@ -241,26 +248,27 @@ function EditableEventRow({ event, isMasterAdmin, onUpdate, onDelete, isPending 
         <p className="text-sm font-medium">{event.name}</p>
         <p className="text-xs text-muted-foreground">{event.event_id} · {event.event_type}</p>
       </div>
-      <div className="flex gap-0.5">
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
-          onClick={() => setEditing(true)} disabled={isPending}>
-          <Pencil className="h-4 w-4" />
-        </Button>
-        {isMasterAdmin && (
+      {canManage && (
+        <div className="flex gap-0.5">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => setEditing(true)} disabled={isPending}>
+            <Pencil className="h-4 w-4" />
+          </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-400"
             onClick={onDelete} disabled={isPending}>
             <Trash2 className="h-4 w-4" />
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Editable Venue Row ─────────────────────────────────────────────────────
 
-function EditableVenueRow({ venue, onUpdate, onDelete, isPending }: {
+function EditableVenueRow({ venue, isMasterAdmin, onUpdate, onDelete, isPending }: {
   venue: VenueResponse;
+  isMasterAdmin: boolean;
   onUpdate: (data: { name?: string; capacity?: number }) => void;
   onDelete: () => void;
   isPending: boolean;
@@ -295,27 +303,29 @@ function EditableVenueRow({ venue, onUpdate, onDelete, isPending }: {
         <p className="text-sm font-medium">{venue.name}</p>
         <p className="text-xs text-muted-foreground">{venue.venue_id} · {venue.capacity} seats</p>
       </div>
-      <div className="flex gap-0.5">
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
-          onClick={() => setEditing(true)} disabled={isPending}>
-          <Pencil className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-400"
-          onClick={onDelete} disabled={isPending}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
+      {isMasterAdmin && (
+        <div className="flex gap-0.5">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => setEditing(true)} disabled={isPending}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-400"
+            onClick={onDelete} disabled={isPending}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Editable Showtime Row ──────────────────────────────────────────────────
 
-function EditableShowtimeRow({ showtime, eventLabel, venueLabel, isMasterAdmin, onUpdate, onDelete, isPending }: {
+function EditableShowtimeRow({ showtime, eventLabel, venueLabel, canManage, onUpdate, onDelete, isPending }: {
   showtime: ShowtimeResponse;
   eventLabel: string;
   venueLabel: string;
-  isMasterAdmin: boolean;
+  canManage: boolean;
   onUpdate: (data: { base_price?: number; start_time?: string; end_time?: string }) => void;
   onDelete: () => void;
   isPending: boolean;
@@ -362,18 +372,18 @@ function EditableShowtimeRow({ showtime, eventLabel, venueLabel, isMasterAdmin, 
         <p className="text-sm font-medium">{eventLabel} @ {venueLabel}</p>
         <p className="text-xs text-muted-foreground">{showtime.show_id.slice(0, 8)}… · ₹{showtime.base_price} · {new Date(showtime.start_time).toLocaleDateString()}</p>
       </div>
-      <div className="flex gap-0.5">
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
-          onClick={() => setEditing(true)} disabled={isPending}>
-          <Pencil className="h-4 w-4" />
-        </Button>
-        {isMasterAdmin && (
+      {canManage && (
+        <div className="flex gap-0.5">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => setEditing(true)} disabled={isPending}>
+            <Pencil className="h-4 w-4" />
+          </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-400"
             onClick={onDelete} disabled={isPending}>
             <Trash2 className="h-4 w-4" />
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -383,6 +393,7 @@ function EditableShowtimeRow({ showtime, eventLabel, venueLabel, isMasterAdmin, 
 function NewShowTab() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { userId, isMasterAdmin } = useAuth();
 
   const [eventMode, setEventMode] = useState<"select" | "new">("select");
   const [selectedEventId, setSelectedEventId] = useState("");
@@ -401,8 +412,12 @@ function NewShowTab() {
 
   const { data: events } = useQuery({
     queryKey: ["adminEvents"],
-    queryFn: () => catalogApi.getEvents().then((r) => r.data),
+    queryFn: () => adminApi.getAllEvents().then((r) => r.data),
   });
+
+  const manageableEvents = (events ?? []).filter(
+    (e) => isMasterAdmin || (e.created_by != null && e.created_by === userId),
+  );
 
   const { data: venues } = useQuery({
     queryKey: ["adminVenues"],
@@ -476,7 +491,7 @@ function NewShowTab() {
             <select value={selectedEventId} onChange={(e) => setSelectedEventId(e.target.value)}
               className="flex h-10 w-full rounded-xl border border-white/[0.06] bg-background px-3 py-2 text-sm">
               <option value="">Choose an event…</option>
-              {events?.map((e) => <option key={e.event_id} value={e.event_id}>{e.name} ({e.event_id})</option>)}
+              {manageableEvents.map((e) => <option key={e.event_id} value={e.event_id}>{e.name} ({e.event_id})</option>)}
             </select>
           </div>
         ) : (
