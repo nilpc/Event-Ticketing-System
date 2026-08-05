@@ -184,9 +184,27 @@ function overflowToNextNumeric(
   return null;
 }
 
+function insertDigitIntoAmpm(state: EditorState, ch: string): EditorState | null {
+  const fields = { ...state.fields };
+  for (let i = NUMERIC_FIELDS.length - 1; i >= 0; i--) {
+    const n = NUMERIC_FIELDS[i];
+    if (fields[n].length < FIELD_WIDTH[n]) {
+      const newT = fields[n] + ch;
+      if (n === "hour" && parseInt(newT, 10) > 23) return null;
+      if (n === "minute" && parseInt(newT, 10) > 59) return null;
+      const newFields = { ...fields, [n]: newT };
+      if (n === "hour" || n === "minute") maybeAutoAmpm(newFields);
+      const caret = segmentSlotStart(newFields, i) + newT.length;
+      const si = newT.length >= FIELD_WIDTH[n] ? SEGMENT_NAMES.indexOf("ampm") : i;
+      return { fields: newFields, caret, si };
+    }
+  }
+  return null;
+}
+
 function insertDigit(state: EditorState, ch: string): EditorState | null {
   const name = SEGMENT_NAMES[state.si];
-  if (name === "ampm") return null;
+  if (name === "ampm") return insertDigitIntoAmpm(state, ch);
   const w = FIELD_WIDTH[name];
   const t = state.fields[name];
   const len = t.length;
@@ -267,6 +285,14 @@ export function clearSelection(f0: Fields, start: number, end: number): Fields {
   return f;
 }
 
+function deleteCharInSegment(fields: Fields, target: Span, o: number) {
+  if (target.name === "ampm") {
+    fields.ampm = "";
+    return;
+  }
+  fields[target.name] = fields[target.name].slice(0, o) + fields[target.name].slice(o + 1);
+}
+
 export function applyBackspace(state: EditorState): EditorState | null {
   const caret = state.caret;
   if (caret <= 0) return null;
@@ -278,9 +304,9 @@ export function applyBackspace(state: EditorState): EditorState | null {
   const fields = { ...state.fields };
   const o = pos - target.start;
   if (o >= 0 && o < target.end - target.start) {
-    fields[target.name] = fields[target.name].slice(0, o) + fields[target.name].slice(o + 1);
+    deleteCharInSegment(fields, target, o);
   } else {
-    fields[target.name] = fields[target.name].slice(0, -1);
+    deleteCharInSegment(fields, target, target.end - target.start - 1);
   }
   const newCaret = caret - 1;
   return { fields, caret: newCaret, si: locateSegment(fields, newCaret) };
@@ -297,11 +323,15 @@ export function applyDelete(state: EditorState): EditorState | null {
   const fields = { ...state.fields };
   const o = caret - target.start;
   if (o >= 0 && o < target.end - target.start) {
-    fields[target.name] = fields[target.name].slice(0, o) + fields[target.name].slice(o + 1);
+    deleteCharInSegment(fields, target, o);
   } else {
     const next = spans.find((s) => s.start > target!.end);
     if (!next) return null;
-    fields[next.name] = fields[next.name].slice(1);
+    if (next.name === "ampm") {
+      fields.ampm = "";
+    } else {
+      fields[next.name] = fields[next.name].slice(1);
+    }
   }
   return { fields, caret, si: locateSegment(fields, caret) };
 }
