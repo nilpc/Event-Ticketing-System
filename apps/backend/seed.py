@@ -235,10 +235,11 @@ async def seed(reset: bool = False):
                      "pw": _hash_password(ADMIN_PASSWORD)},
                 )
             else:
-                # Ensure existing admin has master_admin privileges
+                # Ensure existing admin stays an admin, but do NOT force-elevate
+                # to master admin (master role is managed by DB admins / promotions).
                 await session.execute(
                     text(
-                        "UPDATE identity.users SET is_admin = true, is_master_admin = true"
+                        "UPDATE identity.users SET is_admin = true"
                         " WHERE user_id = :uid"
                     ),
                     {"uid": admin_id},

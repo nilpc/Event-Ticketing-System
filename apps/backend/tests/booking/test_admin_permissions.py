@@ -4,7 +4,8 @@ Verifies:
 1. Merchants can only mutate events they created (created_by) — others' events 403.
 2. Events with no owner (created_by is NULL) are master-admin only.
 3. Venue update/delete is master-admin only.
-4. Showtime create/update/delete is gated by the owning event's owner.
+4. Showtime create is open to any merchant (any catalog event); update/delete
+   is gated by the owning event's owner.
 """
 
 from __future__ import annotations
@@ -263,20 +264,21 @@ async def test_merchant_can_still_create_venue(client: AsyncClient) -> None:
 # ── Showtimes ───────────────────────────────────────────────────────────
 
 
-async def test_merchant_cannot_create_showtime_for_others_event(client: AsyncClient) -> None:
+async def test_merchant_can_create_showtime_for_any_event(client: AsyncClient) -> None:
     token_a = await _make_user(client, f"sa_{uuid.uuid4().hex[:8]}@test.com", is_admin=True)
     token_b = await _make_user(client, f"sb_{uuid.uuid4().hex[:8]}@test.com", is_admin=True)
 
     event_id = await _create_event(client, token_a, "A's Film")
     venue_id = await _create_venue(client, token_b)
 
+    # Any merchant can schedule a showtime using any catalog event/venue
     r = await client.post(
         "/v1/admin/showtimes",
         json=_showtime_payload(event_id, venue_id),
         headers=_auth(token_b),
     )
-    assert r.status_code == 403, (
-        f"Expected 403 cross-owner showtime create, got {r.status_code}: {r.text}"
+    assert r.status_code == 201, (
+        f"Expected 201 cross-owner showtime create, got {r.status_code}: {r.text}"
     )
 
     # Owner can create showtime for own event

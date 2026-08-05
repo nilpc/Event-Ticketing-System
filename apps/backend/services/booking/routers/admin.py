@@ -2,7 +2,8 @@
 
 Roles:
 - Master admin: full CRUD on all events, venues, showtimes. Can promote users.
-- Merchant (is_admin): CRUD on own events + showtimes. Cannot delete others' events.
+- Merchant (is_admin): CRUD on own events + showtimes; can create showtimes using
+  any catalog event/venue. Cannot edit/delete others' events or their showtimes.
 """
 
 from __future__ import annotations
@@ -189,17 +190,12 @@ async def list_showtimes(
 @router.post("/showtimes", response_model=ShowtimeResponse, status_code=201)
 async def create_showtime(
     data: ShowtimeCreate,
-    merchant: User = Depends(_require_merchant),
+    _merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
 ) -> ShowtimeResponse:
     event = await svc.get_event(data.event_id)
     if event is None:
         raise HTTPException(status_code=404, detail=f"Event {data.event_id} not found.")
-    if not merchant.is_master_admin and event.created_by != merchant.user_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Cannot create showtimes for events created by others.",
-        )
     showtime = await svc.create_showtime(data)
     return ShowtimeResponse.model_validate(showtime)
 

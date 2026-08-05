@@ -394,7 +394,6 @@ function EditableShowtimeRow({ showtime, eventLabel, venueLabel, canManage, onUp
 function NewShowTab() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { userId, isMasterAdmin } = useAuth();
 
   const [eventMode, setEventMode] = useState<"select" | "new">("select");
   const [selectedEventId, setSelectedEventId] = useState("");
@@ -415,10 +414,6 @@ function NewShowTab() {
     queryKey: ["adminEvents"],
     queryFn: () => adminApi.getAllEvents().then((r) => r.data),
   });
-
-  const manageableEvents = (events ?? []).filter(
-    (e) => isMasterAdmin || (e.created_by != null && e.created_by === userId),
-  );
 
   const { data: venues } = useQuery({
     queryKey: ["adminVenues"],
@@ -505,7 +500,7 @@ function NewShowTab() {
             <select value={selectedEventId} onChange={(e) => setSelectedEventId(e.target.value)}
               className="flex h-10 w-full rounded-xl border border-white/[0.06] bg-background px-3 py-2 text-sm">
               <option value="">Choose an event…</option>
-              {manageableEvents.map((e) => <option key={e.event_id} value={e.event_id}>{e.name} ({e.event_id})</option>)}
+              {(events ?? []).map((e) => <option key={e.event_id} value={e.event_id}>{e.name} ({e.event_id})</option>)}
             </select>
           </div>
         ) : (
