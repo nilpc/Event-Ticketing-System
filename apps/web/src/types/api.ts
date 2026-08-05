@@ -36,6 +36,10 @@ export interface VenueResponse {
   capacity: number;
 }
 
+export interface AdminVenueResponse extends VenueResponse {
+  created_by: string | null;
+}
+
 export type EventType = "MOVIE" | "EVENT";
 
 export interface EventResponse {
@@ -180,6 +184,19 @@ export interface ShowtimeCreateRequest {
   start_time: string;
   end_time: string;
   auto_seats?: boolean;
+}
+
+export interface ShowtimeSlot {
+  start_time: string;
+  end_time: string;
+}
+
+export interface ShowtimeBatchCreateRequest {
+  event_id: string;
+  venue_id: string;
+  base_price: number;
+  auto_seats?: boolean;
+  slots: ShowtimeSlot[];
 }
 
 export interface ShowtimeUpdateRequest {

@@ -4,7 +4,7 @@ Verifies:
 1. Merchants can only mutate events they created (created_by) — others' events 403.
 2. Events with no owner (created_by is NULL) are master-admin only.
 3. Venue update/delete is master-admin only.
-4. Showtime create is open to any merchant (any catalog event); update/delete
+4. Showtime create requires ownership of BOTH the event and the venue; update/delete
    is gated by the owning event's owner.
 """
 
@@ -211,12 +211,46 @@ async def test_admin_events_list_exposes_created_by(client: AsyncClient) -> None
 async def test_public_catalog_does_not_expose_created_by(client: AsyncClient) -> None:
     token = await _make_user(client, f"pub_{uuid.uuid4().hex[:8]}@test.com", is_admin=True)
     await _create_event(client, token, "Public Event")
+    await _create_venue(client, token)
 
     r = await client.get("/v1/events")
     assert r.status_code == 200, f"Public events failed: {r.status_code} {r.text}"
     events = r.json()
     assert len(events) > 0
     assert "created_by" not in events[0], "Public catalog must not leak event owner UUIDs"
+
+    r = await client.get("/v1/venues")
+    assert r.status_code == 200, f"Public venues failed: {r.status_code} {r.text}"
+    venues = r.json()
+    assert len(venues) > 0
+    assert "created_by" not in venues[0], "Public catalog must not leak venue owner UUIDs"
+
+
+async def test_admin_venues_list_exposes_created_by(client: AsyncClient) -> None:
+    from core.db.session import async_session_factory
+    from services.identity.models.user import User
+
+    email = f"vlist_{uuid.uuid4().hex[:8]}@test.com"
+    r = await client.post("/v1/auth/signup", json={"email": email, "password": PASSWORD})
+    assert r.status_code == 201
+    user_id = UUID(r.json()["user_id"])
+
+    async with async_session_factory() as session:
+        await session.execute(update(User).where(User.user_id == user_id).values(is_admin=True))
+        await session.commit()
+
+    r = await client.post("/v1/auth/login", json={"email": email, "password": PASSWORD})
+    assert r.status_code == 200
+    token = r.json()["access_token"]
+
+    venue_id = await _create_venue(client, token)
+
+    r = await client.get("/v1/admin/venues", headers=_auth(token))
+    assert r.status_code == 200, f"Admin venues list failed: {r.status_code} {r.text}"
+    venues = r.json()
+    mine = [v for v in venues if v["venue_id"] == venue_id]
+    assert len(mine) == 1
+    assert mine[0]["created_by"] == str(user_id)
 
 
 # ── Venues ──────────────────────────────────────────────────────────────
@@ -264,27 +298,38 @@ async def test_merchant_can_still_create_venue(client: AsyncClient) -> None:
 # ── Showtimes ───────────────────────────────────────────────────────────
 
 
-async def test_merchant_can_create_showtime_for_any_event(client: AsyncClient) -> None:
+async def test_merchant_cannot_create_showtime_for_others_event(client: AsyncClient) -> None:
     token_a = await _make_user(client, f"sa_{uuid.uuid4().hex[:8]}@test.com", is_admin=True)
     token_b = await _make_user(client, f"sb_{uuid.uuid4().hex[:8]}@test.com", is_admin=True)
 
     event_id = await _create_event(client, token_a, "A's Film")
-    venue_id = await _create_venue(client, token_b)
+    venue_a = await _create_venue(client, token_a)
+    venue_b = await _create_venue(client, token_b)
 
-    # Any merchant can schedule a showtime using any catalog event/venue
+    # B cannot schedule a showtime for A's event, even with B's own venue
     r = await client.post(
         "/v1/admin/showtimes",
-        json=_showtime_payload(event_id, venue_id),
+        json=_showtime_payload(event_id, venue_b),
         headers=_auth(token_b),
     )
-    assert r.status_code == 201, (
-        f"Expected 201 cross-owner showtime create, got {r.status_code}: {r.text}"
+    assert r.status_code == 403, (
+        f"Expected 403 cross-owner showtime create, got {r.status_code}: {r.text}"
     )
 
-    # Owner can create showtime for own event
+    # A cannot schedule a showtime at B's venue, even for A's own event
     r = await client.post(
         "/v1/admin/showtimes",
-        json=_showtime_payload(event_id, venue_id),
+        json=_showtime_payload(event_id, venue_b),
+        headers=_auth(token_a),
+    )
+    assert r.status_code == 403, (
+        f"Expected 403 cross-venue showtime create, got {r.status_code}: {r.text}"
+    )
+
+    # Owner + own venue works
+    r = await client.post(
+        "/v1/admin/showtimes",
+        json=_showtime_payload(event_id, venue_a),
         headers=_auth(token_a),
     )
     assert r.status_code == 201, f"Owner showtime create failed: {r.status_code} {r.text}"
@@ -329,6 +374,82 @@ async def test_merchant_cannot_modify_showtime_for_unowned_event(client: AsyncCl
     r = await client.delete(f"/v1/admin/showtimes/{show_id}", headers=_auth(merchant))
     assert r.status_code == 403, (
         f"Expected 403 delete unowned showtime, got {r.status_code}: {r.text}"
+    )
+
+
+async def test_merchant_can_batch_create_showtimes(client: AsyncClient) -> None:
+    token = await _make_user(client, f"batch_{uuid.uuid4().hex[:8]}@test.com", is_admin=True)
+    event_id = await _create_event(client, token, "Batch Film")
+    venue_id = await _create_venue(client, token)
+
+    base = datetime.now(UTC)
+    slots = [
+        {"start_time": (base + timedelta(hours=2)).isoformat(),
+         "end_time": (base + timedelta(hours=4)).isoformat()},
+        {"start_time": (base + timedelta(hours=6)).isoformat(),
+         "end_time": (base + timedelta(hours=8)).isoformat()},
+    ]
+    r = await client.post(
+        "/v1/admin/showtimes/batch",
+        json={
+            "event_id": event_id,
+            "venue_id": venue_id,
+            "base_price": 50.0,
+            "auto_seats": False,
+            "slots": slots,
+        },
+        headers=_auth(token),
+    )
+    assert r.status_code == 201, f"Batch create failed: {r.status_code} {r.text}"
+    created = r.json()
+    assert len(created) == 2, f"Expected 2 showtimes, got {len(created)}"
+    assert {s["event_id"] for s in created} == {event_id}
+
+    # Non-overlapping validation: overlapping slots must be rejected
+    overlapping = [
+        {"start_time": (base + timedelta(hours=2)).isoformat(),
+         "end_time": (base + timedelta(hours=4)).isoformat()},
+        {"start_time": (base + timedelta(hours=3)).isoformat(),
+         "end_time": (base + timedelta(hours=5)).isoformat()},
+    ]
+    r = await client.post(
+        "/v1/admin/showtimes/batch",
+        json={
+            "event_id": event_id,
+            "venue_id": venue_id,
+            "base_price": 50.0,
+            "auto_seats": False,
+            "slots": overlapping,
+        },
+        headers=_auth(token),
+    )
+    assert r.status_code == 422, (
+        f"Expected 422 for overlapping slots, got {r.status_code}: {r.text}"
+    )
+
+
+async def test_batch_create_enforces_ownership(client: AsyncClient) -> None:
+    token_a = await _make_user(client, f"ba_{uuid.uuid4().hex[:8]}@test.com", is_admin=True)
+    token_b = await _make_user(client, f"bb_{uuid.uuid4().hex[:8]}@test.com", is_admin=True)
+
+    event_id = await _create_event(client, token_a, "A's Batch")
+    venue_id = await _create_venue(client, token_a)
+
+    base = datetime.now(UTC)
+    r = await client.post(
+        "/v1/admin/showtimes/batch",
+        json={
+            "event_id": event_id,
+            "venue_id": venue_id,
+            "base_price": 50.0,
+            "auto_seats": False,
+            "slots": [{"start_time": (base + timedelta(hours=2)).isoformat(),
+                       "end_time": (base + timedelta(hours=4)).isoformat()}],
+        },
+        headers=_auth(token_b),
+    )
+    assert r.status_code == 403, (
+        f"Expected 403 batch create on others' event, got {r.status_code}: {r.text}"
     )
 
 

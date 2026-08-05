@@ -57,6 +57,14 @@ class AdminRepository:
         result = await self.session.execute(select(Venue).where(Venue.venue_id == venue_id))
         return result.scalar_one_or_none()
 
+    async def list_venues(self) -> list[Venue]:
+        result = await self.session.execute(select(Venue).order_by(Venue.name))
+        return list(result.scalars().all())
+
+    async def get_venue_owner(self, venue_id: UUID) -> UUID | None:
+        venue = await self.get_venue(venue_id)
+        return venue.created_by if venue else None
+
     async def update_venue(self, venue: Venue, **kwargs: object) -> Venue:
         for key, value in kwargs.items():
             if value is not None:

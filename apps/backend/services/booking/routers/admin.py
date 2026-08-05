@@ -2,8 +2,8 @@
 
 Roles:
 - Master admin: full CRUD on all events, venues, showtimes. Can promote users.
-- Merchant (is_admin): CRUD on own events + showtimes; can create showtimes using
-  any catalog event/venue. Cannot edit/delete others' events or their showtimes.
+- Merchant (is_admin): CRUD on own events, venues + their showtimes. Cannot
+  schedule on (or edit/delete) events/venues created by others.
 """
 
 from __future__ import annotations
@@ -20,8 +20,10 @@ from core.security.auth import get_current_user_id
 from services.booking.repositories.cache_repo import CacheRepository
 from services.booking.schemas.admin import (
     AdminEventResponse,
+    AdminVenueResponse,
     EventCreate,
     EventUpdate,
+    ShowtimeBatchCreate,
     ShowtimeCreate,
     ShowtimeUpdate,
     UserPromoteResponse,
@@ -84,6 +86,34 @@ async def _assert_can_manage_event(
         )
 
 
+async def _assert_can_schedule(
+    event_id: str, venue_id: str, merchant: User, svc: AdminService
+) -> None:
+    """FR-4: Merchants may only schedule showtimes on events AND venues they own.
+
+    Master admins bypass. Seeded rows with no owner (created_by is NULL) are
+    only schedulable by a master admin.
+    """
+    event = await svc.get_event(event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail=f"Event {event_id} not found.")
+    venue = await svc.get_venue(venue_id)
+    if venue is None:
+        raise HTTPException(status_code=404, detail=f"Venue {venue_id} not found.")
+    if merchant.is_master_admin:
+        return
+    if event.created_by != merchant.user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot schedule showtimes for events created by others.",
+        )
+    if venue.created_by != merchant.user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot schedule showtimes at venues created by others.",
+        )
+
+
 # ── Events ─────────────────────────────────────────────────────────────
 
 
@@ -139,14 +169,23 @@ async def delete_event(
 # ── Venues ─────────────────────────────────────────────────────────────
 
 
-@router.post("/venues", response_model=VenueResponse, status_code=201)
-async def create_venue(
-    data: VenueCreate,
+@router.get("/venues", response_model=list[AdminVenueResponse])
+async def list_venues(
     _merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
-) -> VenueResponse:
-    venue = await svc.create_venue(data)
-    return VenueResponse.model_validate(venue)
+) -> list[AdminVenueResponse]:
+    venues = await svc.list_venues()
+    return [AdminVenueResponse.model_validate(v) for v in venues]
+
+
+@router.post("/venues", response_model=AdminVenueResponse, status_code=201)
+async def create_venue(
+    data: VenueCreate,
+    merchant: User = Depends(_require_merchant),
+    svc: AdminService = Depends(_get_admin_service),
+) -> AdminVenueResponse:
+    venue = await svc.create_venue(data, created_by=merchant.user_id)
+    return AdminVenueResponse.model_validate(venue)
 
 
 @router.put("/venues/{venue_id}", response_model=VenueResponse)
@@ -190,14 +229,23 @@ async def list_showtimes(
 @router.post("/showtimes", response_model=ShowtimeResponse, status_code=201)
 async def create_showtime(
     data: ShowtimeCreate,
-    _merchant: User = Depends(_require_merchant),
+    merchant: User = Depends(_require_merchant),
     svc: AdminService = Depends(_get_admin_service),
 ) -> ShowtimeResponse:
-    event = await svc.get_event(data.event_id)
-    if event is None:
-        raise HTTPException(status_code=404, detail=f"Event {data.event_id} not found.")
+    await _assert_can_schedule(data.event_id, data.venue_id, merchant, svc)
     showtime = await svc.create_showtime(data)
     return ShowtimeResponse.model_validate(showtime)
+
+
+@router.post("/showtimes/batch", response_model=list[ShowtimeResponse], status_code=201)
+async def create_showtimes_batch(
+    data: ShowtimeBatchCreate,
+    merchant: User = Depends(_require_merchant),
+    svc: AdminService = Depends(_get_admin_service),
+) -> list[ShowtimeResponse]:
+    await _assert_can_schedule(data.event_id, data.venue_id, merchant, svc)
+    showtimes = await svc.create_showtimes_batch(data)
+    return [ShowtimeResponse.model_validate(s) for s in showtimes]
 
 
 @router.put("/showtimes/{show_id}", response_model=ShowtimeResponse)

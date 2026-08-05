@@ -273,9 +273,9 @@ async def seed(reset: bool = False):
                 vid = uuid4()
                 venue_ids.append(vid)
                 await session.execute(text(
-                    "INSERT INTO booking.venues (venue_id, name, capacity) "
-                    "VALUES (:vid, :name, :cap)"
-                ), {"vid": vid, "name": name, "cap": capacity})
+                    "INSERT INTO booking.venues (venue_id, name, capacity, created_by) "
+                    "VALUES (:vid, :name, :cap, :created_by)"
+                ), {"vid": vid, "name": name, "cap": capacity, "created_by": admin_id})
 
             event_ids = []
             show_ids = []

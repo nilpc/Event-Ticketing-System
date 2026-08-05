@@ -9,6 +9,7 @@ import type {
   VenueResponse,
   EventResponse,
   AdminEventResponse,
+  AdminVenueResponse,
   ShowtimeResponse,
   SeatMapResponse,
   QueueJoinRequest,
@@ -28,6 +29,7 @@ import type {
   VenueCreateRequest,
   VenueUpdateRequest,
   ShowtimeCreateRequest,
+  ShowtimeBatchCreateRequest,
   ShowtimeUpdateRequest,
   UserPromoteResponse,
 } from "../types/api";
@@ -142,7 +144,7 @@ export const adminApi = {
     return api.delete<void>(`/admin/events/${eventId}`);
   },
   createVenue(data: VenueCreateRequest) {
-    return api.post<VenueResponse>("/admin/venues", data);
+    return api.post<AdminVenueResponse>("/admin/venues", data);
   },
   updateVenue(venueId: string, data: VenueUpdateRequest) {
     return api.put<VenueResponse>(`/admin/venues/${venueId}`, data);
@@ -150,11 +152,17 @@ export const adminApi = {
   deleteVenue(venueId: string) {
     return api.delete<void>(`/admin/venues/${venueId}`);
   },
+  getAllVenues() {
+    return api.get<AdminVenueResponse[]>("/admin/venues");
+  },
   getAllShowtimes() {
     return api.get<ShowtimeResponse[]>("/admin/showtimes");
   },
   createShowtime(data: ShowtimeCreateRequest) {
     return api.post<ShowtimeResponse>("/admin/showtimes", data);
+  },
+  createShowtimesBatch(data: ShowtimeBatchCreateRequest) {
+    return api.post<ShowtimeResponse[]>("/admin/showtimes/batch", data);
   },
   updateShowtime(showId: string, data: ShowtimeUpdateRequest) {
     return api.put<ShowtimeResponse>(`/admin/showtimes/${showId}`, data);

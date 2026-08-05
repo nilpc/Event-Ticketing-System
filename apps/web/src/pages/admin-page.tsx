@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Trash2, Key, Film, MapPin, Calendar, Users, Pencil, Check, X } from "lucide-react";
@@ -394,6 +394,7 @@ function EditableShowtimeRow({ showtime, eventLabel, venueLabel, canManage, onUp
 function NewShowTab() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { userId, isMasterAdmin } = useAuth();
 
   const [eventMode, setEventMode] = useState<"select" | "new">("select");
   const [selectedEventId, setSelectedEventId] = useState("");
@@ -407,18 +408,45 @@ function NewShowTab() {
   const [newVenueCapacity, setNewVenueCapacity] = useState("");
 
   const [price, setPrice] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [slots, setSlots] = useState<{ id: number; start: string; end: string }[]>([]);
+  const slotCounter = useRef(0);
 
   const { data: events } = useQuery({
     queryKey: ["adminEvents"],
     queryFn: () => adminApi.getAllEvents().then((r) => r.data),
   });
 
+  const visibleEvents = (events ?? []).filter(
+    (e) => isMasterAdmin || (e.created_by != null && e.created_by === userId),
+  );
+
   const { data: venues } = useQuery({
     queryKey: ["adminVenues"],
-    queryFn: () => catalogApi.getVenues().then((r) => r.data),
+    queryFn: () => adminApi.getAllVenues().then((r) => r.data),
   });
+
+  const visibleVenues = (venues ?? []).filter(
+    (v) => isMasterAdmin || (v.created_by != null && v.created_by === userId),
+  );
+
+  const addSlot = () =>
+    setSlots((prev) => [...prev, { id: ++slotCounter.current, start: "", end: "" }]);
+  const removeSlot = (id: number) => setSlots((prev) => prev.filter((s) => s.id !== id));
+  const setSlotStart = (id: number, start: string) =>
+    setSlots((prev) => prev.map((s) => (s.id === id ? { ...s, start } : s)));
+  const setSlotEnd = (id: number, end: string) =>
+    setSlots((prev) => prev.map((s) => (s.id === id ? { ...s, end } : s)));
+
+  const slotValid = slots.map((s) => {
+    const startIso = parseDateTimeText(s.start);
+    const endIso = parseDateTimeText(s.end);
+    const valid =
+      startIso !== null &&
+      endIso !== null &&
+      new Date(startIso).getTime() < new Date(endIso).getTime();
+    return { ...s, startIso, endIso, valid };
+  });
+  const allSlotsValid = slots.length > 0 && slotValid.every((s) => s.valid);
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -442,26 +470,28 @@ function NewShowTab() {
         venueId = res.data.venue_id;
       }
 
-      const startIso = parseDateTimeText(startTime);
-      const endIso = parseDateTimeText(endTime);
-      if (!startIso || !endIso) {
-        throw new Error("Invalid start or end time.");
+      const batchSlots = slotValid
+        .filter((s) => s.valid)
+        .map((s) => ({ start_time: s.startIso!, end_time: s.endIso! }));
+      if (batchSlots.length === 0) {
+        throw new Error("Add at least one valid slot.");
       }
-      await adminApi.createShowtime({
+      await adminApi.createShowtimesBatch({
         event_id: eventId,
         venue_id: venueId,
         base_price: parseFloat(price),
-        start_time: startIso,
-        end_time: endIso,
+        slots: batchSlots,
       });
     },
     onSuccess: () => {
-      toast.success("Show created with auto-generated seats.");
+      toast.success(
+        `Created ${slotValid.length} showtime${slotValid.length === 1 ? "" : "s"} with auto-generated seats.`,
+      );
       setEventMode("select"); setSelectedEventId("");
       setNewEventName(""); setNewEventDesc("");
       setVenueMode("select"); setSelectedVenueId("");
       setNewVenueName(""); setNewVenueCapacity("");
-      setPrice(""); setStartTime(""); setEndTime("");
+      setPrice(""); setSlots([]); slotCounter.current = 0;
       queryClient.invalidateQueries({ queryKey: ["adminEvents"] });
       queryClient.invalidateQueries({ queryKey: ["adminVenues"] });
       queryClient.invalidateQueries({ queryKey: ["adminShowtimes"] });
@@ -472,21 +502,10 @@ function NewShowTab() {
     },
   });
 
-  const parsedStartTime = startTime ? parseDateTimeText(startTime) : null;
-  const parsedEndTime = endTime ? parseDateTimeText(endTime) : null;
-  const validStart = parsedStartTime !== null;
-  const validEnd = parsedEndTime !== null;
-  const validTimeOrder =
-    parsedStartTime && parsedEndTime
-      ? new Date(parsedStartTime).getTime() < new Date(parsedEndTime).getTime()
-      : true;
-  const startInvalid = Boolean(startTime && (!validStart || (parsedStartTime && parsedEndTime && !validTimeOrder)));
-  const endInvalid = Boolean(endTime && (!validEnd || (parsedStartTime && parsedEndTime && !validTimeOrder)));
-
   const canSubmit =
     (eventMode === "select" ? !!selectedEventId : !!newEventName.trim()) &&
     (venueMode === "select" ? !!selectedVenueId : !!newVenueName.trim() && !!newVenueCapacity && parseInt(newVenueCapacity, 10) >= 1) &&
-    !!price && validStart && validEnd && validTimeOrder;
+    !!price && allSlotsValid;
 
   return (
     <div className="space-y-6">
@@ -500,8 +519,13 @@ function NewShowTab() {
             <select value={selectedEventId} onChange={(e) => setSelectedEventId(e.target.value)}
               className="flex h-10 w-full rounded-xl border border-white/[0.06] bg-background px-3 py-2 text-sm">
               <option value="">Choose an event…</option>
-              {(events ?? []).map((e) => <option key={e.event_id} value={e.event_id}>{e.name} ({e.event_id})</option>)}
+              {visibleEvents.map((e) => <option key={e.event_id} value={e.event_id}>{e.name} ({e.event_id})</option>)}
             </select>
+            {visibleEvents.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                You haven&apos;t listed any events yet — switch to &quot;New&quot; to create one.
+              </p>
+            ) : null}
           </div>
         ) : (
           <div className="space-y-4">
@@ -534,8 +558,13 @@ function NewShowTab() {
             <select value={selectedVenueId} onChange={(e) => setSelectedVenueId(e.target.value)}
               className="flex h-10 w-full rounded-xl border border-white/[0.06] bg-background px-3 py-2 text-sm">
               <option value="">Choose a venue…</option>
-              {venues?.map((v) => <option key={v.venue_id} value={v.venue_id}>{v.name} ({v.capacity} seats)</option>)}
+              {visibleVenues.map((v) => <option key={v.venue_id} value={v.venue_id}>{v.name} ({v.capacity} seats)</option>)}
             </select>
+            {visibleVenues.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                You haven&apos;t listed any venues yet — switch to &quot;New&quot; to create one.
+              </p>
+            ) : null}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4">
@@ -551,29 +580,59 @@ function NewShowTab() {
 
       {/* Showtime */}
       <Card>
-        <SectionLabel icon={<Calendar className="h-3.5 w-3.5" />} text="Showtime" />
-        <div className="grid grid-cols-3 gap-4">
-          <Field label="Base Price (₹)">
-            <Input type="number" placeholder="e.g. 75.00" value={price} onChange={(e) => setPrice(e.target.value)} className="rounded-xl" />
-          </Field>
-          <Field label="Start Time">
-            <DateTimeInput value={startTime} onChange={setStartTime} invalid={startInvalid} />
-          </Field>
-          <Field label="End Time">
-            <DateTimeInput value={endTime} onChange={setEndTime} invalid={endInvalid} />
-          </Field>
+        <SectionLabel icon={<Calendar className="h-3.5 w-3.5" />} text="Showtime Slots" />
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-4">
+            <Field label="Base Price (₹)">
+              <Input type="number" placeholder="e.g. 75.00" value={price} onChange={(e) => setPrice(e.target.value)} className="rounded-xl" />
+            </Field>
+            <div className="col-span-2 flex items-end justify-end">
+              <Button type="button" variant="outline" size="sm" onClick={addSlot} className="rounded-full">
+                <Plus className="h-4 w-4 mr-1" /> Add Slot
+              </Button>
+            </div>
+          </div>
+
+          {slots.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Add one or more date/time slots — each slot creates its own showtime.
+            </p>
+          ) : (
+            slots.map((slot) => {
+              const v = slotValid.find((s) => s.id === slot.id) ?? {
+                ...slot, startIso: null, endIso: null, valid: false,
+              };
+              const startInvalid = Boolean(slot.start && !v.valid);
+              const endInvalid = Boolean(slot.end && !v.valid);
+              return (
+                <div key={slot.id} className="grid grid-cols-[1fr_1fr_auto] gap-3 items-end rounded-xl border border-white/[0.06] p-3">
+                  <Field label="Start">
+                    <DateTimeInput value={slot.start} onChange={(iso) => setSlotStart(slot.id, iso)} invalid={startInvalid} />
+                  </Field>
+                  <Field label="End">
+                    <DateTimeInput value={slot.end} onChange={(iso) => setSlotEnd(slot.id, iso)} invalid={endInvalid} />
+                  </Field>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeSlot(slot.id)} aria-label="Remove slot" className="mb-1">
+                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </div>
+              );
+            })
+          )}
+          {slots.length > 0 && !allSlotsValid ? (
+            <p className="text-xs text-red-400">
+              Each slot needs a valid start &amp; end time, with start before end.
+            </p>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            Seats are auto-generated per slot based on venue capacity: VIP (10%), Premium (30%), Standard (60%).
+          </p>
         </div>
-        {validStart && validEnd && !validTimeOrder ? (
-          <p className="text-xs text-red-400">Start time must be before end time.</p>
-        ) : null}
-        <p className="text-xs text-muted-foreground">
-          Seats are auto-generated based on venue capacity: VIP (10%), Premium (30%), Standard (60%).
-        </p>
       </Card>
 
       <Button onClick={() => submit.mutate()} disabled={!canSubmit || submit.isPending} className="w-full rounded-full" size="lg">
         {submit.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-        Create Show
+        {submit.isPending ? "Creating Shows…" : `Create ${slots.length > 0 ? `${slots.length} ` : ""}Show${slots.length === 1 ? "" : "s"}`}
       </Button>
     </div>
   );

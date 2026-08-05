@@ -19,6 +19,7 @@ from services.booking.repositories.cache_repo import CacheRepository
 from services.booking.schemas.admin import (
     EventCreate,
     EventUpdate,
+    ShowtimeBatchCreate,
     ShowtimeCreate,
     ShowtimeUpdate,
     VenueCreate,
@@ -79,13 +80,17 @@ class AdminService:
         )
 
     # ── Venues ─────────────────────────────────────────────────────
-    async def create_venue(self, data: VenueCreate) -> Venue:
+    async def create_venue(self, data: VenueCreate, created_by: uuid.UUID | None = None) -> Venue:
         venue = Venue(
             venue_id=uuid.uuid4(),
             name=data.name,
             capacity=data.capacity,
+            created_by=created_by,
         )
         return await self.repo.create_venue(venue)
+
+    async def list_venues(self) -> list[Venue]:
+        return await self.repo.list_venues()
 
     async def get_venue(self, venue_id: str) -> Venue | None:
         return await self.repo.get_venue(uuid.UUID(venue_id))
@@ -145,6 +150,39 @@ class AdminService:
     async def get_showtime(self, show_id: str) -> Showtime | None:
         return await self.repo.get_showtime(uuid.UUID(show_id))
 
+    async def create_showtimes_batch(self, data: ShowtimeBatchCreate) -> list[Showtime]:
+        """Create one showtime per slot in a single transaction.
+
+        FR-4: all slots share the event, venue, price, and auto-seat policy;
+        the whole batch commits (or rolls back) atomically.
+        """
+        created: list[Showtime] = []
+        for slot in data.slots:
+            showtime = Showtime(
+                show_id=uuid.uuid4(),
+                event_id=data.event_id,
+                venue_id=uuid.UUID(data.venue_id),
+                base_price=data.base_price,
+                start_time=slot.start_time,
+                end_time=slot.end_time,
+            )
+            result = await self.repo.create_showtime(showtime)
+            created.append(result)
+
+            if data.auto_seats:
+                venue = await self.repo.get_venue(uuid.UUID(data.venue_id))
+                if venue:
+                    for chunk in _seat_chunks(
+                        result.show_id, venue.capacity, float(data.base_price)
+                    ):
+                        await self.repo.create_seats(chunk)
+
+        await self._invalidate_catalog(
+            ["showtimes:all", f"showtimes:event:{data.event_id}"]
+        )
+
+        return created
+
     async def update_showtime(self, show_id: str, data: ShowtimeUpdate) -> Showtime:
         showtime = await self.repo.get_showtime(uuid.UUID(show_id))
         if showtime is None:
@@ -197,6 +235,9 @@ class AdminService:
 
     async def get_event_owner(self, event_id: str) -> uuid.UUID | None:
         return await self.repo.get_event_owner(event_id)
+
+    async def get_venue_owner(self, venue_id: str) -> uuid.UUID | None:
+        return await self.repo.get_venue_owner(uuid.UUID(venue_id))
 
 
 _SEAT_CHUNK = 1000

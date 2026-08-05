@@ -9,7 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 
 from core.enums import EventType
-from services.booking.schemas.catalog import EventResponse
+from services.booking.schemas.catalog import EventResponse, VenueResponse
 
 
 # ── Event ──────────────────────────────────────────────────────────────
@@ -45,6 +45,15 @@ class VenueUpdate(BaseModel):
     capacity: int | None = Field(default=None, ge=1)
 
 
+class AdminVenueResponse(VenueResponse):
+    """Venue view for admins — includes owner so merchants see only their own.
+
+    Deliberately NOT exposed on the public catalog (FR-4, NFR-2).
+    """
+
+    created_by: UUID | None = None
+
+
 # ── Showtime ───────────────────────────────────────────────────────────
 class ShowtimeCreate(BaseModel):
     event_id: str
@@ -55,9 +64,42 @@ class ShowtimeCreate(BaseModel):
     auto_seats: bool = True
 
     @model_validator(mode="after")
-    def validate_time_order(self) -> "ShowtimeCreate":
+    def validate_time_order(self) -> ShowtimeCreate:
         if self.start_time >= self.end_time:
             raise ValueError("start_time must be before end_time")
+        return self
+
+
+class ShowtimeSlot(BaseModel):
+    """One date/time slot in a batch showtime creation."""
+
+    start_time: datetime
+    end_time: datetime
+
+    @model_validator(mode="after")
+    def validate_time_order(self) -> ShowtimeSlot:
+        if self.start_time >= self.end_time:
+            raise ValueError("start_time must be before end_time")
+        return self
+
+
+class ShowtimeBatchCreate(BaseModel):
+    """Create multiple showtimes (one per slot) for the same event + venue."""
+
+    event_id: str
+    venue_id: str
+    base_price: Decimal = Field(decimal_places=2, ge=0)
+    auto_seats: bool = True
+    slots: list[ShowtimeSlot] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_slots(self) -> ShowtimeBatchCreate:
+        if len(self.slots) < 1:
+            raise ValueError("At least one slot is required.")
+        ordered = sorted(self.slots, key=lambda s: s.start_time)
+        for prev, cur in zip(ordered, ordered[1:]):
+            if prev.end_time > cur.start_time:
+                raise ValueError("Showtime slots must not overlap.")
         return self
 
 
@@ -67,7 +109,7 @@ class ShowtimeUpdate(BaseModel):
     end_time: datetime | None = None
 
     @model_validator(mode="after")
-    def validate_time_order(self) -> "ShowtimeUpdate":
+    def validate_time_order(self) -> ShowtimeUpdate:
         if self.start_time is not None and self.end_time is not None:
             if self.start_time >= self.end_time:
                 raise ValueError("start_time must be before end_time")
