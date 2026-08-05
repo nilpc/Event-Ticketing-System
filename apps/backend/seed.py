@@ -272,10 +272,13 @@ async def seed(reset: bool = False):
             for name, capacity in VENUES:
                 vid = uuid4()
                 venue_ids.append(vid)
+                # Seeded venues are unowned (created_by NULL) — only a master
+                # admin can modify/delete them (FR-4); merchants see only their
+                # own listings.
                 await session.execute(text(
                     "INSERT INTO booking.venues (venue_id, name, capacity, created_by) "
                     "VALUES (:vid, :name, :cap, :created_by)"
-                ), {"vid": vid, "name": name, "cap": capacity, "created_by": admin_id})
+                ), {"vid": vid, "name": name, "cap": capacity, "created_by": None})
 
             event_ids = []
             show_ids = []
@@ -283,6 +286,9 @@ async def seed(reset: bool = False):
             for ev in EVENTS:
                 eid = _next_event_id(ev["event_type"], id_counters)
                 event_ids.append(eid)
+                # Seeded events/movies are unowned (created_by NULL) — only a
+                # master admin can modify/delete them (FR-4); merchants cannot
+                # edit or schedule on content they did not list themselves.
                 await session.execute(text(
                     "INSERT INTO booking.events "
                     "(event_id, event_type, name, description, created_by) "
@@ -292,7 +298,7 @@ async def seed(reset: bool = False):
                     "etype": ev["event_type"],
                     "name": ev["name"],
                     "desc": ev["description"],
-                    "created_by": admin_id,
+                    "created_by": None,
                 })
 
                 vid = venue_ids[ev["venue_idx"]]
