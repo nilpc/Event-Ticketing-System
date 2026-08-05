@@ -1,4 +1,4 @@
-"""Outbox relay worker — publish outbox events using PostgreSQL LISTEN/NOTIFY with fallback polling."""
+"""Outbox relay worker — publish outbox events via PostgreSQL LISTEN/NOTIFY."""
 
 from __future__ import annotations
 

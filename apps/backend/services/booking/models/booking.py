@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     DateTime,
     Enum,
-    ForeignKey,
     ForeignKeyConstraint,
     Numeric,
     String,

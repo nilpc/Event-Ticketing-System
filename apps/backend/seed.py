@@ -368,7 +368,7 @@ async def seed(reset: bool = False):
     print("=" * 60)
     print("SEED COMPLETE — 10 events created")
     print("=" * 60)
-    print(f"  Master admin user: {ADMIN_EMAIL}")
+    print(f"  Master admin user: {MASTER_ADMIN_EMAIL}")
     print(f"  Master admin pass: {ADMIN_PASSWORD}")
     print("=" * 60)
     for i, ev in enumerate(EVENTS):
