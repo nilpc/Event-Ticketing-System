@@ -24,7 +24,8 @@ The **Event Ticketing System** is a distributed, high-concurrency event ticketin
 4. **Decoupled Microservice Schema Boundaries**: Cross-schema foreign key constraints are removed, storing user identity references as unconstrained UUIDs to allow true independent microservice database scaling.
 5. **Real-Time Streamed Queue & Seat Map**: Supports Server-Sent Events (`GET /v1/queue/stream`) for waiting room admission pushes and WebSockets (`ws://host/ws/showtime/{show_id}`) with Redis Pub/Sub backplane for live seat status fan-out.
 6. **Zero-Cost ALB Bypass Prevention**: CloudFront injects a 32-character `X-CloudFront-Secret` custom header on origin requests. AWS WAF enforces Rule Priority 0 (`require-cloudfront-secret`), blocking direct ALB DNS requests with an immediate `403 Forbidden` at **$0 extra cost**.
-7. **GitOps & Cloud-Native Elasticity**: Fully containerized multi-stage Docker builds deployed on AWS EKS 1.35, utilizing KEDA autoscaling, Bitnami Redis HA, Amazon RDS PostgreSQL, External Secrets Operator (ESO), CloudFront CDN with Edge Caching headers, AWS WAF (Block Mode), and ArgoCD GitOps continuous reconciliation.
+7. **Automated Stripe Secret Pipeline**: Stores frontend `VITE_STRIPE_PUBLISHABLE_KEY` in AWS SSM Parameter Store (`/event-ticketing/VITE_STRIPE_PUBLISHABLE_KEY`) and auto-injects it into production web Docker builds via `scripts/deploy.ps1`, eliminating payment checkout regressions.
+8. **GitOps & Cloud-Native Elasticity**: Fully containerized multi-stage Docker builds deployed on AWS EKS 1.35, utilizing KEDA autoscaling, Bitnami Redis HA, Amazon RDS PostgreSQL, External Secrets Operator (ESO), CloudFront CDN with Edge Caching headers, AWS WAF (Block Mode), and ArgoCD GitOps continuous reconciliation.
 
 ---
 
