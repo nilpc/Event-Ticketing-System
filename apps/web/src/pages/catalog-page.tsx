@@ -18,7 +18,7 @@ import { PageTransition } from "@/components/layout/page-transition";
 import { catalogApi } from "@/lib/api-routes";
 import { MovieCard } from "@/components/catalog/movie-card";
 import { EventCard } from "@/components/catalog/event-card";
-import type { EventResponse, VenueResponse, ShowtimeResponse } from "@/types/api";
+import type { EventResponse } from "@/types/api";
 
 const PREMIUM_EASE = [0.32, 0.72, 0, 1] as const;
 
@@ -68,33 +68,7 @@ export default function CatalogPage() {
     queryFn: () => catalogApi.getEvents().then((r) => r.data),
   });
 
-  const {
-    data: venues,
-    error: venuesError,
-  } = useQuery({
-    queryKey: ["venues"],
-    queryFn: () => catalogApi.getVenues().then((r) => r.data),
-  });
-
-  const {
-    data: allShowtimes,
-    error: showtimesError,
-  } = useQuery({
-    queryKey: ["showtimes"],
-    queryFn: () => catalogApi.getAllShowtimes().then((r) => r.data),
-  });
-
-  const showtimesByEvent = new Map<string, ShowtimeResponse[]>();
-  allShowtimes?.forEach((st) => {
-    const existing = showtimesByEvent.get(st.event_id) ?? [];
-    existing.push(st);
-    showtimesByEvent.set(st.event_id, existing);
-  });
-
-  const venueMap = new Map<string, VenueResponse>();
-  venues?.forEach((v) => venueMap.set(v.venue_id, v));
-
-  if (eventsError || venuesError || showtimesError) {
+  if (eventsError) {
     toast.error("Failed to load catalog data. Please try again.");
   }
 
@@ -108,23 +82,13 @@ export default function CatalogPage() {
         ? liveEvents
         : events ?? [];
 
-  const handleShowtimeSearch = async () => {
+  const handleShowtimeSearch = () => {
     const trimmed = showtimeInput.trim();
     if (!trimmed) return;
 
     const isPrefixedId = /^(STE|STM)\d{2,}$/i.test(trimmed);
     if (isPrefixedId) {
-      try {
-        const res = await catalogApi.getShowtimesByEvent(trimmed.toUpperCase());
-        const showtimes = res.data;
-        if (showtimes.length > 0) {
-          navigate(`/events/${showtimes[0].show_id}`);
-        } else {
-          toast.error("No showtimes found for this event.");
-        }
-      } catch {
-        toast.error("Event not found. Check the ID and try again.");
-      }
+      navigate(`/event/${trimmed.toUpperCase()}`);
     } else {
       navigate(`/events/${trimmed}`);
     }
@@ -221,15 +185,11 @@ export default function CatalogPage() {
                   </motion.div>
                 ))
               : filteredEvents.map((event: EventResponse) => {
-                  const showtimes = showtimesByEvent.get(event.event_id) ?? [];
-
                   if (event.event_type === "MOVIE") {
                     return (
                       <MovieCard
                         key={event.event_id}
                         event={event}
-                        showtimes={showtimes}
-                        venueMap={venueMap}
                       />
                     );
                   }
@@ -238,8 +198,6 @@ export default function CatalogPage() {
                     <EventCard
                       key={event.event_id}
                       event={event}
-                      showtimes={showtimes}
-                      venueMap={venueMap}
                     />
                   );
                 })}

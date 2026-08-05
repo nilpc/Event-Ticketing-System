@@ -13,6 +13,7 @@ const LoginPage = React.lazy(() => import("@/pages/login-page"));
 const SignupPage = React.lazy(() => import("@/pages/signup-page"));
 const GoogleCallbackPage = React.lazy(() => import("@/pages/google-callback-page"));
 const CatalogPage = React.lazy(() => import("@/pages/catalog-page"));
+const EventPage = React.lazy(() => import("@/pages/event-page"));
 const ShowtimePage = React.lazy(() => import("@/pages/showtime-page"));
 const QueuePage = React.lazy(() => import("@/pages/queue-page"));
 const CheckoutPage = React.lazy(() => import("@/pages/checkout-page"));
@@ -47,6 +48,7 @@ export default function App() {
                       <Route path="/signup" element={<SignupPage />} />
                       <Route path="/auth/callback" element={<GoogleCallbackPage />} />
                       <Route path="/" element={<CatalogPage />} />
+                      <Route path="/event/:eventId" element={<EventPage />} />
                       <Route path="/events/:showId" element={<ShowtimePage />} />
                       <Route element={<ProtectedRoute />}>
                         <Route path="/checkout/:showId" element={<CheckoutPage />} />
