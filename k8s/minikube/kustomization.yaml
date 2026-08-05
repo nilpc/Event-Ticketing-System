@@ -32,6 +32,22 @@ patches:
         name: queue-scaler
         namespace: event-ticketing
       $patch: delete
+  # CPU HPAs need metrics-server, which minikube doesn't run, and they force
+  # minPods=2 — contradicting the "scale down for local dev" replicas patches.
+  - patch: |-
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: gateway-api-hpa
+        namespace: event-ticketing
+      $patch: delete
+  - patch: |-
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: gateway-web-hpa
+        namespace: event-ticketing
+      $patch: delete
   - patch: |-
       apiVersion: networking.k8s.io/v1
       kind: NetworkPolicy
@@ -71,10 +87,26 @@ patches:
       - op: replace
         path: /spec/replicas
         value: 1
+  # Standalone workers are redundant on minikube — gateway-api already runs
+  # sweeper/relay/admitter in-process (same as `docker compose` default).
+  - target:
+      kind: Deployment
+      name: sweeper
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0
   - target:
       kind: Deployment
       name: relay
     patch: |-
       - op: replace
         path: /spec/replicas
-        value: 1
+        value: 0
+  - target:
+      kind: Deployment
+      name: admitter
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0

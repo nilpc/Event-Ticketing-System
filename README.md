@@ -45,8 +45,7 @@ Event-Ticketing-System/
 ├── infra/terraform/       # AWS EKS infrastructure (VPC, EKS, RDS, IAM, CloudWatch)
 ├── scripts/               # Bootstrap (init.ps1), deploy (deploy.ps1), minikube scripts
 ├── Dockerfile                # Multi-stage build (api + web targets)
-├── supervisord.conf          # Process manager for nginx + backend
-└── docker-compose.yml        # Postgres + Redis + app
+└── docker-compose.yml        # Local stack: postgres + redis + api + web + workers
 ```
 
 ### Backend Services
@@ -82,14 +81,30 @@ cp .env.example .env
 docker compose up --build
 ```
 
-On first boot the entrypoint automatically:
+The compose stack mirrors production: `postgres` → `api` (FastAPI) + `web` (nginx
+serving the SPA and proxying `/v1` + `/ws`). The same `api`/`web` Docker images
+are what Kubernetes runs, so local behaviour matches deployment. (The three
+workers run inside the API already; add `--profile workers` for standalone
+worker containers.)
+
+On first boot the api entrypoint automatically:
 1. Checks the database for required schemas
 2. Runs all Alembic migrations (001 → latest)
 3. Seeds default data (10 events, 10 showtimes, 120 seats, admin user)
 
-Services:
-- **App (frontend + API)**: http://localhost
-- **Redis**: localhost:6379
+Services (host ports overridable via `.env`):
+- **Web app**: http://localhost:8080 (via `WEB_PORT`)
+- **API**: http://localhost:8000 inside the stack; not exposed on the host
+- **PostgreSQL**: localhost:5433 (`POSTGRES_PORT`, creds `testuser`/`testpass`, db `event_ticketing`)
+- **Redis**: localhost:6379 (`REDIS_PORT`)
+
+The seeded master admin is `merchant@event-ticketing.dev`. Set `ADMIN_PASSWORD`
+in `.env` to control the password; if unset, a random one is printed to the api
+logs (`docker compose logs api`). Note: the compose Postgres uses the same
+credentials as the CI test database, so you can point `pytest` at
+`localhost:5433` directly.
+
+To stop: `docker compose down` · wipe data: `docker compose down -v`
 
 ### Kubernetes (Minikube)
 
@@ -155,7 +170,7 @@ Cost-optimized: single-AZ RDS db.t4g.micro (10GB), 1× on-demand t3.small for in
 Truncates all booking schema tables (events, showtimes, seats, bookings, etc.) while preserving identity data (users, refresh tokens). The entrypoint will automatically re-seed events on next container restart.
 
 ```bash
-docker compose exec -T app python -c "
+docker compose exec -T api python -c "
 import asyncio
 from sqlalchemy import text
 from core.db.session import async_session_factory
@@ -173,7 +188,7 @@ asyncio.run(reset())
 #### Check table counts
 
 ```bash
-docker compose exec -T app python -c "
+docker compose exec -T api python -c "
 import asyncio
 from sqlalchemy import text
 from core.db.session import async_session_factory
@@ -191,7 +206,7 @@ asyncio.run(check())
 #### Re-seed manually
 
 ```bash
-docker compose exec -T app python seed.py --reset
+docker compose exec -T api python seed.py --reset
 ```
 
 ### Local Development
@@ -274,7 +289,7 @@ Admin users can promote others via `POST /v1/admin/users/{id}/promote` (JWT + `i
 
 ```bash
 # Promote by email
-docker compose exec -T app python -c "
+docker compose exec -T api python -c "
 import asyncio
 from sqlalchemy import text
 from core.db.session import async_session_factory
@@ -477,11 +492,19 @@ locust -f tests/load/locustfile.py --host http://localhost:8000
 
 ## Background Workers
 
-All run inside the backend container on startup:
+Run as separate containers/deployments, same as in Kubernetes (not inside the
+API process):
 
 - **Sweeper** (60s) — Reverts expired PENDING bookings and releases seat locks
 - **Outbox relay** (5s) — Publishes outbox events via `FOR UPDATE SKIP LOCKED`
 - **Queue admitter** (2s) — Admits queued users in FIFO order
+
+The API already runs all three as supervised in-process tasks (FR-9/NFR-3), so
+local `docker compose up` needs nothing extra. To mirror the production worker
+deployments exactly (separate containers), start them with:
+`docker compose --profile workers up`. Production runs `sweeper`/`relay`/
+`admitter` deployments in `k8s/base/`, each using the same `api` image with a
+`python -m services.workers <name>` command.
 
 ## Migrations
 

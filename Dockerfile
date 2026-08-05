@@ -1,8 +1,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Multi-stage build for the event-ticketing platform.
-#   --target api   → FastAPI backend image (used by gateway-api / workers)
+#   --target api   → FastAPI backend image (gateway-api / workers / migrations)
 #   --target web   → nginx + React SPA image (gateway-web)
-#   --target production → legacy monolith (nginx + supervisord, for docker-compose)
+#
+# The same two images are used everywhere — docker-compose for local dev and
+# Kubernetes for deployment — so local behaviour mirrors production exactly.
+# There is intentionally NO monolith/supervisord stage.
 #
 # Pod runtime contract (k8s/base):
 #   * api runs as unprivileged user `app` (uid 10001) — set via USER, no root.
@@ -92,28 +95,16 @@ CMD ["/app/entrypoint.sh"]
 # ── Stage 4: Web image (nginx + React SPA) ──────────────────────────────────
 FROM nginx:alpine AS web
 
-COPY --from=frontend-builder /app/apps/web/dist /usr/share/nginx/html
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 8080
-
-# ── Stage 5: Monolith (legacy — kept for docker-compose backward compat) ────
-FROM api AS production
-
-USER root
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends nginx supervisor \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -f /etc/nginx/sites-enabled/default
+# NGINX_UPSTREAM is the DNS name the nginx proxy forwards /v1 and /ws to.
+#   * Kubernetes build (k8s/base): default gateway-api (ClusterIP service).
+#   * docker-compose local run:   override with `api` (compose service name).
+ARG NGINX_UPSTREAM=gateway-api
 
 COPY --from=frontend-builder /app/apps/web/dist /usr/share/nginx/html
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+RUN sed -i "s|gateway-api|${NGINX_UPSTREAM}|g" /etc/nginx/conf.d/default.conf
 
-RUN mkdir -p /var/cache/nginx /var/run \
-    && chown -R app:app /usr/share/nginx/html /var/log/nginx /var/lib/nginx /var/cache/nginx /var/run
-
-USER app
 EXPOSE 8080
 
-CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
+    CMD wget -qO- http://127.0.0.1:8080/health || exit 1
