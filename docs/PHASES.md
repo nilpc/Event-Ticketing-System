@@ -24,7 +24,7 @@ Event Ticketing Backend - Phased Build Plan
 ## What We've Done So Far
 
 - **Local dev**: Minikube cluster runs the full stack (gateway, api, web, sweeper, relay, admitter, migration job) with local Postgres/Redis; Docker Compose quick-start for one-command bring-up with auto-migration + auto-seed.
-- **AWS EKS (Phase 7) is live.** Terraform provisions VPC, EKS 1.30 (`event-ticketing`), two node groups (on-demand t3.small infra + spot t3.medium app), single-AZ RDS db.t4g.micro, IAM/IRSA roles, CloudWatch dashboard, budget alarm ($150/mo). `scripts/init.ps1` installs the AWS Load Balancer Controller, KEDA, External Secrets Operator, Bitnami Redis (auth enabled), node-termination-handler, cert-manager, and ArgoCD; secrets (DB password, Redis password, JWT keys, Stripe keys) are generated and stored in SSM Parameter Store and fetched via ESO.
+- **AWS EKS (Phase 7) is live.** Terraform provisions VPC, EKS 1.35 (`event-ticketing`), two node groups (on-demand t3.small infra + spot t3.medium app), single-AZ RDS db.t4g.micro, IAM/IRSA roles, CloudWatch dashboard, budget alarm ($150/mo). `scripts/init.ps1` installs the AWS Load Balancer Controller, KEDA, External Secrets Operator, Bitnami Redis (auth enabled), node-termination-handler, cert-manager, and ArgoCD; secrets (DB password, Redis password, JWT keys, Stripe keys) are generated and stored in SSM Parameter Store and fetched via ESO.
 - **GitOps**: ArgoCD (ClusterIP, `automated.sync`, no prune/selfHeal) is the controller of record for `k8s/prod/`; `kubectl apply -f k8s/argocd/` bootstraps it. Manifest updates ship by pushing to `main`; image updates ship via `scripts/deploy.ps1` (build → push `:main` to ECR → `kubectl apply -k` → rollout restart).
 - **Production checkout fixed + verified end-to-end.** Three real production bugs were found and fixed while validating the demo: (1) the webhook handler called `metadata.get(...)` on a real Stripe `StripeObject` (no `.get()` → HTTP 500 on every webhook); (2) the CSP blocked `js.stripe.com`/`api.stripe.com` so Stripe.js never loaded and the Pay button was stuck; (3) Stripe Link wallet phone-validation blocked `confirmPayment` — fixed by making the PaymentIntent card-only and disabling Link in the PaymentElement. Verified with automated browser testing: a card charge on `https://d15zml7hjfgs6j.cloudfront.net` succeeds and the booking auto-confirms via webhook in ~2s.
 - **Tests**: backend unit + integration suites (identity, booking, concurrency, cache, rate limit, websocket, payment) run against Postgres 16 + Redis 7 in GitHub Actions; 16 payment/webhook tests pass locally.
@@ -165,18 +165,15 @@ _Prove the system works under pressure and automate the development lifecycle._
 
 _Translate the proven local system to the real cloud for portfolio validation._
 
-**Status: ✅ Complete — LIVE.** EKS 1.30 + ALB + RDS + ECR + CloudFront + WAF (count mode) provisioned via Terraform; ArgoCD GitOps for `k8s/prod/`; ESO + SSM for secrets; cert-manager issuers ready; budget alarm at $150/mo. Full Stripe card checkout verified end-to-end against the live CloudFront URL (see "What We've Done So Far").
+**Status: ✅ Complete — LIVE.** EKS 1.35 + ALB + RDS + ECR + CloudFront + WAF (count mode) provisioned via Terraform; ArgoCD GitOps for `k8s/prod/`; ESO + SSM for secrets; cert-manager issuers ready; budget alarm at $150/mo. Full Stripe card checkout verified end-to-end against the live CloudFront URL (see "What We've Done So Far").
 
-**1\. Provision AWS Infrastructure (Terraform — `infra/terraform/`):**
-
-- VPC with public + private subnets, single NAT Gateway (cost-optimized; upgrade to 3 for HA later).
-- EKS cluster `event-ticketing` v1.30 with two node groups: `on-demand` (t3.small, infra pods) and `spot` (t3.medium/t4g, app pods), plus node-termination-handler for spot draining.
+1. **Infrastructure (Terraform):**
+- EKS cluster `event-ticketing` v1.35 with two node groups: `on-demand` (t3.small, infra pods) and `spot` (t3.medium/t4g, app pods), plus node-termination-handler for spot draining.
 - RDS PostgreSQL `db.t4g.micro`, single-AZ, `skip_final_snapshot = true` (dev); DB password auto-generated via `random_password` into SSM `/event-ticketing/DB_PASSWORD`.
 - IAM roles + OIDC/IRSA trust policies for the AWS Load Balancer Controller, External Secrets Operator, and EBS CSI driver.
 - WAF with `waf_action` variable (default `count`) — switch to `block` only after analyzing CloudWatch Logs traffic.
 - CloudFront distribution in front of the SPA (TTLs set to 0 so cache-busting is unnecessary).
 - CloudWatch dashboard (`cloudwatch.tf`): EKS nodes, ALB, RDS, NAT, billing. Budget alarm at $150/month.
-- Apply: `cd infra/terraform && terraform apply`.
 
 **2\. Cloud-Native Add-ons (`scripts/init.ps1`):**
 

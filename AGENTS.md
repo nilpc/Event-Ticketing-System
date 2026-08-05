@@ -8,7 +8,7 @@
 - All money/state mutations must occur inside a single `async with session.begin():` block.
 - Redis failures must NEVER break post-commit API responses.
 - Cite FR-x / NFR-x in docstrings of the code that implements them.
-- Source of truth: docs/PHASES.md (build order) and docs/REQUIREMENTS.md (contract).
+- Source of truth: docs/PHASES.md (build order), docs/REQUIREMENTS.md (contract), docs/HLD.md (High-Level Architecture), and docs/LLD.md (Low-Level Design).
 
 # Local Test Environment
 - Docker test services: `ci-pg-test` (postgres:16) on **5433**, `ci-redis-test` (redis:7) on **6380**.
@@ -20,13 +20,13 @@
 - `pytest` conftest creates/drops schemas via `Base.metadata.create_all` (NOT alembic). The host Postgres at 5432 has a wrong `testuser` password — always use 5433.
 - To validate migrations on a fresh DB, drop ALL schemas first — the alembic version table lives in the `alembic` schema (`migrations/env.py`), so dropping only `public.alembic_version` is NOT enough and `upgrade head` will no-op:
   - `DROP SCHEMA IF EXISTS identity CASCADE; DROP SCHEMA IF EXISTS booking CASCADE; DROP SCHEMA IF EXISTS alembic CASCADE;`
-  - then `alembic upgrade head` (all 5 migrations) and `seed.py` (needs `ADMIN_PASSWORD`).
+  - then `alembic upgrade head` (all 7 migrations) and `seed.py` (needs `ADMIN_PASSWORD`).
 
 # Phase 7: EKS Infrastructure Rules
 ## Terraform
 - All infra code in `infra/terraform/`. Flat files (no nested modules).
 - Every resource must have `tags = merge(var.tags, {Name = ...})`.
-- EKS cluster named `event-ticketing`, version 1.30.
+- EKS cluster named `event-ticketing`, version 1.35.
 - Two node groups: `on-demand` (t3.small for infra pods) and `spot` (t3.medium/t4g for app pods).
 - RDS: db.t4g.micro, single-AZ, `skip_final_snapshot = true` for dev.
 - WAF: `waf_action` variable controls count/block — default `count`. Managed-rule groups get `override_action count{}` when count, `none{}` when block.
@@ -49,7 +49,8 @@
 - Application pods (gateway, sweeper, relay, admitter) get `nodeSelector: node-type: on-demand` (no spot tolerations).
 - Secrets fetched via External Secrets Operator from SSM Parameter Store.
 - All deployments patched with `imagePullPolicy: Always`.
-- Adds a `redis-master-service.yaml` that pins the `redis-master` Service to `redis-node-0` (the Bitnami `redis` service round-robins master+replica, which breaks plain Redis clients).
+- All deployments patched with `imagePullPolicy: Always`.
+- Adds a `redis-master-service.yaml` that pins the `redis-master` Service to `redis-node-1` (the active Bitnami `redis` master pod, preventing reads/writes from hitting the read-only replica).
 
 ## GitOps (ArgoCD)
 - ArgoCD is the declarative controller of record for `k8s/prod/`. Bootstrap manifests live in `k8s/argocd/` (Repository secret + Application), applied once via `kubectl apply -f k8s/argocd/`.
