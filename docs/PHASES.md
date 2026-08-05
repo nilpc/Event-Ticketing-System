@@ -20,6 +20,7 @@ Event Ticketing Backend - Phased Build Plan
 | 7 | The EKS Finale (The Demo) | Complete — **LIVE** |
 | 8 | Rate Limiting & Advanced Caching (NFR-8) | Complete |
 | 9 | WebSocket Live Seat Updates (FR-14) | Complete |
+| 10 | Architecture Hardening & Scale Optimizations | Complete |
 
 ## What We've Done So Far
 

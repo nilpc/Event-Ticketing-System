@@ -1,4 +1,4 @@
-"""Outbox relay worker — publish outbox events with FOR UPDATE SKIP LOCKED."""
+"""Outbox relay worker — publish outbox events using PostgreSQL LISTEN/NOTIFY with fallback polling."""
 
 from __future__ import annotations
 
@@ -11,18 +11,21 @@ from services.booking.repositories.booking_repo import BookingRepository
 
 logger = structlog.get_logger()
 
-RELAY_INTERVAL_SECONDS = 5
+RELAY_FALLBACK_INTERVAL = 5.0
+
+# Global event triggered when PostgreSQL notifies an outbox insert
+_notify_event = asyncio.Event()
 
 
-async def publish_outbox_events() -> None:
-    """Poll outbox and 'publish' (log) unpublished events."""
+async def publish_outbox_events() -> int:
+    """Poll outbox and 'publish' (log) unpublished events. Returns count of published events."""
+    published_count = 0
     async with async_session_factory() as session:
         booking_repo = BookingRepository(session)
 
         async with session.begin():
             events = await booking_repo.get_unpublished_outbox_events_for_update_skip_locked()
             for event in events:
-                # Phase 3: log only. Phase 6: real message broker.
                 logger.info(
                     "outbox_event_published",
                     event_id=str(event.event_id),
@@ -30,14 +33,48 @@ async def publish_outbox_events() -> None:
                     aggregate_type=event.aggregate_type,
                 )
                 await booking_repo.mark_outbox_published(event.event_id)
+                published_count += 1
+    return published_count
+
+
+async def _listen_postgres_notifications() -> None:
+    """Listen for PostgreSQL 'outbox_inserted' NOTIFY events via raw connection."""
+    while True:
+        try:
+            async with async_session_factory() as session:
+                connection = await session.connection()
+                raw_conn = await connection.get_raw_connection()
+                driver_conn = getattr(raw_conn, "driver_connection", None)
+                if driver_conn and hasattr(driver_conn, "add_listener"):
+                    driver_conn.add_listener("outbox_inserted", lambda *args: _notify_event.set())
+                    logger.info("outbox_listen_subscribed", channel="outbox_inserted")
+                    while True:
+                        await asyncio.sleep(3600)
+                else:
+                    break
+        except Exception as exc:
+            logger.warning("outbox_listen_retry", error=str(exc))
+            await asyncio.sleep(5)
 
 
 async def run_relay() -> None:
-    """Background loop — poll outbox every 5 seconds."""
-    logger.info("outbox_relay_started", interval=RELAY_INTERVAL_SECONDS)
+    """Event-driven relay loop — processes immediately on NOTIFY with fallback polling."""
+    logger.info(
+        "outbox_relay_started",
+        mode="LISTEN/NOTIFY",
+        fallback_interval=RELAY_FALLBACK_INTERVAL,
+    )
+    asyncio.create_task(_listen_postgres_notifications())
+
     while True:
         try:
             await publish_outbox_events()
+            _notify_event.clear()
         except Exception as exc:
             logger.error("relay_iteration_failed", error=str(exc))
-        await asyncio.sleep(RELAY_INTERVAL_SECONDS)
+
+        try:
+            await asyncio.wait_for(_notify_event.wait(), timeout=RELAY_FALLBACK_INTERVAL)
+        except TimeoutError:
+            pass
+

@@ -4,7 +4,10 @@
   - Routers (Controllers) handle HTTP, call Services.
   - Services handle business logic, call Repositories.
   - Repositories handle DB queries using SQLAlchemy 2.0 ORM (NO RAW SQL).
-- Postgres schemas: `identity` and `booking`. Cross-schema FKs enforced.
+- Postgres schemas: `identity` and `booking`. Cross-schema foreign keys decoupled (`user_id` stored as unconstrained UUID) for microservice database isolation.
+- Outbox worker uses PostgreSQL `LISTEN / NOTIFY` (`booking.notify_outbox_inserted()`) with a 5s fallback polling loop.
+- Queue supports Server-Sent Events (SSE) streaming via `GET /v1/queue/stream`.
+- Catalog responses include CDN Edge headers (`Cache-Control: public, max-age=15, s-maxage=60, stale-while-revalidate=30`).
 - All money/state mutations must occur inside a single `async with session.begin():` block.
 - Redis failures must NEVER break post-commit API responses.
 - Cite FR-x / NFR-x in docstrings of the code that implements them.
@@ -20,25 +23,25 @@
 - `pytest` conftest creates/drops schemas via `Base.metadata.create_all` (NOT alembic). The host Postgres at 5432 has a wrong `testuser` password — always use 5433.
 - To validate migrations on a fresh DB, drop ALL schemas first — the alembic version table lives in the `alembic` schema (`migrations/env.py`), so dropping only `public.alembic_version` is NOT enough and `upgrade head` will no-op:
   - `DROP SCHEMA IF EXISTS identity CASCADE; DROP SCHEMA IF EXISTS booking CASCADE; DROP SCHEMA IF EXISTS alembic CASCADE;`
-  - then `alembic upgrade head` (all 7 migrations) and `seed.py` (needs `ADMIN_PASSWORD`).
+  - then `alembic upgrade head` (all 8 migrations) and `seed.py` (needs `ADMIN_PASSWORD`).
 
-# Phase 7: EKS Infrastructure Rules
+# Phase 7 & 10: EKS Infrastructure & Hardening Rules
 ## Terraform
 - All infra code in `infra/terraform/`. Flat files (no nested modules).
 - Every resource must have `tags = merge(var.tags, {Name = ...})`.
 - EKS cluster named `event-ticketing`, version 1.35.
 - Two node groups: `on-demand` (t3.small for infra pods) and `spot` (t3.medium/t4g for app pods).
-- RDS: db.t4g.micro, single-AZ, `skip_final_snapshot = true` for dev.
-- WAF: `waf_action` variable controls count/block — default `count`. Managed-rule groups get `override_action count{}` when count, `none{}` when block.
+- RDS: db.t4g.micro, single-AZ (cost-optimized to stay within $150/mo budget limit; set `multi_az = true` in `rds.tf` for production HA), `skip_final_snapshot = true` for dev.
+- WAF: `waf_action` variable defaults to `block` mode enforcing AWS Managed Rules.
 - `metrics-server` is an EKS managed addon (`aws_eks_addon.metrics_server` in `eks.tf`) — required for the CPU HPAs in `k8s/base/hpa.yaml`; KEDA only serves `external.metrics.k8s.io`.
 - DB password auto-generated via `random_password`, stored in SSM `/event-ticketing/DB_PASSWORD`.
-- NAT Gateway: single (cost-optimized). Upgrade to 3 for HA later.
+- NAT Gateway: single (cost-optimized to stay within $150/mo budget limit; set `enable_single_nat_gateway = false` in `vpc.tf` for 3-AZ production HA).
 
 ## Security (Mandatory)
 - JWT keys NEVER baked into Docker image. Injected at runtime via JWT_PRIVATE_KEY/JWT_PUBLIC_KEY env vars. `entrypoint.sh` writes them to disk before app starts.
 - Redis requires auth (`auth.enabled=true`). Password stored in SSM `/event-ticketing/REDIS_PASSWORD`. REDIS_URL includes `:password@`.
 - Security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy) set in both nginx.conf and FastAPI middleware.
-- WAF starts in Count mode. Switch to `block` only after analyzing traffic in CloudWatch Logs.
+- WAF operates in `block` mode enforcing security rulesets.
 - HTTPS: requires a custom domain + ACM cert. HTTP-only by default when `domain_name` is empty.
 
 ## Kustomize (k8s/prod/)

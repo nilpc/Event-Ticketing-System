@@ -112,6 +112,11 @@ resource "aws_cloudfront_response_headers_policy" "no_cache" {
   }
 }
 
+resource "random_password" "cloudfront_secret" {
+  length  = 32
+  special = false
+}
+
 resource "aws_cloudfront_distribution" "this" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -125,6 +130,11 @@ resource "aws_cloudfront_distribution" "this" {
   origin {
     domain_name = local.alb_domain
     origin_id   = "alb-gateway"
+
+    custom_header {
+      name  = "X-CloudFront-Secret"
+      value = random_password.cloudfront_secret.result
+    }
 
     custom_origin_config {
       http_port              = 80

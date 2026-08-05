@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
 import { Toaster } from "sonner";
@@ -58,6 +58,7 @@ export default function App() {
                       <Route element={<ProtectedRoute adminOnly />}>
                         <Route path="/admin" element={<AdminPage />} />
                       </Route>
+                      <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                   </Suspense>
                 </AnimatePresence>

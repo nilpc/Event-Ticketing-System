@@ -48,12 +48,12 @@ apps/backend/
 
 ## 2. Database Schema Specifications & Entity Relationships
 
-The PostgreSQL database is organized into two primary schemas: `identity` and `booking`.
+The PostgreSQL database is organized into two primary schemas: `identity` and `booking`. Note: Foreign key constraints between schemas have been decoupled (e.g. `booking.bookings.user_id` stores an unconstrained UUID reference) to allow true independent microservice database scaling.
 
 ```mermaid
 erDiagram
     identity_users ||--o{ identity_refresh_tokens : owns
-    identity_users ||--o{ booking_bookings : places
+    identity_users ..--o{ booking_bookings : "references (logical UUID)"
     
     booking_venues ||--o{ booking_events : hosts
     booking_events ||--o{ booking_showtimes : includes
@@ -402,3 +402,14 @@ class PaymentProviderError(OSError):        # -> 502 Bad Gateway
 class WeakPasswordError(ValueError):        # -> 400 Bad Request
 class RedisUnavailableError(OSError):       # -> 503 Service Unavailable
 ```
+
+---
+
+## 7. Infrastructure Topology & Cost-Optimization Specification
+
+| Parameter | Demonstration / Staging | Multi-AZ Production HA | Rationale & Cost Trade-off |
+| :--- | :--- | :--- | :--- |
+| **NAT Gateways** | 1 (Single AZ) | 3 (1 per AZ) | Saves **+$64.80/mo** in fixed hourly fees; honors **$150/mo AWS Budget cap** (`budgets.tf`) |
+| **PostgreSQL RDS** | `db.t4g.micro` (Single-AZ) | `db.t4g.micro` / `db.t4g.small` (Multi-AZ) | Saves **+$13.80/mo**; Multi-AZ can be enabled instantly via `multi_az = true` in `rds.tf` |
+| **Functional Parity** | 100% Identical API & Code | 100% Identical API & Code | Zero code/API changes required between environments |
+

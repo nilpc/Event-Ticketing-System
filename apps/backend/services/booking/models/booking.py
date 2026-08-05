@@ -47,7 +47,6 @@ class Booking(Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("identity.users.user_id", ondelete="RESTRICT"),
         nullable=False,
     )
     show_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)

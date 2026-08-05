@@ -7,10 +7,93 @@ resource "aws_wafv2_web_acl" "this" {
     allow {}
   }
 
+  # ── Require CloudFront Secret (Block Direct ALB Bypass) ─────────────
+  rule {
+    name     = "require-cloudfront-secret"
+    priority = 0
+
+    dynamic "action" {
+      for_each = var.waf_action == "block" ? [1] : []
+      content {
+        block {}
+      }
+    }
+    dynamic "action" {
+      for_each = var.waf_action == "count" ? [1] : []
+      content {
+        count {}
+      }
+    }
+
+    statement {
+      and_statement {
+        statement {
+          not_statement {
+            statement {
+              byte_match_statement {
+                field_to_match {
+                  single_header {
+                    name = "x-cloudfront-secret"
+                  }
+                }
+                positional_constraint = "EXACTLY"
+                search_string         = random_password.cloudfront_secret.result
+                text_transformation {
+                  priority = 0
+                  type     = "NONE"
+                }
+              }
+            }
+          }
+        }
+        statement {
+          not_statement {
+            statement {
+              byte_match_statement {
+                field_to_match {
+                  uri_path {}
+                }
+                positional_constraint = "STARTS_WITH"
+                search_string         = "/health"
+                text_transformation {
+                  priority = 0
+                  type     = "NONE"
+                }
+              }
+            }
+          }
+        }
+        statement {
+          not_statement {
+            statement {
+              byte_match_statement {
+                field_to_match {
+                  uri_path {}
+                }
+                positional_constraint = "STARTS_WITH"
+                search_string         = "/ready"
+                text_transformation {
+                  priority = 0
+                  type     = "NONE"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.cluster_name}RequireCloudFrontSecret"
+      sampled_requests_enabled   = true
+    }
+  }
+
   # ── Rate-limit: 100 requests per 5-minute window per IP ──────────────
   rule {
     name     = "rate-limit"
-    priority = 0
+    priority = 1
 
     dynamic "action" {
       for_each = var.waf_action == "block" ? [1] : []
@@ -42,7 +125,7 @@ resource "aws_wafv2_web_acl" "this" {
   # ── AWS Core Rule Set (SQLi, XSS, LFI, RFI, SSRF, etc.) ────────────
   rule {
     name     = "aws-core-rule-set"
-    priority = 1
+    priority = 2
 
     dynamic "override_action" {
       for_each = var.waf_action == "count" ? [1] : []
@@ -74,7 +157,7 @@ resource "aws_wafv2_web_acl" "this" {
   # ── SQL Injection ────────────────────────────────────────────────────
   rule {
     name     = "aws-sql-rule-set"
-    priority = 2
+    priority = 3
 
     dynamic "override_action" {
       for_each = var.waf_action == "count" ? [1] : []
@@ -106,7 +189,7 @@ resource "aws_wafv2_web_acl" "this" {
   # ── Known Bad Inputs (shellshock, JRuby, etc.) ──────────────────────
   rule {
     name     = "aws-known-bad-inputs"
-    priority = 3
+    priority = 4
 
     dynamic "override_action" {
       for_each = var.waf_action == "count" ? [1] : []

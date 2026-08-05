@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.session import get_db_session
@@ -53,6 +54,39 @@ async def queue_status(
     return result
 
 
+@router.get("/stream")
+async def queue_stream(
+    show_id: str,
+    request: Request,
+    svc: QueueService = Depends(_get_queue_service),
+) -> StreamingResponse:
+    """FR-6: Server-Sent Events (SSE) stream for real-time queue position & instant admission."""
+    import asyncio
+    import json
+    from uuid import UUID
+
+    user_id = UUID(request.state.user_id)
+    show_uuid = UUID(show_id)
+
+    async def event_generator():
+        while True:
+            if await request.is_disconnected():
+                break
+            res = await svc.status(show_uuid, user_id)
+            payload = json.dumps({
+                "status": res.status.value,
+                "position": res.position,
+                "estimated_wait_seconds": res.estimated_wait_seconds,
+                "session_token": res.session_token,
+            })
+            yield f"data: {payload}\n\n"
+            if res.status.value in ("ADMITTED", "EXPIRED"):
+                break
+            await asyncio.sleep(min(res.retry_after_seconds, 3))
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
 @router.get("/recover", response_model=QueueRecoverResponse)
 async def recover_queue(
     show_id: str,
@@ -64,3 +98,4 @@ async def recover_queue(
 
     user_id = UUID(request.state.user_id)
     return await svc.recover(UUID(show_id), user_id)
+

@@ -102,9 +102,9 @@ variable "redis_password" {
 }
 
 variable "waf_action" {
-  description = "WAF default rule action: 'count' (observe only) or 'block' (enforce). Start with 'count', switch to 'block' after validating in CloudWatch."
+  description = "WAF default rule action: 'count' (observe only) or 'block' (enforce)."
   type        = string
-  default     = "count"
+  default     = "block"
 }
 
 variable "tags" {
