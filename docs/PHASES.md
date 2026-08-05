@@ -2,6 +2,7 @@ Event Ticketing Backend - Phased Build Plan
 
 ## Revision Notes (this version)
 
+- Added [`docs/HLD.md`](HLD.md) (High-Level Architecture & Sequence Diagrams) and [`docs/LLD.md`](LLD.md) (Low-Level Design, ERD Data Models & API Contracts) covering end-to-end architecture, domain state machines, and AWS EKS topology.
 - Added a Build Status tracker and per-phase status/What-Was-Built notes reflecting the current state of the project (all 7 original phases + the two feature additions are implemented and Phase 7 is live in AWS).
 - Added Phase 8 "Rate Limiting & Advanced Caching" (previously FEATURE-2-RATE-LIMIT-CACHE.md, now **NFR-8**) and Phase 9 "WebSocket Live Seat Updates" (previously FEATURE-3-WEBSOCKET.md, now **FR-14**). Both were already shipped in code; the feature docs existed only as proposals.
 - Added a "What We've Done So Far" section recording the Phase 7 go-live and the production checkout fixes (webhook StripeObject metadata bug, CSP blocking Stripe.js, Stripe Link blocking card confirmation).

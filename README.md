@@ -2,7 +2,7 @@
 
 A full-stack event ticketing platform built for flash-sale scenarios. Turborepo monorepo with React frontend + FastAPI backend + PostgreSQL + Redis. **Live on AWS EKS** — full Stripe card checkout verified end-to-end.
 
-Source of truth: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) (requirement contract, FR/NFR catalog) and [`docs/PHASES.md`](docs/PHASES.md) (build order + status).
+Source of truth: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) (requirement contract, FR/NFR catalog), [`docs/PHASES.md`](docs/PHASES.md) (build order + status), [`docs/HLD.md`](docs/HLD.md) (High-Level Architecture & Sequence Diagrams), and [`docs/LLD.md`](docs/LLD.md) (Low-Level Design, Data Models & API Contracts).
 
 ## Features
 
