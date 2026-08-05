@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 load_dotenv()
 
 
-ADMIN_EMAIL = "merchant@event-ticketing.dev"
+MASTER_ADMIN_EMAIL = "admin@event-ticketing.dev"
+MERCHANT_ADMIN_EMAIL = "merchant@event-ticketing.dev"
 # Never hardcode the admin password. Injected via ADMIN_PASSWORD env var; a
 # random fallback means a fresh DB never gets a publicly-known credential.
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD") or secrets.token_urlsafe(24)
@@ -213,13 +214,14 @@ async def seed(reset: bool = False):
 
     async with factory() as session:
         async with session.begin():
-            existing = await session.execute(
+            # 1. Master Admin (admin@event-ticketing.dev)
+            existing_master = await session.execute(
                 text("SELECT user_id FROM identity.users WHERE email = :email"),
-                {"email": ADMIN_EMAIL},
+                {"email": MASTER_ADMIN_EMAIL},
             )
-            admin_id = existing.scalar_one_or_none()
-            if admin_id is None:
-                admin_id = uuid4()
+            master_id = existing_master.scalar_one_or_none()
+            if master_id is None:
+                master_id = uuid4()
                 if os.getenv("ADMIN_PASSWORD") is None:
                     print(
                         "[seed] No ADMIN_PASSWORD set — "
@@ -231,18 +233,42 @@ async def seed(reset: bool = False):
                         " (user_id, email, password_hash, is_active, is_admin, is_master_admin)"
                         " VALUES (:uid, :email, :pw, true, true, true)"
                     ),
-                    {"uid": admin_id, "email": ADMIN_EMAIL,
+                    {"uid": master_id, "email": MASTER_ADMIN_EMAIL,
                      "pw": _hash_password(ADMIN_PASSWORD)},
                 )
             else:
-                # Ensure existing admin stays an admin, but do NOT force-elevate
-                # to master admin (master role is managed by DB admins / promotions).
                 await session.execute(
                     text(
-                        "UPDATE identity.users SET is_admin = true"
+                        "UPDATE identity.users SET is_admin = true, is_master_admin = true"
                         " WHERE user_id = :uid"
                     ),
-                    {"uid": admin_id},
+                    {"uid": master_id},
+                )
+
+            # 2. Merchant Admin (merchant@event-ticketing.dev)
+            existing_merchant = await session.execute(
+                text("SELECT user_id FROM identity.users WHERE email = :email"),
+                {"email": MERCHANT_ADMIN_EMAIL},
+            )
+            merchant_id = existing_merchant.scalar_one_or_none()
+            if merchant_id is None:
+                merchant_id = uuid4()
+                await session.execute(
+                    text(
+                        "INSERT INTO identity.users"
+                        " (user_id, email, password_hash, is_active, is_admin, is_master_admin)"
+                        " VALUES (:uid, :email, :pw, true, true, false)"
+                    ),
+                    {"uid": merchant_id, "email": MERCHANT_ADMIN_EMAIL,
+                     "pw": _hash_password(ADMIN_PASSWORD)},
+                )
+            else:
+                await session.execute(
+                    text(
+                        "UPDATE identity.users SET is_admin = true, is_master_admin = false"
+                        " WHERE user_id = :uid"
+                    ),
+                    {"uid": merchant_id},
                 )
 
             venue_count_result = await session.execute(text("SELECT COUNT(*) FROM booking.venues"))
