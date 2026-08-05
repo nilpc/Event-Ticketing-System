@@ -1,7 +1,9 @@
 # Redis HA: the `redis` ClusterIP service load-balances across the master
 # and replica pods. The app uses plain (non-sentinel) Redis clients, so
 # writes must go ONLY to the master pod. This service pins the master
-# (redis-node-0) so writes never hit the read-only replica.
+# pod (must match `redis-cli -p 26379 SENTINEL get-master-addr-by-name
+# mymaster`) so writes never hit the read-only replica. If the pin goes
+# stale after a failover, update the selector to the current master pod.
 apiVersion: v1
 kind: Service
 metadata:
@@ -13,7 +15,7 @@ metadata:
 spec:
   type: ClusterIP
   selector:
-    statefulset.kubernetes.io/pod-name: redis-node-0
+    statefulset.kubernetes.io/pod-name: redis-node-1
   ports:
     - name: redis
       port: 6379
