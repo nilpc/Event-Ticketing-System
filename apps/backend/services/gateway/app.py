@@ -94,13 +94,14 @@ def create_app() -> FastAPI:
             "camera=(), microphone=(), geolocation=(), interest-cohort=()"
         )
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self' https://js.stripe.com;"
+            "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://*.stripe.com;"
             " style-src 'self' 'unsafe-inline' https://js.stripe.com"
             " https://fonts.googleapis.com;"
-            " img-src 'self' data: https://q.stripe.com https://m.stripe.com;"
+            " img-src 'self' data: https://q.stripe.com https://m.stripe.com https://*.stripe.com;"
             " font-src 'self' https://js.stripe.com https://fonts.gstatic.com;"
-            " connect-src 'self' https://api.stripe.com;"
-            " frame-src 'self' https://js.stripe.com https://hooks.stripe.com;"
+            " connect-src 'self' https://api.stripe.com https://r.stripe.com"
+            " https://m.stripe.com https://b.stripe.com https://*.stripe.com;"
+            " frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.stripe.com;"
             " object-src 'none'"
         )
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
