@@ -1,18 +1,3 @@
-﻿#!/usr/bin/env pwsh
-<#
-.SYNOPSIS
-    Deploy the event-ticketing application to EKS.
-    Builds both Docker images (api + web), pushes to ECR, and applies prod Kustomize overlay.
-.PARAMETER Region
-    AWS region (default: us-east-1)
-.PARAMETER ClusterName
-    EKS cluster name (default: event-ticketing)
-.PARAMETER ImagePrefix
-    ECR image prefix (default: 078682762568.dkr.ecr.us-east-1.amazonaws.com/event-ticketing)
-.PARAMETER ImageTag
-    Docker image tag (default: main)
-#>
-
 param(
     [string]$Region = "us-east-1",
     [string]$ClusterName = "event-ticketing",
@@ -39,12 +24,28 @@ Write-Host "  Building API image..." -ForegroundColor Gray
 docker build -t $apiTag --target api -f "$repoRoot/Dockerfile" $repoRoot
 if ($LASTEXITCODE -ne 0) { throw "Docker build (api) failed" }
 
-Write-Host "  Building Web image..." -ForegroundColor Gray
 $stripeKey = $env:VITE_STRIPE_PUBLISHABLE_KEY
+if ([string]::IsNullOrEmpty($stripeKey) -and (Test-Path "$repoRoot/apps/web/.env")) {
+    $envLines = Get-Content "$repoRoot/apps/web/.env"
+    foreach ($line in $envLines) {
+        if ($line -match '^VITE_STRIPE_PUBLISHABLE_KEY=(.+)$') {
+            $stripeKey = $Matches[1].Trim()
+            break
+        }
+    }
+}
 if ([string]::IsNullOrEmpty($stripeKey)) {
-    Write-Warning "VITE_STRIPE_PUBLISHABLE_KEY not set — Stripe will be unavailable"
+    try {
+        $ssmVal = aws ssm get-parameter --name "/event-ticketing/VITE_STRIPE_PUBLISHABLE_KEY" --query "Parameter.Value" --output text 2>$null
+        if ($ssmVal -and $ssmVal -ne "None") { $stripeKey = $ssmVal }
+    } catch {}
+}
+
+if ([string]::IsNullOrEmpty($stripeKey)) {
+    Write-Warning "VITE_STRIPE_PUBLISHABLE_KEY not set - Stripe will be unavailable"
     docker build -t $webTag --target web -f "$repoRoot/Dockerfile" $repoRoot
 } else {
+    Write-Host "  Injecting VITE_STRIPE_PUBLISHABLE_KEY into web build..." -ForegroundColor Cyan
     docker build -t $webTag --target web --build-arg VITE_STRIPE_PUBLISHABLE_KEY=$stripeKey -f "$repoRoot/Dockerfile" $repoRoot
 }
 if ($LASTEXITCODE -ne 0) { throw "Docker build (web) failed" }
@@ -82,7 +83,7 @@ kubectl -n event-ticketing rollout status deployment/relay --timeout=60s
 kubectl -n event-ticketing rollout status deployment/admitter --timeout=60s
 
 Write-Host "=== Deployment Complete! ===" -ForegroundColor Green
-Start-Sleep -Seconds 30
+Start-Sleep -Seconds 10
 $ingress = kubectl -n event-ticketing get ingress/gateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>$null
 if ($ingress -and $ingress -ne "") {
     Write-Host ""

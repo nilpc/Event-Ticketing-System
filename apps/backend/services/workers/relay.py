@@ -46,7 +46,7 @@ async def _listen_postgres_notifications() -> None:
                 raw_conn = await connection.get_raw_connection()
                 driver_conn = getattr(raw_conn, "driver_connection", None)
                 if driver_conn and hasattr(driver_conn, "add_listener"):
-                    driver_conn.add_listener("outbox_inserted", lambda *args: _notify_event.set())
+                    await driver_conn.add_listener("outbox_inserted", lambda *args: _notify_event.set())
                     logger.info("outbox_listen_subscribed", channel="outbox_inserted")
                     while True:
                         await asyncio.sleep(3600)
