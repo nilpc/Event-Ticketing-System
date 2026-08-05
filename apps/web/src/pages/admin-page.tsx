@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DateTimeInput } from "@/components/ui/date-time-input";
-import { parseDateTimeText } from "@/components/ui/date-time-mask";
 import type { EventType, AdminEventResponse, VenueResponse, ShowtimeResponse } from "@/types/api";
 
 type Tab = "catalog" | "newshow" | "users";
@@ -339,10 +338,14 @@ function EditableShowtimeRow({ showtime, eventLabel, venueLabel, canManage, onUp
   const save = () => {
     const data: { base_price?: number; start_time?: string; end_time?: string } = {};
     if (price !== showtime.base_price) data.base_price = parseFloat(price);
-    const parsedStart = parseDateTimeText(start);
-    const parsedEnd = parseDateTimeText(end);
-    if (parsedStart) data.start_time = parsedStart;
-    if (parsedEnd) data.end_time = parsedEnd;
+    if (start) {
+      const d = new Date(start);
+      if (!Number.isNaN(d.getTime())) data.start_time = d.toISOString();
+    }
+    if (end) {
+      const d = new Date(end);
+      if (!Number.isNaN(d.getTime())) data.end_time = d.toISOString();
+    }
     if (Object.keys(data).length > 0) onUpdate(data);
     setEditing(false);
   };
@@ -353,8 +356,8 @@ function EditableShowtimeRow({ showtime, eventLabel, venueLabel, canManage, onUp
         <p className="text-xs text-muted-foreground">{eventLabel} @ {venueLabel}</p>
         <div className="grid grid-cols-3 gap-2">
           <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="h-8 text-sm rounded-lg" placeholder="Price" />
-          <DateTimeInput value={start} onChange={setStart} />
-          <DateTimeInput value={end} onChange={setEnd} />
+          <DateTimeInput value={start} onChange={setStart} className="h-8 text-sm rounded-lg" />
+          <DateTimeInput value={end} onChange={setEnd} className="h-8 text-sm rounded-lg" />
         </div>
         <p className="text-xs text-muted-foreground">Leave start/end blank to keep current values.</p>
         <div className="flex gap-1 justify-end">
@@ -438,13 +441,17 @@ function NewShowTab() {
     setSlots((prev) => prev.map((s) => (s.id === id ? { ...s, end } : s)));
 
   const slotValid = slots.map((s) => {
-    const startIso = parseDateTimeText(s.start);
-    const endIso = parseDateTimeText(s.end);
-    const valid =
-      startIso !== null &&
-      endIso !== null &&
-      new Date(startIso).getTime() < new Date(endIso).getTime();
-    return { ...s, startIso, endIso, valid };
+    const startD = s.start ? new Date(s.start) : null;
+    const endD = s.end ? new Date(s.end) : null;
+    const startOk = startD !== null && !Number.isNaN(startD.getTime());
+    const endOk = endD !== null && !Number.isNaN(endD.getTime());
+    const valid = startOk && endOk && startD!.getTime() < endD!.getTime();
+    return {
+      ...s,
+      startIso: startOk ? startD!.toISOString() : null,
+      endIso: endOk ? endD!.toISOString() : null,
+      valid,
+    };
   });
   const allSlotsValid = slots.length > 0 && slotValid.every((s) => s.valid);
 
