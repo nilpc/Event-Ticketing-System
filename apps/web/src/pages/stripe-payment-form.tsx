@@ -53,16 +53,23 @@ export default function StripePaymentForm({
         return;
       }
 
-      if (
-        paymentIntent &&
-        (paymentIntent.status === "succeeded" || paymentIntent.status === "requires_action")
-      ) {
+      if (paymentIntent && paymentIntent.status === "succeeded") {
+        let syncOk = false;
         try {
-          await paymentApi.syncPayment(paymentId);
-        } catch {
-          // Webhook will handle it asynchronously
+          const syncRes = await paymentApi.syncPayment(paymentId);
+          syncOk = syncRes.data.booking_status === "CONFIRMED";
+        } catch (syncErr) {
+          // Stripe has captured the payment — log for debugging but don't block
+          console.error("syncPayment failed:", syncErr);
+          toast.warning(
+            "Payment captured by Stripe. If your booking doesn't appear in a few seconds, please refresh your account page.",
+          );
         }
-        toast.success("Payment successful!");
+        if (syncOk) {
+          toast.success("Payment successful! Your booking is confirmed.");
+        } else if (!syncOk) {
+          toast.info("Payment received — confirming your booking...");
+        }
         onSuccess();
       } else {
         const msg = "Payment confirmation failed. Please try again.";

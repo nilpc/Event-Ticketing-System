@@ -71,7 +71,7 @@ class StripeClient:
             return intent
         except stripe.StripeError as exc:
             logger.error("stripe_intent_creation_failed", error=str(exc))
-            raise PaymentProviderError(f"Stripe error: {exc.user_message}") from exc
+            raise PaymentProviderError(f"Stripe error: {exc.user_message or str(exc)}") from exc
 
     async def cancel_payment_intent(self, intent_id: str) -> None:
         """FR-5: Cancel a Stripe PaymentIntent."""
@@ -80,7 +80,7 @@ class StripeClient:
             logger.info("stripe_intent_cancelled", intent_id=intent_id)
         except stripe.StripeError as exc:
             logger.error("stripe_intent_cancel_failed", intent_id=intent_id, error=str(exc))
-            raise PaymentProviderError(f"Stripe cancel error: {exc.user_message}") from exc
+            raise PaymentProviderError(f"Stripe cancel error: {exc.user_message or str(exc)}") from exc
 
     async def retrieve_payment_intent(self, intent_id: str) -> stripe.PaymentIntent:
         """FR-5: Retrieve an existing PaymentIntent (e.g. to get client_secret for reuse)."""
@@ -89,7 +89,7 @@ class StripeClient:
             return intent
         except stripe.StripeError as exc:
             logger.error("stripe_intent_retrieve_failed", intent_id=intent_id, error=str(exc))
-            raise PaymentProviderError(f"Stripe retrieve error: {exc.user_message}") from exc
+            raise PaymentProviderError(f"Stripe retrieve error: {exc.user_message or str(exc)}") from exc
 
     def construct_webhook_event(
         self,
@@ -97,6 +97,11 @@ class StripeClient:
         sig_header: str,
     ) -> stripe.Event:
         """FR-5: Verify and construct a Stripe webhook event."""
+        if not settings.STRIPE_WEBHOOK_SECRET:
+            raise ValueError(
+                "STRIPE_WEBHOOK_SECRET is not configured. "
+                "Set it in your environment or .env file."
+            )
         return stripe.Webhook.construct_event(
             payload,
             sig_header,

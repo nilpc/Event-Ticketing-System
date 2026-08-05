@@ -57,7 +57,7 @@ class BookingRepository:
             status=BookingStatus.PENDING,
             idempotency_key=idempotency_key,
             amount=amount,
-            currency="USD",
+            currency="inr",
             expires_at=expires_at,
         )
         self.session.add(booking)
