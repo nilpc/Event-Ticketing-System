@@ -103,6 +103,19 @@ function segmentSpans(f: Fields): Span[] {
   return spans;
 }
 
+function splitDigitsToFields(digits: string): Fields {
+  const f = emptyFields();
+  let offset = 0;
+  for (let i = 0; i < NUMERIC_FIELDS.length && offset < digits.length; i++) {
+    const name = NUMERIC_FIELDS[i];
+    const width = FIELD_WIDTH[name];
+    const part = digits.slice(offset, offset + width);
+    f[name] = part;
+    offset += part.length;
+  }
+  return f;
+}
+
 export function fieldsFromDisplay(value: string): Fields {
   const f = emptyFields();
   const s = value.trim();
@@ -114,6 +127,9 @@ export function fieldsFromDisplay(value: string): Fields {
     text = s.slice(0, ampm.index).trimEnd();
   }
   const runs = text.match(/\d+/g) ?? [];
+  if (runs.length === 1 && /^\d{8,12}$/.test(runs[0])) {
+    return { ...f, ...splitDigitsToFields(runs[0]) };
+  }
   const yearFirst = runs.length >= 3 && (runs[0]?.length ?? 0) >= 4;
   const order = yearFirst
     ? (["year", "month", "day", "hour", "minute"] as const)

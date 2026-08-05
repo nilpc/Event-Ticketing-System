@@ -447,12 +447,17 @@ function NewShowTab() {
         venueId = res.data.venue_id;
       }
 
+      const startIso = parseDateTimeText(startTime);
+      const endIso = parseDateTimeText(endTime);
+      if (!startIso || !endIso) {
+        throw new Error("Invalid start or end time.");
+      }
       await adminApi.createShowtime({
         event_id: eventId,
         venue_id: venueId,
         base_price: parseFloat(price),
-        start_time: parseDateTimeText(startTime) ?? "",
-        end_time: parseDateTimeText(endTime) ?? "",
+        start_time: startIso,
+        end_time: endIso,
       });
     },
     onSuccess: () => {
@@ -472,13 +477,21 @@ function NewShowTab() {
     },
   });
 
-  const validStart = !!startTime && parseDateTimeText(startTime) !== null;
-  const validEnd = !!endTime && parseDateTimeText(endTime) !== null;
+  const parsedStartTime = startTime ? parseDateTimeText(startTime) : null;
+  const parsedEndTime = endTime ? parseDateTimeText(endTime) : null;
+  const validStart = parsedStartTime !== null;
+  const validEnd = parsedEndTime !== null;
+  const validTimeOrder =
+    parsedStartTime && parsedEndTime
+      ? new Date(parsedStartTime).getTime() < new Date(parsedEndTime).getTime()
+      : true;
+  const startInvalid = Boolean(startTime && (!validStart || (parsedStartTime && parsedEndTime && !validTimeOrder)));
+  const endInvalid = Boolean(endTime && (!validEnd || (parsedStartTime && parsedEndTime && !validTimeOrder)));
 
   const canSubmit =
     (eventMode === "select" ? !!selectedEventId : !!newEventName.trim()) &&
     (venueMode === "select" ? !!selectedVenueId : !!newVenueName.trim() && !!newVenueCapacity && parseInt(newVenueCapacity, 10) >= 1) &&
-    !!price && validStart && validEnd;
+    !!price && validStart && validEnd && validTimeOrder;
 
   return (
     <div className="space-y-6">
@@ -549,12 +562,15 @@ function NewShowTab() {
             <Input type="number" placeholder="e.g. 75.00" value={price} onChange={(e) => setPrice(e.target.value)} className="rounded-xl" />
           </Field>
           <Field label="Start Time">
-            <DateTimeInput value={startTime} onChange={setStartTime} />
+            <DateTimeInput value={startTime} onChange={setStartTime} invalid={startInvalid} />
           </Field>
           <Field label="End Time">
-            <DateTimeInput value={endTime} onChange={setEndTime} />
+            <DateTimeInput value={endTime} onChange={setEndTime} invalid={endInvalid} />
           </Field>
         </div>
+        {validStart && validEnd && !validTimeOrder ? (
+          <p className="text-xs text-red-400">Start time must be before end time.</p>
+        ) : null}
         <p className="text-xs text-muted-foreground">
           Seats are auto-generated based on venue capacity: VIP (10%), Premium (30%), Standard (60%).
         </p>

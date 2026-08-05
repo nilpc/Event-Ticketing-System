@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 import type { ClipboardEvent, FormEvent, KeyboardEvent } from "react";
 import { Calendar } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   applyBackspace,
@@ -9,6 +10,7 @@ import {
   clearSelection,
   fieldsFromDisplay,
   locateSegment,
+  parseDateTimeText,
   renderFields,
   toDisplayText,
   type EditorState,
@@ -18,10 +20,12 @@ export function DateTimeInput({
   value,
   onChange,
   placeholder = "DD-MM-YYYY 00:00 AM/PM",
+  invalid = false,
 }: {
   value: string;
   onChange: (iso: string) => void;
   placeholder?: string;
+  invalid?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const pickerRef = useRef<HTMLInputElement>(null);
@@ -43,6 +47,19 @@ export function DateTimeInput({
       setCaret(pendingCaretRef.current);
       pendingCaretRef.current = null;
     }
+    const picker = pickerRef.current;
+    if (!picker) return;
+    const iso = parseDateTimeText(value);
+    if (!iso) {
+      picker.value = "";
+      return;
+    }
+    const date = new Date(iso);
+    const localValue = `${date.getFullYear().toString().padStart(4, "0")}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date
+      .getDate()
+      .toString()
+      .padStart(2, "0")}T${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+    picker.value = localValue;
   }, [value]);
 
   const resolveState = (caretOverride?: number): EditorState => {
@@ -196,7 +213,10 @@ export function DateTimeInput({
         onBeforeInput={handleBeforeInput}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
-        className="rounded-xl pr-10"
+        className={cn(
+          "rounded-xl pr-10",
+          invalid && "border-destructive text-destructive placeholder:text-destructive/70 focus-visible:ring-destructive"
+        )}
       />
       <button
         type="button"

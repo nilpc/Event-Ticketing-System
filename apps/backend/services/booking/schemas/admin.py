@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from core.enums import EventType
 from services.booking.schemas.catalog import EventResponse
@@ -54,11 +54,24 @@ class ShowtimeCreate(BaseModel):
     end_time: datetime
     auto_seats: bool = True
 
+    @model_validator(mode="after")
+    def validate_time_order(self) -> "ShowtimeCreate":
+        if self.start_time >= self.end_time:
+            raise ValueError("start_time must be before end_time")
+        return self
+
 
 class ShowtimeUpdate(BaseModel):
     base_price: Decimal | None = Field(default=None, decimal_places=2, ge=0)
     start_time: datetime | None = None
     end_time: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_time_order(self) -> "ShowtimeUpdate":
+        if self.start_time is not None and self.end_time is not None:
+            if self.start_time >= self.end_time:
+                raise ValueError("start_time must be before end_time")
+        return self
 
 
 # ── User Promotion ───────────────────────────────────────────────────────
