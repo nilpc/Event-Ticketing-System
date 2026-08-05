@@ -19,7 +19,7 @@ Source of truth: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) (requirement con
 - **Rate limiting** — slowapi + Redis distributed rate limits (public/auth/booking tiers) (`NFR-8`)
 - **Observability** — structlog (JSON), Sentry, W3C traceparent, CloudWatch dashboard
 - **Docker Compose** — Full stack (backend + frontend + Redis) in one command; auto-migration + auto-seed on startup
-- **Kubernetes (EKS, live)** — EKS 1.30 + ALB + RDS + CloudFront + WAF (count mode), KEDA, PDBs, network policies, ArgoCD GitOps
+- **Kubernetes (EKS, live)** — EKS 1.35 + ALB + RDS + CloudFront + WAF (count mode), KEDA, PDBs, network policies, ArgoCD GitOps
 
 ## Current Status
 
