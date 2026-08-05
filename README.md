@@ -14,7 +14,7 @@ Source of truth: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) (Enterprise PRD 
 | :--- | :---: | :--- | :--- |
 | **System Design & Architecture** | **4.5 / 5.0** | 5-Layer Concurrency Control Engine, Zero Double-Booking Guarantee, Event-Driven Outbox Relay, PCI-compliant payment flow | ✅ CDN Edge Cache Control (`s-maxage=60`), SSE Queue Stream (`/v1/queue/stream`), Outbox PostgreSQL `LISTEN/NOTIFY` |
 | **Backend Codebase & Engineering** | **4.4 / 5.0** | Strict Controller-Service-Repository (CSR) separation, FastAPI + SQLAlchemy 2.0 async, RS256 JWT security, failure-swallowing post-commit hooks | ✅ Decoupled cross-schema foreign keys (`booking.bookings.user_id` as unconstrained UUID) |
-| **Deployment, Infra & GitOps** | **4.6 / 5.0** | AWS EKS 1.35, ArgoCD GitOps, Terraform IaaS, KEDA autoscaling, ESO secret sync, CloudFront CDN, AWS WAF | ✅ AWS WAF enforcing default `block` mode rulesets at edge |
+| **Deployment, Infra & GitOps** | **4.6 / 5.0** | AWS EKS 1.35, ArgoCD GitOps, Terraform IaaS, KEDA autoscaling, ESO secret sync, CloudFront CDN, AWS WAF | ✅ AWS WAF enforcing default `block` mode + zero-cost ALB bypass protection (`X-CloudFront-Secret`) |
 
 > [!NOTE]
 > **Production High-Availability (HA) vs. Budget Optimization Trade-off**: Multi-AZ RDS replication and 3-AZ NAT Gateways are fully supported via Terraform (`multi_az = true`, `enable_single_nat_gateway = false`). Single NAT Gateway and Single-AZ RDS are deployed for staging/demo to strictly respect the **$150/month AWS Budget cap** ([`infra/terraform/budgets.tf`](file:///d:/Projects/Event-Ticketing-System/infra/terraform/budgets.tf#L4)), preventing an unnecessary **+$79/month** infra cost increase while maintaining 100% architectural and functional parity.
@@ -29,7 +29,8 @@ Source of truth: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) (Enterprise PRD 
 - **Decoupled Microservice Schema** — `booking.bookings.user_id` stored as an unconstrained UUID column without cross-schema FK constraints, enabling independent microservice database scaling
 - **Event-Driven Outbox Relay** — PostgreSQL `booking.notify_outbox_inserted()` trigger fires `NOTIFY outbox_inserted`, signaling `relay.py` for sub-second outbox publishing
 - **CDN Edge Cache Offloading** — Public catalog responses include `Cache-Control: public, max-age=15, s-maxage=60, stale-while-revalidate=30`, shielding PostgreSQL CPU from read spikes
-- **AWS WAF Block Mode** — Edge WAF rulesets active in default `block` mode protecting against SQLi, XSS, and volumetric DDoS
+- **AWS WAF Block Mode & Zero-Cost ALB Bypass Protection** — Edge WAF rulesets active in default `block` mode with 32-character `X-CloudFront-Secret` header enforcement rejecting direct ALB DNS hits with `403 Forbidden`
+- **Automated Stripe Pipeline** — SSM Parameter Store (`/event-ticketing/VITE_STRIPE_PUBLISHABLE_KEY`) auto-injects Stripe publishable key into production web Docker builds
 - **JWT auth (RS256)** — Access/refresh token rotation with reuse detection, Google OAuth2; admin users identified by `is_admin` column in DB
 - **Stripe payments (card-only, verified E2E)** — PCI-compliant PaymentIntent flow, card-only (Link/Klarna disabled so `confirmPayment` never blocks), webhook auto-confirmation of bookings
 - **WebSocket live updates** — Real-time seat status broadcasting via Redis Pub/Sub backplane (`FR-14`)
