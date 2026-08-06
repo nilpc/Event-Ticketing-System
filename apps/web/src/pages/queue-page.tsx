@@ -13,7 +13,7 @@ const PREMIUM_EASE = [0.32, 0.72, 0, 1] as const;
 export default function QueuePage() {
   const { showId } = useParams<{ showId: string }>();
   const navigate = useNavigate();
-  const { setQueueToken } = useBookingFlow();
+  const { queueToken, queueShowId, setQueueToken } = useBookingFlow();
   const [state, setState] = useState<QueueState>("joining");
   const [position, setPosition] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -62,20 +62,32 @@ export default function QueuePage() {
     let cancelled = false;
     const init = async () => {
       try {
-        const { data: recovered } = await queueApi.recoverQueue(showId);
-        if (cancelled) return;
-        if (recovered.status === "admitted") {
-          if (recovered.queue_token) setQueueToken(recovered.queue_token, showId);
-          toast.info("Resuming your session...");
-          navigate(`/events/${showId}`);
-          return;
+        if (queueToken && queueShowId === showId) {
+          try {
+            const { data: recovered } = await queueApi.recoverQueue(showId);
+            if (cancelled) return;
+            if (recovered.status === "admitted") {
+              if (recovered.queue_token) setQueueToken(recovered.queue_token, showId);
+              toast.info("Resuming your session...");
+              navigate(`/events/${showId}`);
+              return;
+            }
+          } catch {
+            /* ignore recovery failure and proceed to join */
+          }
         }
         const { data: result } = await queueApi.joinQueue({ show_id: showId });
         if (cancelled) return;
         if (result.queue_token) setQueueToken(result.queue_token, showId);
-        setPosition(result.position);
-        setState("waiting");
-        intervalRef.current = setInterval(() => pollStatus(showId), QUEUE_POLL_MS);
+        if (result.status === "admitted") {
+          setState("admitted");
+          toast.success("You've been admitted!");
+          setTimeout(() => navigate(`/events/${showId}`), 1000);
+        } else {
+          setPosition(result.position);
+          setState("waiting");
+          intervalRef.current = setInterval(() => pollStatus(showId), QUEUE_POLL_MS);
+        }
       } catch {
         if (!cancelled) {
           setState("error");
@@ -88,7 +100,8 @@ export default function QueuePage() {
       cancelled = true;
       clearPolling();
     };
-  }, [showId, navigate, pollStatus, clearPolling, setQueueToken]);
+  }, [showId, navigate, pollStatus, clearPolling, setQueueToken, queueToken, queueShowId]);
+
   return (
     <PageTransition>
       <div className="min-h-screen flex items-center justify-center px-4">

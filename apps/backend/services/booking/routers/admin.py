@@ -84,9 +84,11 @@ async def _assert_can_schedule(
 
 @router.get("/events", response_model=list[AdminEventResponse])
 async def list_events(
-    _merchant: User = Depends(_require_merchant), svc: AdminService = Depends(_get_admin_service)
+    merchant: User = Depends(_require_merchant), svc: AdminService = Depends(_get_admin_service)
 ) -> list[AdminEventResponse]:
-    events = await svc.list_events()
+    events = await svc.list_events(
+        created_by=merchant.user_id if not merchant.is_master_admin else None
+    )
     return [AdminEventResponse.model_validate(e) for e in events]
 
 
@@ -132,9 +134,11 @@ async def delete_event(
 
 @router.get("/venues", response_model=list[AdminVenueResponse])
 async def list_venues(
-    _merchant: User = Depends(_require_merchant), svc: AdminService = Depends(_get_admin_service)
+    merchant: User = Depends(_require_merchant), svc: AdminService = Depends(_get_admin_service)
 ) -> list[AdminVenueResponse]:
-    venues = await svc.list_venues()
+    venues = await svc.list_venues(
+        created_by=merchant.user_id if not merchant.is_master_admin else None
+    )
     return [AdminVenueResponse.model_validate(v) for v in venues]
 
 
@@ -176,10 +180,13 @@ async def delete_venue(
 
 @router.get("/showtimes", response_model=list[ShowtimeResponse])
 async def list_showtimes(
-    _merchant: User = Depends(_require_merchant), svc: AdminService = Depends(_get_admin_service)
+    merchant: User = Depends(_require_merchant), svc: AdminService = Depends(_get_admin_service)
 ) -> list[ShowtimeResponse]:
-    showtimes = await svc.list_showtimes()
+    showtimes = await svc.list_showtimes(
+        created_by=merchant.user_id if not merchant.is_master_admin else None
+    )
     return [ShowtimeResponse.model_validate(s) for s in showtimes]
+
 
 
 @router.post("/showtimes", response_model=ShowtimeResponse, status_code=201)

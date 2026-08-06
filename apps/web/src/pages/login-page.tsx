@@ -203,8 +203,9 @@ export default function LoginPage() {
                   />
                 </svg>
               )}
-              Sign up with Google
+              Sign in with Google
             </Button>
+
           </motion.div>
           <motion.p
             variants={childVariants}

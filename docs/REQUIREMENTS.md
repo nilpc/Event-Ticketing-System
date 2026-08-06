@@ -10,7 +10,9 @@
 - **Zero-Cost ALB Bypass Prevention (NFR-10)**: Configured CloudFront origin custom header `X-CloudFront-Secret` (`cloudfront.tf`) and AWS WAF Rule Priority 0 (`require-cloudfront-secret` in `waf.tf`), blocking direct ALB DNS bypass attempts with `403 Forbidden` at **$0 extra cost** while preserving K8s `/health` and `/ready` probes.
 - **Automated Stripe Secret Management & Deployment Pipeline**: Standardized `VITE_STRIPE_PUBLISHABLE_KEY` parameter storage in AWS SSM Parameter Store (`/event-ticketing/VITE_STRIPE_PUBLISHABLE_KEY`) with automated build-time injection in `scripts/deploy.ps1`, ensuring zero checkout regressions across environment rebuilds.
 - **Infrastructure Topology & Cost Restrictions**: Multi-AZ RDS replication and 3-AZ NAT Gateways are supported via Terraform (`multi_az = true`, `enable_single_nat_gateway = false`). To strictly respect the **$150/month AWS Budget cap** (`budgets.tf`), single NAT Gateway and single-AZ RDS `db.t4g.micro` were selected for staging/demo, avoiding an additional **+$79/month** infrastructure cost surge while preserving 100% architectural and functional parity.
+- **Merchant Isolation & UI Performance Hardening**: Enforced `created_by` merchant data isolation across events, venues, and showtimes in `admin.py`, `admin_service.py`, and `admin_repo.py`; optimized queue join initialization and catalog query caching for instant UI responsiveness.
 - Renumbered the FR/NFR catalog sequentially and added FR-7 / FR-8 for seat locking and atomic booking initialization.
+
 - Added `deleted_at` and `anonymized` columns to `identity.users` for GDPR soft-delete/anonymization compliance.
 - Added a `unique_active_payment_per_booking` partial index to stop duplicate Stripe intents per booking.
 - Fixed FR-5 PCI payment flow: PaymentIntent is card-only with Link/Klarna/Affirm disabled to prevent checkout confirmation blocks. Verified end-to-end in production.

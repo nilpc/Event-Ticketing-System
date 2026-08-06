@@ -17,16 +17,20 @@ class AdminRepository:
 
     async def create_event(self, event: Event) -> Event:
         self.session.add(event)
-        await self.session.flush()
+        await self.session.commit()
         return event
 
     async def get_event(self, event_id: str) -> Event | None:
         result = await self.session.execute(select(Event).where(Event.event_id == event_id))
         return result.scalar_one_or_none()
 
-    async def list_events(self) -> list[Event]:
-        result = await self.session.execute(select(Event).order_by(Event.name))
+    async def list_events(self, created_by: UUID | None = None) -> list[Event]:
+        query = select(Event)
+        if created_by is not None:
+            query = query.where(Event.created_by == created_by)
+        result = await self.session.execute(query.order_by(Event.name))
         return list(result.scalars().all())
+
 
     async def get_event_owner(self, event_id: str) -> UUID | None:
         event = await self.get_event(event_id)
@@ -36,23 +40,27 @@ class AdminRepository:
         for key, value in kwargs.items():
             if value is not None:
                 setattr(event, key, value)
-        await self.session.flush()
+        await self.session.commit()
         return event
 
     async def delete_event(self, event_id: str) -> None:
         await self.session.execute(delete(Event).where(Event.event_id == event_id))
+        await self.session.commit()
 
     async def create_venue(self, venue: Venue) -> Venue:
         self.session.add(venue)
-        await self.session.flush()
+        await self.session.commit()
         return venue
 
     async def get_venue(self, venue_id: UUID) -> Venue | None:
         result = await self.session.execute(select(Venue).where(Venue.venue_id == venue_id))
         return result.scalar_one_or_none()
 
-    async def list_venues(self) -> list[Venue]:
-        result = await self.session.execute(select(Venue).order_by(Venue.name))
+    async def list_venues(self, created_by: UUID | None = None) -> list[Venue]:
+        query = select(Venue)
+        if created_by is not None:
+            query = query.where(Venue.created_by == created_by)
+        result = await self.session.execute(query.order_by(Venue.name))
         return list(result.scalars().all())
 
     async def get_venue_owner(self, venue_id: UUID) -> UUID | None:
@@ -63,15 +71,20 @@ class AdminRepository:
         for key, value in kwargs.items():
             if value is not None:
                 setattr(venue, key, value)
-        await self.session.flush()
+        await self.session.commit()
         return venue
 
     async def delete_venue(self, venue_id: UUID) -> None:
         await self.session.execute(delete(Venue).where(Venue.venue_id == venue_id))
+        await self.session.commit()
 
-    async def list_showtimes(self) -> list[Showtime]:
-        result = await self.session.execute(select(Showtime).order_by(Showtime.start_time))
+    async def list_showtimes(self, created_by: UUID | None = None) -> list[Showtime]:
+        query = select(Showtime)
+        if created_by is not None:
+            query = query.join(Event).where(Event.created_by == created_by)
+        result = await self.session.execute(query.order_by(Showtime.start_time))
         return list(result.scalars().all())
+
 
     async def list_showtimes_by_event(self, event_id: str) -> list[Showtime]:
         result = await self.session.execute(select(Showtime).where(Showtime.event_id == event_id))
@@ -83,7 +96,7 @@ class AdminRepository:
 
     async def create_showtime(self, showtime: Showtime) -> Showtime:
         self.session.add(showtime)
-        await self.session.flush()
+        await self.session.commit()
         return showtime
 
     async def get_showtime(self, show_id: UUID) -> Showtime | None:
@@ -94,15 +107,16 @@ class AdminRepository:
         for key, value in kwargs.items():
             if value is not None:
                 setattr(showtime, key, value)
-        await self.session.flush()
+        await self.session.commit()
         return showtime
 
     async def delete_showtime(self, show_id: UUID) -> None:
         await self.session.execute(delete(Seat).where(Seat.show_id == show_id))
         await self.session.execute(delete(Showtime).where(Showtime.show_id == show_id))
+        await self.session.commit()
 
     async def create_seats(self, rows: list[dict]) -> None:
         if not rows:
             return
         await self.session.execute(insert(Seat), rows)
-        await self.session.flush()
+        await self.session.commit()

@@ -63,8 +63,26 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
     };
   });
   const setShowId = useCallback((showId: string) => {
-    setState((prev) => ({ ...prev, showId }));
+    setState((prev) => {
+      if (prev.showId === showId) return prev;
+      try {
+        localStorage.removeItem(SELECTED_SEATS_KEY);
+        localStorage.removeItem(QUEUE_TOKEN_KEY);
+        localStorage.removeItem(QUEUE_SHOW_KEY);
+      } catch {
+        /* ignore */
+      }
+      return {
+        ...prev,
+        showId,
+        selectedSeatIds: [],
+        queueToken: null,
+        queueShowId: null,
+        idempotencyKey: null,
+      };
+    });
   }, []);
+
   const setQueueToken = useCallback((token: string, showId?: string) => {
     try {
       localStorage.setItem(QUEUE_TOKEN_KEY, token);

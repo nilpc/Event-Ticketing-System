@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Trash2, Key, Film, MapPin, Calendar, Users, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTransition } from "@/components/layout/page-transition";
-import { adminApi, catalogApi } from "@/lib/api-routes";
+import { adminApi } from "@/lib/api-routes";
 import { useAuth } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,45 +67,55 @@ function CatalogTab() {
   });
   const { data: venues, isLoading: venuesLoading } = useQuery({
     queryKey: ["adminVenues"],
-    queryFn: () => catalogApi.getVenues().then((r) => r.data),
+    queryFn: () => adminApi.getAllVenues().then((r) => r.data),
   });
   const { data: showtimes, isLoading: showtimesLoading } = useQuery({
     queryKey: ["adminShowtimes"],
     queryFn: () => adminApi.getAllShowtimes().then((r) => r.data),
   });
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ["adminEvents"] });
+    queryClient.invalidateQueries({ queryKey: ["adminVenues"] });
+    queryClient.invalidateQueries({ queryKey: ["adminShowtimes"] });
+    queryClient.invalidateQueries({ queryKey: ["events"] });
+    queryClient.invalidateQueries({ queryKey: ["venues"] });
+    queryClient.invalidateQueries({ queryKey: ["showtimes"] });
+    queryClient.invalidateQueries({ queryKey: ["eventShowtimes"] });
+  };
   const deleteEvent = useMutation({
     mutationFn: (id: string) => adminApi.deleteEvent(id),
-    onSuccess: () => { toast.success("Event deleted."); queryClient.invalidateQueries({ queryKey: ["adminEvents"] }); },
+    onSuccess: () => { toast.success("Event deleted."); invalidateAll(); },
     onError: (err: { response?: { data?: { detail?: string } } }) => { toast.error(err.response?.data?.detail ?? "Failed to delete event."); },
   });
   const deleteVenue = useMutation({
     mutationFn: (id: string) => adminApi.deleteVenue(id),
-    onSuccess: () => { toast.success("Venue deleted."); queryClient.invalidateQueries({ queryKey: ["adminVenues"] }); },
+    onSuccess: () => { toast.success("Venue deleted."); invalidateAll(); },
     onError: () => { toast.error("Failed to delete venue."); },
   });
   const deleteShowtime = useMutation({
     mutationFn: (id: string) => adminApi.deleteShowtime(id),
-    onSuccess: () => { toast.success("Showtime deleted."); queryClient.invalidateQueries({ queryKey: ["adminShowtimes"] }); },
+    onSuccess: () => { toast.success("Showtime deleted."); invalidateAll(); },
     onError: () => { toast.error("Failed to delete showtime."); },
   });
   const updateEvent = useMutation({
     mutationFn: ({ id, data }: { id: string; data: { name?: string; description?: string; event_type?: EventType } }) =>
       adminApi.updateEvent(id, data),
-    onSuccess: () => { toast.success("Event updated."); queryClient.invalidateQueries({ queryKey: ["adminEvents"] }); },
+    onSuccess: () => { toast.success("Event updated."); invalidateAll(); },
     onError: (err: { response?: { data?: { detail?: string } } }) => { toast.error(err.response?.data?.detail ?? "Failed to update event."); },
   });
   const updateVenue = useMutation({
     mutationFn: ({ id, data }: { id: string; data: { name?: string; capacity?: number } }) =>
       adminApi.updateVenue(id, data),
-    onSuccess: () => { toast.success("Venue updated."); queryClient.invalidateQueries({ queryKey: ["adminVenues"] }); },
+    onSuccess: () => { toast.success("Venue updated."); invalidateAll(); },
     onError: () => { toast.error("Failed to update venue."); },
   });
   const updateShowtime = useMutation({
     mutationFn: ({ id, data }: { id: string; data: { base_price?: number; start_time?: string; end_time?: string } }) =>
       adminApi.updateShowtime(id, data),
-    onSuccess: () => { toast.success("Showtime updated."); queryClient.invalidateQueries({ queryKey: ["adminShowtimes"] }); },
+    onSuccess: () => { toast.success("Showtime updated."); invalidateAll(); },
     onError: () => { toast.error("Failed to update showtime."); },
   });
+
   const eventMap = (events ?? []).reduce<Record<string, AdminEventResponse>>((m, e) => { m[e.event_id] = e; return m; }, {});
   const venueMap = (venues ?? []).reduce<Record<string, VenueResponse>>((m, v) => { m[v.venue_id] = v; return m; }, {});
   return (
@@ -448,6 +458,10 @@ function NewShowTab() {
       queryClient.invalidateQueries({ queryKey: ["adminEvents"] });
       queryClient.invalidateQueries({ queryKey: ["adminVenues"] });
       queryClient.invalidateQueries({ queryKey: ["adminShowtimes"] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["venues"] });
+      queryClient.invalidateQueries({ queryKey: ["showtimes"] });
+      queryClient.invalidateQueries({ queryKey: ["eventShowtimes"] });
       navigate("/");
     },
     onError: (err: { response?: { data?: { detail?: string } } }) => {
@@ -550,8 +564,10 @@ function NewShowTab() {
               const v = slotValid.find((s) => s.id === slot.id) ?? {
                 ...slot, startIso: null, endIso: null, valid: false,
               };
-              const startInvalid = Boolean(slot.start && !v.valid);
-              const endInvalid = Boolean(slot.end && !v.valid);
+              const bothFilled = Boolean(slot.start && slot.end);
+              const isInvalidRange = bothFilled && !v.valid;
+              const startInvalid = isInvalidRange;
+              const endInvalid = isInvalidRange;
               return (
                 <div key={slot.id} className="grid grid-cols-[1fr_1fr_auto] gap-3 items-end rounded-xl border border-white/[0.06] p-3">
                   <Field label="Start">
@@ -567,6 +583,7 @@ function NewShowTab() {
               );
             })
           )}
+
           {slots.length > 0 && !allSlotsValid ? (
             <p className="text-xs text-red-400">
               Each slot needs a valid start &amp; end time, with start before end.

@@ -75,6 +75,7 @@ export default function EventPage() {
   } = useQuery({
     queryKey: ["events"],
     queryFn: () => catalogApi.getEvents().then((r) => r.data),
+    staleTime: 60000,
   });
   const {
     data: venues,
@@ -82,6 +83,7 @@ export default function EventPage() {
   } = useQuery({
     queryKey: ["venues"],
     queryFn: () => catalogApi.getVenues().then((r) => r.data),
+    staleTime: 60000,
   });
   const {
     data: showtimes,
@@ -91,7 +93,9 @@ export default function EventPage() {
     queryKey: ["eventShowtimes", eventId],
     queryFn: () => catalogApi.getShowtimesByEvent(eventId!).then((r) => r.data),
     enabled: !!eventId,
+    staleTime: 60000,
   });
+
   if (eventsError || venuesError || showtimesError) {
     toast.error("Failed to load event details. Please try again.");
   }

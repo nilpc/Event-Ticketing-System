@@ -51,6 +51,7 @@ class SessionService:
         new_raw, _ = await rotate_refresh_token(
             old_token_id=stored.token_id, user_id=stored.user_id, session=self.session
         )
+        await self.session.commit()
         access_token = create_access_token(str(stored.user_id))
         return LoginResponse(
             access_token=access_token,
@@ -64,3 +65,4 @@ class SessionService:
         stored = await self.user_repo.find_refresh_token_by_hash(token_hash)
         if stored is not None:
             await revoke_refresh_token(stored.token_id, self.session)
+            await self.session.commit()

@@ -1,4 +1,5 @@
-﻿import { useParams, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -59,11 +60,15 @@ function InfoSkeleton() {
   );
 }
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+  return new Date(iso).toLocaleDateString(undefined, {
     weekday: "short",
     year: "numeric",
     month: "short",
     day: "numeric",
+  });
+}
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -113,7 +118,13 @@ export default function ShowtimePage() {
   const { showId } = useParams<{ showId: string }>();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const { queueToken, queueShowId, selectedSeatIds, toggleSeat, showId: selectionShowId } = useBookingFlow();
+  const { queueToken, queueShowId, selectedSeatIds, toggleSeat, showId: selectionShowId, setShowId } = useBookingFlow();
+  useEffect(() => {
+    if (showId) {
+      setShowId(showId);
+    }
+  }, [showId, setShowId]);
+
   const selectionIsForThisShow = !!showId && selectionShowId === showId;
   const {
     data: showtime,
@@ -123,6 +134,16 @@ export default function ShowtimePage() {
     queryKey: ["showtime", showId],
     queryFn: () => catalogApi.getShowtime(showId!).then((r) => r.data),
     enabled: !!showId,
+  });
+  const { data: events } = useQuery({
+    queryKey: ["events"],
+    queryFn: () => catalogApi.getEvents().then((r) => r.data),
+    staleTime: 60000,
+  });
+  const { data: venues } = useQuery({
+    queryKey: ["venues"],
+    queryFn: () => catalogApi.getVenues().then((r) => r.data),
+    staleTime: 60000,
   });
   const {
     data: seatMap,
@@ -136,6 +157,9 @@ export default function ShowtimePage() {
   if (showtimeError || seatMapError) {
     toast.error("Failed to load showtime details. Please try again.");
   }
+  const event = events?.find((e) => e.event_id === showtime?.event_id);
+  const venue = venues?.find((v) => v.venue_id === showtime?.venue_id);
+
   const handleSeatClick = (seat: SeatResponse) => {
     if (seat.status !== "AVAILABLE") return;
     if (!isAuthenticated) {
@@ -191,18 +215,23 @@ export default function ShowtimePage() {
             <motion.div variants={childVariants}>
               <Card className="mb-10 overflow-hidden">
                 <CardHeader>
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-2">
                     <span className="text-[10px] font-mono uppercase tracking-wider bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
-                      {showtime.show_id.slice(0, 8)}
+                      {event?.event_type ?? "EVENT"}
                     </span>
                   </div>
-                  <CardTitle className="text-2xl tracking-tight">Showtime</CardTitle>
+                  <CardTitle className="text-3xl tracking-tight mb-2">
+                    {event?.name ?? "Event Details"}
+                  </CardTitle>
+                  {event?.description && (
+                    <p className="text-sm text-muted-foreground">{event.description}</p>
+                  )}
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-4 border-t border-white/[0.06]">
                     <div className="flex items-start gap-3">
                       <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10 shrink-0">
-                        <CalendarDays className="h-4 w-4 text-primary" />
+                         <CalendarDays className="h-4 w-4 text-primary" />
                       </div>
                       <div>
                         <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">Date</p>
@@ -216,9 +245,9 @@ export default function ShowtimePage() {
                         <Clock className="h-4 w-4 text-primary" />
                       </div>
                       <div>
-                        <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">Duration</p>
+                        <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">Time</p>
                         <p className="text-sm font-medium mt-1">
-                          {formatDate(showtime.start_time)} - {formatDate(showtime.end_time)}
+                          {formatTime(showtime.start_time)} - {formatTime(showtime.end_time)}
                         </p>
                       </div>
                     </div>
@@ -228,8 +257,8 @@ export default function ShowtimePage() {
                       </div>
                       <div>
                         <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">Venue</p>
-                        <p className="text-sm font-medium mt-1 font-mono">
-                          {showtime.venue_id.slice(0, 8)}
+                        <p className="text-sm font-medium mt-1">
+                          {venue?.name ?? showtime.venue_id.slice(0, 8)}
                         </p>
                       </div>
                     </div>
@@ -238,7 +267,7 @@ export default function ShowtimePage() {
                         <DollarSign className="h-4 w-4 text-primary" />
                       </div>
                       <div>
-                        <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">Base Price</p>
+                        <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">Starting From</p>
                         <p className="text-xl font-bold mt-1">
                           <span className="text-gradient">
                             ₹{parseFloat(showtime.base_price).toFixed(2)}
@@ -250,6 +279,7 @@ export default function ShowtimePage() {
                 </CardContent>
               </Card>
             </motion.div>
+
           ) : null}
           {showtime && (
             <motion.div variants={childVariants} className="mb-10">

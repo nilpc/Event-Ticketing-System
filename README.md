@@ -23,7 +23,8 @@ Source of truth: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) (Enterprise PRD 
 ## Features & Architectural Hardening
 
 - **React frontend** — Vite + TypeScript, Tailwind CSS, TanStack Query, React Router
-- **Admin panel** — Unified form to create events/movies, venues, and showtimes in one step; catalog management with delete; promote users to admin via API
+- **Access Control & Merchant Data Isolation** — Unified admin dashboard to manage events, venues, and showtimes. Strict Role-Based Access Control (RBAC): Master Admins have global access, while Merchants are isolated strictly to entities they explicitly created via `created_by` tracking. Instant React Query cache invalidation.
+
 - **Multi-seat booking** — Select up to 8 seats in one checkout; all locked and paid atomically via a `booking_seats` junction table
 - **Five-layer concurrency control** — Redis hoarding locks, distributed locks, DB state checks, atomic transactions, and a background sweeper to prevent double-bookings
 - **Server-Sent Events (SSE) Waiting Room** — `GET /v1/queue/stream` pushes real-time queue position drops and instant admission tokens over persistent connections, eliminating HTTP polling

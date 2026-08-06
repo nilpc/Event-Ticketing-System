@@ -43,21 +43,26 @@ class AdminService:
             description=data.description,
             created_by=created_by,
         )
-        return await self.repo.create_event(event)
+        result = await self.repo.create_event(event)
+        await self._invalidate_catalog(["events:all"])
+        return result
 
     async def get_event(self, event_id: str) -> Event | None:
         return await self.repo.get_event(event_id)
 
-    async def list_events(self) -> list[Event]:
-        return await self.repo.list_events()
+    async def list_events(self, created_by: uuid.UUID | None = None) -> list[Event]:
+        return await self.repo.list_events(created_by=created_by)
+
 
     async def update_event(self, event_id: str, data: EventUpdate) -> Event:
         event = await self.repo.get_event(event_id)
         if event is None:
             raise LookupError(f"Event {event_id} not found")
-        return await self.repo.update_event(
+        result = await self.repo.update_event(
             event, name=data.name, description=data.description, event_type=data.event_type
         )
+        await self._invalidate_catalog(["events:all"])
+        return result
 
     async def delete_event(self, event_id: str) -> None:
         event = await self.repo.get_event(event_id)
@@ -75,10 +80,13 @@ class AdminService:
         venue = Venue(
             venue_id=uuid.uuid4(), name=data.name, capacity=data.capacity, created_by=created_by
         )
-        return await self.repo.create_venue(venue)
+        result = await self.repo.create_venue(venue)
+        await self._invalidate_catalog(["venues:all"])
+        return result
 
-    async def list_venues(self) -> list[Venue]:
-        return await self.repo.list_venues()
+    async def list_venues(self, created_by: uuid.UUID | None = None) -> list[Venue]:
+        return await self.repo.list_venues(created_by=created_by)
+
 
     async def get_venue(self, venue_id: str) -> Venue | None:
         return await self.repo.get_venue(uuid.UUID(venue_id))
@@ -87,7 +95,9 @@ class AdminService:
         venue = await self.repo.get_venue(uuid.UUID(venue_id))
         if venue is None:
             raise LookupError(f"Venue {venue_id} not found")
-        return await self.repo.update_venue(venue, name=data.name, capacity=data.capacity)
+        result = await self.repo.update_venue(venue, name=data.name, capacity=data.capacity)
+        await self._invalidate_catalog(["venues:all"])
+        return result
 
     async def delete_venue(self, venue_id: str) -> None:
         venue = await self.repo.get_venue(uuid.UUID(venue_id))
@@ -102,8 +112,9 @@ class AdminService:
             + [f"seatmap:{s.show_id}" for s in showtimes]
         )
 
-    async def list_showtimes(self) -> list[Showtime]:
-        return await self.repo.list_showtimes()
+    async def list_showtimes(self, created_by: uuid.UUID | None = None) -> list[Showtime]:
+        return await self.repo.list_showtimes(created_by=created_by)
+
 
     async def create_showtime(self, data: ShowtimeCreate) -> Showtime:
         showtime = Showtime(
