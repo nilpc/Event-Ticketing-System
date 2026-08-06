@@ -1,20 +1,13 @@
-"""FR-4: Repository for catalog read queries."""
-
 from __future__ import annotations
-
 from uuid import UUID
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from services.booking.models.event import Event
 from services.booking.models.seat import Seat
 from services.booking.models.showtime import Showtime
 from services.booking.models.venue import Venue
 
-
 class CatalogRepository:
-    """FR-4: Read-only catalog queries — SRP, NFR-6."""
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -32,9 +25,7 @@ class CatalogRepository:
         return result.scalar_one_or_none()
 
     async def get_seat_map(self, show_id: UUID) -> list[Seat]:
-        result = await self.session.execute(
-            select(Seat).where(Seat.show_id == show_id).order_by(Seat.seat_id)
-        )
+        result = await self.session.execute(select(Seat).where(Seat.show_id == show_id).order_by(Seat.seat_id))
         return list(result.scalars().all())
 
     async def get_showtimes_by_event(self, event_id: str) -> list[Showtime]:
@@ -42,7 +33,5 @@ class CatalogRepository:
         return list(result.scalars().all())
 
     async def list_showtimes(self) -> list[Showtime]:
-        result = await self.session.execute(
-            select(Showtime).order_by(Showtime.start_time)
-        )
+        result = await self.session.execute(select(Showtime).order_by(Showtime.start_time))
         return list(result.scalars().all())

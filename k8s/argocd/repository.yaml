@@ -1,6 +1,3 @@
-# ArgoCD bootstrap: register the public git repo as an ArgoCD repository.
-# The repo is public, so no credentials are required.
-# Apply with: kubectl apply -f k8s/argocd/
 apiVersion: v1
 kind: Secret
 metadata:

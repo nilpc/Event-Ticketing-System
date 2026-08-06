@@ -1,34 +1,18 @@
-# ── CloudFront ────────────────────────────────────────────────────────────
-# Provides HTTPS via *.cloudfront.net (no custom domain required).
-# Origin: internet-facing ALB created by AWS Load Balancer Controller.
-#
-# Cache strategy lives at the edge (NOT nginx):
-#   - HTML / SPA routes + API + WS: no CloudFront caching, and a response
-#     headers policy forces `Cache-Control: no-cache` on HTML responses so
-#     browsers always revalidate index.html (new deploys never stale-cached).
-#   - /assets/* (content-hashed bundles): cached 1y, immutable.
-
 data "aws_lb" "gateway" {
   tags = {
-    # Group-mode ingress: ALB controller tags the shared-group ALB with the
-    # group name only (not "namespace/ingress-name").
     "ingress.k8s.aws/stack" = "event-ticketing"
   }
 }
-
 locals {
   alb_domain  = data.aws_lb.gateway.dns_name
   alb_zone_id = data.aws_lb.gateway.zone_id
 }
-
-# Cache policy: no caching (HTML, SPA routes, API, WS)
 resource "aws_cloudfront_cache_policy" "no_cache" {
   name        = "event-ticketing-no-cache"
   comment     = "No caching at edge (TTL 0)"
   default_ttl = 0
   max_ttl     = 0
   min_ttl     = 0
-
   parameters_in_cache_key_and_forwarded_to_origin {
     cookies_config {
       cookie_behavior = "none"
@@ -41,19 +25,15 @@ resource "aws_cloudfront_cache_policy" "no_cache" {
     }
   }
 }
-
-# Cache policy: immutable content-hashed assets
 resource "aws_cloudfront_cache_policy" "assets" {
   name        = "event-ticketing-assets"
   comment     = "Cache hashed bundles 1y"
   default_ttl = 31536000
   max_ttl     = 31536000
   min_ttl     = 31536000
-
   parameters_in_cache_key_and_forwarded_to_origin {
     enable_accept_encoding_gzip   = true
     enable_accept_encoding_brotli = true
-
     cookies_config {
       cookie_behavior = "none"
     }
@@ -65,12 +45,9 @@ resource "aws_cloudfront_cache_policy" "assets" {
     }
   }
 }
-
-# Origin request policy: forward everything (auth cookies, Authorization)
 resource "aws_cloudfront_origin_request_policy" "all_viewer" {
   name    = "event-ticketing-all-viewer"
   comment = "Forward all headers, cookies, query strings to origin"
-
   cookies_config {
     cookie_behavior = "all"
   }
@@ -81,12 +58,9 @@ resource "aws_cloudfront_origin_request_policy" "all_viewer" {
     query_string_behavior = "all"
   }
 }
-
-# Origin request policy: forward nothing (static assets)
 resource "aws_cloudfront_origin_request_policy" "assets" {
   name    = "event-ticketing-assets-origin-request"
   comment = "Forward nothing for static assets"
-
   cookies_config {
     cookie_behavior = "none"
   }
@@ -97,12 +71,9 @@ resource "aws_cloudfront_origin_request_policy" "assets" {
     query_string_behavior = "none"
   }
 }
-
-# Response headers policy: force browser revalidation of HTML/SPA responses
 resource "aws_cloudfront_response_headers_policy" "no_cache" {
   name    = "event-ticketing-no-cache"
   comment = "Cache-Control: no-cache on index.html / SPA routes"
-
   custom_headers_config {
     items {
       header   = "Cache-Control"
@@ -111,40 +82,31 @@ resource "aws_cloudfront_response_headers_policy" "no_cache" {
     }
   }
 }
-
 resource "random_password" "cloudfront_secret" {
   length  = 32
   special = false
 }
-
 resource "aws_cloudfront_distribution" "this" {
   enabled             = true
   is_ipv6_enabled     = true
   comment             = "CloudFront distribution for Event Ticketing"
   default_root_object = "index.html"
-  price_class         = "PriceClass_100" # US + Europe only (cheapest)
-
-  # HTTP → HTTPS redirect
+  price_class         = "PriceClass_100"
   aliases = []
-
   origin {
     domain_name = local.alb_domain
     origin_id   = "alb-gateway"
-
     custom_header {
       name  = "X-CloudFront-Secret"
       value = random_password.cloudfront_secret.result
     }
-
     custom_origin_config {
       http_port              = 80
       https_port             = 443
-      origin_protocol_policy = "http-only" # ALB is HTTP-only
+      origin_protocol_policy = "http-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }
   }
-
-  # HTML, SPA routes, and anything else not matched below
   default_cache_behavior {
     target_origin_id           = "alb-gateway"
     viewer_protocol_policy     = "redirect-to-https"
@@ -155,8 +117,6 @@ resource "aws_cloudfront_distribution" "this" {
     origin_request_policy_id   = aws_cloudfront_origin_request_policy.all_viewer.id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.no_cache.id
   }
-
-  # Content-hashed bundles: cache 1y, immutable, no response header override
   ordered_cache_behavior {
     path_pattern             = "/assets/*"
     target_origin_id         = "alb-gateway"
@@ -167,51 +127,40 @@ resource "aws_cloudfront_distribution" "this" {
     cache_policy_id          = aws_cloudfront_cache_policy.assets.id
     origin_request_policy_id = aws_cloudfront_origin_request_policy.assets.id
   }
-
-  # Cache policy for API paths (no caching)
   ordered_cache_behavior {
     path_pattern           = "/v1/*"
     target_origin_id       = "alb-gateway"
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods         = ["GET", "HEAD"]
-
     cache_policy_id          = aws_cloudfront_cache_policy.no_cache.id
     origin_request_policy_id = aws_cloudfront_origin_request_policy.all_viewer.id
   }
-
-  # Cache policy for WS paths (no caching)
   ordered_cache_behavior {
     path_pattern           = "/ws/*"
     target_origin_id       = "alb-gateway"
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["GET", "HEAD", "OPTIONS"]
     cached_methods         = ["GET", "HEAD"]
-
     cache_policy_id          = aws_cloudfront_cache_policy.no_cache.id
     origin_request_policy_id = aws_cloudfront_origin_request_policy.all_viewer.id
   }
-
   restrictions {
     geo_restriction {
       restriction_type = "none"
     }
   }
-
   viewer_certificate {
     cloudfront_default_certificate = true
   }
-
   tags = merge(var.tags, {
     Name = "${var.cluster_name}-cloudfront"
   })
 }
-
 output "cloudfront_domain" {
   description = "CloudFront distribution domain name (HTTPS)"
   value       = aws_cloudfront_distribution.this.domain_name
 }
-
 output "cloudfront_origin_alb" {
   description = "Origin ALB DNS name"
   value       = local.alb_domain

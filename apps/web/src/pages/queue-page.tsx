@@ -8,11 +8,8 @@ import { queueApi } from "@/lib/api-routes";
 import { QUEUE_POLL_MS } from "@/lib/constants";
 import { useBookingFlow } from "@/stores/booking-store";
 import { Button } from "@/components/ui/button";
-
 type QueueState = "joining" | "waiting" | "admitted" | "error";
-
 const PREMIUM_EASE = [0.32, 0.72, 0, 1] as const;
-
 export default function QueuePage() {
   const { showId } = useParams<{ showId: string }>();
   const navigate = useNavigate();
@@ -21,14 +18,12 @@ export default function QueuePage() {
   const [position, setPosition] = useState<number | null>(null);
   const [error, setError] = useState("");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   const clearPolling = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
   }, []);
-
   const pollStatus = useCallback(
     (sid: string) => {
       const fetchStatus = async () => {
@@ -62,23 +57,19 @@ export default function QueuePage() {
     },
     [clearPolling, navigate, setQueueToken],
   );
-
   useEffect(() => {
     if (!showId) return;
     let cancelled = false;
-
     const init = async () => {
       try {
         const { data: recovered } = await queueApi.recoverQueue(showId);
         if (cancelled) return;
-
         if (recovered.status === "admitted") {
           if (recovered.queue_token) setQueueToken(recovered.queue_token, showId);
           toast.info("Resuming your session...");
           navigate(`/events/${showId}`);
           return;
         }
-
         const { data: result } = await queueApi.joinQueue({ show_id: showId });
         if (cancelled) return;
         if (result.queue_token) setQueueToken(result.queue_token, showId);
@@ -92,14 +83,12 @@ export default function QueuePage() {
         }
       }
     };
-
     init();
     return () => {
       cancelled = true;
       clearPolling();
     };
   }, [showId, navigate, pollStatus, clearPolling, setQueueToken]);
-
   return (
     <PageTransition>
       <div className="min-h-screen flex items-center justify-center px-4">
@@ -117,7 +106,6 @@ export default function QueuePage() {
                 <p className="text-muted-foreground">Joining queue...</p>
               </motion.div>
             )}
-
             {state === "waiting" && (
               <motion.div
                 key="waiting"
@@ -130,7 +118,6 @@ export default function QueuePage() {
                 <p className="text-muted-foreground/60 text-[10px] uppercase tracking-widest font-medium">
                   You&apos;re in the queue
                 </p>
-
                 <div className="relative flex items-center justify-center h-44">
                   <motion.div
                     className="absolute inset-0 rounded-full border-2 border-dashed border-primary/20"
@@ -155,7 +142,6 @@ export default function QueuePage() {
                     </AnimatePresence>
                   </div>
                 </div>
-
                 <div className="flex items-center justify-center gap-2 text-muted-foreground">
                   <span className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
@@ -163,7 +149,6 @@ export default function QueuePage() {
                   </span>
                   <span className="text-sm">Waiting to be admitted...</span>
                 </div>
-
                 <div className="w-full h-1 bg-muted/30 rounded-full overflow-hidden">
                   <motion.div
                     className="h-full bg-gradient-to-r from-primary/60 via-primary to-primary/60 rounded-full"
@@ -176,13 +161,11 @@ export default function QueuePage() {
                     style={{ width: "40%" }}
                   />
                 </div>
-
                 <p className="text-xs text-muted-foreground/40">
                   This may take a few minutes
                 </p>
               </motion.div>
             )}
-
             {state === "admitted" && (
               <motion.div
                 key="admitted"
@@ -207,7 +190,6 @@ export default function QueuePage() {
                 </p>
               </motion.div>
             )}
-
             {state === "error" && (
               <motion.div
                 key="error"

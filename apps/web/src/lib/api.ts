@@ -1,17 +1,14 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { IS_ADMIN_KEY, IS_MASTER_ADMIN_KEY } from "@/stores/auth-store";
-
 const api = axios.create({
   baseURL: "/v1",
   headers: { "Content-Type": "application/json" },
 });
-
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (token: string) => void;
   reject: (error: unknown) => void;
 }> = [];
-
 function processQueue(error: unknown, token: string | null = null) {
   failedQueue.forEach(({ resolve, reject }) => {
     if (error) {
@@ -22,7 +19,6 @@ function processQueue(error: unknown, token: string | null = null) {
   });
   failedQueue = [];
 }
-
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem("access_token");
   if (token && config.headers) {
@@ -30,7 +26,6 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   }
   return config;
 });
-
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -38,7 +33,6 @@ api.interceptors.response.use(
     if (!originalRequest || error.response?.status !== 401 || originalRequest._retry) {
       return Promise.reject(error);
     }
-
     if (isRefreshing) {
       return new Promise<string>((resolve, reject) => {
         failedQueue.push({ resolve, reject });
@@ -51,10 +45,8 @@ api.interceptors.response.use(
         })
         .catch((err) => Promise.reject(err));
     }
-
     originalRequest._retry = true;
     isRefreshing = true;
-
     const refreshToken = localStorage.getItem("refresh_token");
     if (!refreshToken) {
       isRefreshing = false;
@@ -65,7 +57,6 @@ api.interceptors.response.use(
       window.location.href = "/login";
       return Promise.reject(error);
     }
-
     try {
       const { data } = await axios.post("/v1/auth/refresh", { refresh_token: refreshToken });
       localStorage.setItem("access_token", data.access_token);
@@ -98,5 +89,4 @@ api.interceptors.response.use(
     }
   },
 );
-
 export default api;

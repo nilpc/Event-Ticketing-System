@@ -1,6 +1,5 @@
 ﻿import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { authApi } from "@/lib/api-routes";
-
 interface AuthContextValue {
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -9,14 +8,11 @@ interface AuthContextValue {
   login: (accessToken: string, refreshToken: string, is_admin?: boolean, is_master_admin?: boolean) => void;
   logout: () => void;
 }
-
 const AuthContext = createContext<AuthContextValue | null>(null);
-
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 export const IS_ADMIN_KEY = "is_admin";
 export const IS_MASTER_ADMIN_KEY = "is_master_admin";
-
 function parseJwtSub(token: string): string | null {
   try {
     const payload = token.split(".")[1];
@@ -28,25 +24,20 @@ function parseJwtSub(token: string): string | null {
     return null;
   }
 }
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return !!localStorage.getItem(ACCESS_TOKEN_KEY);
   });
-
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
     return localStorage.getItem(IS_ADMIN_KEY) === "true";
   });
-
   const [isMasterAdmin, setIsMasterAdmin] = useState<boolean>(() => {
     return localStorage.getItem(IS_MASTER_ADMIN_KEY) === "true";
   });
-
   const [userId, setUserId] = useState<string | null>(() => {
     const token = localStorage.getItem(ACCESS_TOKEN_KEY);
     return token ? parseJwtSub(token) : null;
   });
-
   useEffect(() => {
     const token = localStorage.getItem(ACCESS_TOKEN_KEY);
     if (token) {
@@ -59,7 +50,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserId(null);
     }
   }, []);
-
   const login = useCallback((accessToken: string, refreshToken: string, is_admin?: boolean, is_master_admin?: boolean) => {
     localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
@@ -80,7 +70,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsMasterAdmin(false);
     }
   }, []);
-
   const logout = useCallback(() => {
     const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
     if (refreshToken) {
@@ -95,15 +84,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsMasterAdmin(false);
     setUserId(null);
   }, []);
-
   return (
     <AuthContext.Provider value={{ isAuthenticated, isAdmin, isMasterAdmin, userId, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
-
-// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (!context) {

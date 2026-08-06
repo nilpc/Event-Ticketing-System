@@ -1,13 +1,10 @@
 name: CI
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-
 jobs:
-  # ── Parallel checks ────────────────────────────────────────────────
   backend-lint:
     runs-on: ubuntu-latest
     defaults:
@@ -21,7 +18,6 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: mypy core services --ignore-missing-imports
-
   backend-test:
     runs-on: ubuntu-latest
     defaults:
@@ -37,19 +33,11 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
       redis:
         image: redis:7-alpine
         ports:
           - 6379:6379
         options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
       DATABASE_URL: postgresql+asyncpg://testuser:testpass@localhost:5432/event_ticketing
       REDIS_URL: redis://localhost:6379/0
@@ -63,7 +51,6 @@ jobs:
           cache-dependency-path: apps/backend/pyproject.toml
       - run: pip install -e ".[dev]"
       - run: python -m pytest tests/identity/ tests/booking/test_integration.py tests/booking/test_concurrency.py tests/gateway/test_rate_limit.py tests/payment/ -x -q
-
   frontend-check:
     runs-on: ubuntu-latest
     steps:
@@ -79,7 +66,6 @@ jobs:
       - run: pnpm --filter @event-ticketing/web build
         env:
           VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
-
   rate-limit-cache-tests:
     runs-on: ubuntu-latest
     defaults:
@@ -95,19 +81,11 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
       redis:
         image: redis:7-alpine
         ports:
           - 6379:6379
         options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
       DATABASE_URL: postgresql+asyncpg://testuser:testpass@localhost:5432/event_ticketing
       REDIS_URL: redis://localhost:6379/0
@@ -121,7 +99,6 @@ jobs:
           cache-dependency-path: apps/backend/pyproject.toml
       - run: pip install -e ".[dev]"
       - run: python -m pytest tests/booking/test_cache.py tests/booking/test_catalog_cache.py -x -q
-
   websocket-tests:
     runs-on: ubuntu-latest
     defaults:
@@ -137,19 +114,11 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
       redis:
         image: redis:7-alpine
         ports:
           - 6379:6379
         options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
       DATABASE_URL: postgresql+asyncpg://testuser:testpass@localhost:5432/event_ticketing
       REDIS_URL: redis://localhost:6379/0
@@ -163,8 +132,6 @@ jobs:
           cache-dependency-path: apps/backend/pyproject.toml
       - run: pip install -e ".[dev]"
       - run: python -m pytest tests/gateway/test_websocket_manager.py -x -q
-
-  # ── Migration validation: fresh DB must migrate + seed cleanly ───
   migration-test:
     runs-on: ubuntu-latest
     defaults:
@@ -180,10 +147,6 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
       DATABASE_URL: postgresql+asyncpg://testuser:testpass@localhost:5432/event_ticketing
     steps:
@@ -197,8 +160,6 @@ jobs:
       - run: alembic upgrade head
       - name: Seed a fresh DB (validates seed.py + admin bootstrap)
         run: ADMIN_PASSWORD="CITestPass!234" python seed.py
-
-  # ── Docker build check: mirrors the images deploy.ps1 ships ──────
   docker-build:
     runs-on: ubuntu-latest
     steps:
@@ -208,4 +169,3 @@ jobs:
       - name: Build Web image
         run: >-
           docker build -t event-ticketing-web:ci --target web
-          --build-arg VITE_STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} .

@@ -3,10 +3,8 @@ import { Ticket, LogOut, Key } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/stores/auth-store";
-
 export default function Navbar() {
   const { isAuthenticated, isAdmin, logout } = useAuth();
-
   return (
     <motion.header
       initial={{ y: -64, opacity: 0 }}
@@ -21,7 +19,6 @@ export default function Navbar() {
           </div>
           <span className="font-bold text-lg tracking-tight">StageTicket</span>
         </Link>
-
         <nav className="flex items-center gap-1">
           {!isAuthenticated ? (
             <>

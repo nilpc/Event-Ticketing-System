@@ -1,4 +1,3 @@
-# NFR-7: Zero-trust NetworkPolicies — backend services accept traffic ONLY from the API gateway.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -20,8 +19,6 @@ spec:
       ports:
         - protocol: TCP
           port: 8000
----
-# Gateway accepts external ingress on port 8080.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

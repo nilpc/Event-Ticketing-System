@@ -33,7 +33,6 @@ import type {
   ShowtimeUpdateRequest,
   UserPromoteResponse,
 } from "../types/api";
-
 export const authApi = {
   signup(data: SignupRequest) {
     return api.post<SignupResponse>("/auth/signup", data);
@@ -60,7 +59,6 @@ export const authApi = {
     return api.post<void>("/auth/me/anonymize");
   },
 };
-
 export const catalogApi = {
   getVenues() {
     return api.get<VenueResponse[]>("/venues");
@@ -81,7 +79,6 @@ export const catalogApi = {
     return api.get<ShowtimeResponse[]>("/showtimes");
   },
 };
-
 export const queueApi = {
   joinQueue(data: QueueJoinRequest) {
     return api.post<QueueJoinResponse>("/queue/join", data);
@@ -93,7 +90,6 @@ export const queueApi = {
     return api.get<QueueRecoverResponse>("/queue/recover", { params: { show_id: showId } });
   },
 };
-
 export const bookingApi = {
   lockSeats(data: SeatLockRequest) {
     return api.post<SeatLockResponse>("/seats/lock", data);
@@ -109,7 +105,6 @@ export const bookingApi = {
     return api.get<BookingListItem[]>("/bookings");
   },
 };
-
 export const paymentApi = {
   createIntent(data: PaymentIntentRequest) {
     return api.post<PaymentIntentResponse>("/payments/intent", data);
@@ -120,13 +115,11 @@ export const paymentApi = {
     );
   },
 };
-
 export const confirmApi = {
   mockConfirm(bookingId: string) {
     return api.post<MockConfirmResponse>(`/book/${bookingId}/mock-confirm`);
   },
 };
-
 export const adminApi = {
   promoteUser(userId: string) {
     return api.post<UserPromoteResponse>(`/admin/users/${userId}/promote`);

@@ -1,15 +1,10 @@
-"""FR-5/FR-9: In-memory Stripe stand-ins for payment/webhook tests (no live API)."""
-
 from __future__ import annotations
-
 import uuid
 from types import SimpleNamespace
 
-
 class FakeStripeClient:
-    """FR-5: In-memory Stripe stand-in — records calls, returns canned intents."""
 
-    def __init__(self, intent_status: str = "requires_action") -> None:
+    def __init__(self, intent_status: str='requires_action') -> None:
         self.intent_status = intent_status
         self.created: list = []
         self.retrieved: list = []
@@ -18,22 +13,12 @@ class FakeStripeClient:
         self.created_pm_types: list[list[str] | None] = []
 
     def make_intent(self, intent_id: str) -> SimpleNamespace:
-        return SimpleNamespace(
-            id=intent_id,
-            client_secret=f"{intent_id}_secret",
-            status=self.intent_status,
-        )
+        return SimpleNamespace(id=intent_id, client_secret=f'{intent_id}_secret', status=self.intent_status)
 
-    async def create_payment_intent(
-        self,
-        amount_cents: int,
-        currency: str,
-        metadata: dict | None = None,
-        payment_method_types: list[str] | None = None,
-    ) -> SimpleNamespace:
+    async def create_payment_intent(self, amount_cents: int, currency: str, metadata: dict | None=None, payment_method_types: list[str] | None=None) -> SimpleNamespace:
         if self.create_error is not None:
             raise self.create_error
-        intent = self.make_intent(f"pi_created_{len(self.created) + 1}")
+        intent = self.make_intent(f'pi_created_{len(self.created) + 1}')
         self.created.append(intent)
         self.created_pm_types.append(payment_method_types)
         return intent
@@ -46,11 +31,9 @@ class FakeStripeClient:
     async def cancel_payment_intent(self, intent_id: str) -> None:
         self.cancelled.append(intent_id)
 
-
 class FakeWebhookProvider:
-    """FR-9: Replaces StripeClient.construct_webhook_event in WebhookService."""
 
-    def __init__(self, event: object, error: Exception | None = None) -> None:
+    def __init__(self, event: object, error: Exception | None=None) -> None:
         self.event = event
         self.error = error
 
@@ -59,18 +42,5 @@ class FakeWebhookProvider:
             raise self.error
         return self.event
 
-
-def make_stripe_event(
-    event_type: str,
-    metadata: dict,
-    event_id: str | None = None,
-    intent_id: str = "pi_test_123",
-) -> SimpleNamespace:
-    """Build a lightweight Stripe Event stand-in with a nested data.object."""
-    return SimpleNamespace(
-        id=event_id or f"evt_{uuid.uuid4().hex}",
-        type=event_type,
-        data=SimpleNamespace(
-            object=SimpleNamespace(id=intent_id, metadata=metadata)
-        ),
-    )
+def make_stripe_event(event_type: str, metadata: dict, event_id: str | None=None, intent_id: str='pi_test_123') -> SimpleNamespace:
+    return SimpleNamespace(id=event_id or f'evt_{uuid.uuid4().hex}', type=event_type, data=SimpleNamespace(object=SimpleNamespace(id=intent_id, metadata=metadata)))

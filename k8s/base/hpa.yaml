@@ -1,5 +1,3 @@
-# Phase 7: HorizontalPodAutoscaler — scale gateway deployments based on CPU.
----
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -22,7 +20,6 @@ spec:
         target:
           type: Utilization
           averageUtilization: 70
----
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

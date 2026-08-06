@@ -16,9 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageTransition } from "@/components/layout/page-transition";
 import { catalogApi } from "@/lib/api-routes";
 import type { ShowtimeResponse } from "@/types/api";
-
 const PREMIUM_EASE = [0.32, 0.72, 0, 1] as const;
-
 const containerVariants = {
   hidden: { opacity: 0, y: 32 },
   visible: {
@@ -27,12 +25,10 @@ const containerVariants = {
     transition: { duration: 0.6, ease: PREMIUM_EASE, staggerChildren: 0.08 },
   },
 };
-
 const childVariants = {
   hidden: { opacity: 0, y: 16 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: PREMIUM_EASE } },
 };
-
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     weekday: "short",
@@ -43,7 +39,6 @@ function formatDateTime(iso: string): string {
     minute: "2-digit",
   });
 }
-
 function EventSkeleton() {
   return (
     <Card className="overflow-hidden">
@@ -60,7 +55,6 @@ function EventSkeleton() {
     </Card>
   );
 }
-
 function ShowtimeSkeleton() {
   return (
     <Card>
@@ -71,11 +65,9 @@ function ShowtimeSkeleton() {
     </Card>
   );
 }
-
 export default function EventPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-
   const {
     data: events,
     isLoading: eventsLoading,
@@ -84,7 +76,6 @@ export default function EventPage() {
     queryKey: ["events"],
     queryFn: () => catalogApi.getEvents().then((r) => r.data),
   });
-
   const {
     data: venues,
     error: venuesError,
@@ -92,7 +83,6 @@ export default function EventPage() {
     queryKey: ["venues"],
     queryFn: () => catalogApi.getVenues().then((r) => r.data),
   });
-
   const {
     data: showtimes,
     isLoading: showtimesLoading,
@@ -102,14 +92,11 @@ export default function EventPage() {
     queryFn: () => catalogApi.getShowtimesByEvent(eventId!).then((r) => r.data),
     enabled: !!eventId,
   });
-
   if (eventsError || venuesError || showtimesError) {
     toast.error("Failed to load event details. Please try again.");
   }
-
   const event = events?.find((e) => e.event_id === eventId);
   const isMovie = event?.event_type === "MOVIE";
-
   const accentBar = isMovie
     ? "from-amber-500 via-orange-400 to-amber-500"
     : "from-emerald-500 via-teal-400 to-emerald-500";
@@ -117,14 +104,11 @@ export default function EventPage() {
     ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
     : "bg-primary/10 text-primary border border-primary/20";
   const typeColor = isMovie ? "text-amber-500" : "text-primary";
-
   const venueMap = new Map<string, string>();
   venues?.forEach((v) => venueMap.set(v.venue_id, v.name));
-
   const sortedShowtimes: ShowtimeResponse[] = [...(showtimes ?? [])].sort(
     (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
   );
-
   return (
     <PageTransition>
       <div className="min-h-screen py-16 md:py-24">
@@ -145,7 +129,6 @@ export default function EventPage() {
               Back to Catalog
             </Button>
           </motion.div>
-
           {eventsLoading ? (
             <motion.div variants={childVariants}>
               <EventSkeleton />
@@ -225,14 +208,12 @@ export default function EventPage() {
               </motion.div>
             )
           )}
-
           <motion.div variants={childVariants} className="mb-8">
             <h2 className="text-2xl font-bold tracking-tight">Select Showtime</h2>
             <p className="text-sm text-muted-foreground">
               Pick a date and time to view the seat map and book tickets.
             </p>
           </motion.div>
-
           {showtimesLoading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
@@ -261,14 +242,12 @@ export default function EventPage() {
                             </p>
                           </div>
                         </div>
-
                         <div className="flex items-center gap-2 lg:ml-6">
                           <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
                           <span className="text-sm text-muted-foreground">
                             {venueMap.get(st.venue_id) ?? st.venue_id.slice(0, 8)}
                           </span>
                         </div>
-
                         <div className="lg:ml-auto flex items-center gap-5">
                           <span className="text-xl font-bold">
                             <span className="text-gradient">

@@ -22,10 +22,8 @@ import { catalogApi } from "@/lib/api-routes";
 import { useAuth } from "@/stores/auth-store";
 import { useBookingFlow } from "@/stores/booking-store";
 import type { SeatResponse } from "@/types/api";
-
 const PREMIUM_EASE = [0.32, 0.72, 0, 1] as const;
 const MAX_SEATS = 8;
-
 const containerVariants = {
   hidden: { opacity: 0, y: 32 },
   visible: {
@@ -34,21 +32,17 @@ const containerVariants = {
     transition: { duration: 0.6, ease: PREMIUM_EASE, staggerChildren: 0.08 },
   },
 };
-
 const childVariants = {
   hidden: { opacity: 0, y: 16 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: PREMIUM_EASE } },
 };
-
 const seatVariants = {
   hidden: { opacity: 0, scale: 0.8 },
   visible: { opacity: 1, scale: 1, transition: { duration: 0.35, ease: PREMIUM_EASE } },
 };
-
 function SeatSkeleton() {
   return <Skeleton className="h-11 w-11 rounded-xl" />;
 }
-
 function InfoSkeleton() {
   return (
     <Card className="overflow-hidden">
@@ -64,7 +58,6 @@ function InfoSkeleton() {
     </Card>
   );
 }
-
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     weekday: "short",
@@ -75,7 +68,6 @@ function formatDate(iso: string): string {
     minute: "2-digit",
   });
 }
-
 function groupSeatsByTier(seats: SeatResponse[]): Record<string, SeatResponse[]> {
   const grouped: Record<string, SeatResponse[]> = {};
   for (const seat of seats) {
@@ -90,7 +82,6 @@ function groupSeatsByTier(seats: SeatResponse[]): Record<string, SeatResponse[]>
   }
   return sorted;
 }
-
 function seatButtonClasses(
   status: SeatResponse["status"],
   isSelected: boolean,
@@ -107,7 +98,6 @@ function seatButtonClasses(
       return "bg-muted/30 border border-white/[0.04] text-muted-foreground/40 cursor-not-allowed";
   }
 }
-
 function SeatIcon({ status, isSelected }: { status: SeatResponse["status"]; isSelected: boolean }) {
   if (isSelected) return <CheckCircle2 className="h-3 w-3" />;
   switch (status) {
@@ -119,15 +109,12 @@ function SeatIcon({ status, isSelected }: { status: SeatResponse["status"]; isSe
       return <XCircle className="h-3 w-3" />;
   }
 }
-
 export default function ShowtimePage() {
   const { showId } = useParams<{ showId: string }>();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { queueToken, queueShowId, selectedSeatIds, toggleSeat, showId: selectionShowId } = useBookingFlow();
-
   const selectionIsForThisShow = !!showId && selectionShowId === showId;
-
   const {
     data: showtime,
     isLoading: showtimeLoading,
@@ -137,7 +124,6 @@ export default function ShowtimePage() {
     queryFn: () => catalogApi.getShowtime(showId!).then((r) => r.data),
     enabled: !!showId,
   });
-
   const {
     data: seatMap,
     isLoading: seatMapLoading,
@@ -147,11 +133,9 @@ export default function ShowtimePage() {
     queryFn: () => catalogApi.getSeatMap(showId!).then((r) => r.data),
     enabled: !!showId,
   });
-
   if (showtimeError || seatMapError) {
     toast.error("Failed to load showtime details. Please try again.");
   }
-
   const handleSeatClick = (seat: SeatResponse) => {
     if (seat.status !== "AVAILABLE") return;
     if (!isAuthenticated) {
@@ -165,17 +149,14 @@ export default function ShowtimePage() {
     }
     toggleSeat(showId!, seat.seat_id);
   };
-
   const handleProceedToCheckout = () => {
     if (selectedSeatIds.length === 0) return;
     navigate(`/checkout/${showId}`);
   };
-
   const groupedSeats = seatMap ? groupSeatsByTier(seatMap.seats) : {};
   const availableCount = seatMap?.seats.filter((s) => s.status === "AVAILABLE").length ?? 0;
   const soldCount = seatMap?.seats.filter((s) => s.status === "SOLD").length ?? 0;
   const pendingCount = seatMap?.seats.filter((s) => s.status === "PENDING_PAYMENT").length ?? 0;
-
   const selectedSeatsTotal = selectionIsForThisShow
     ? seatMap
         ? seatMap.seats
@@ -183,9 +164,7 @@ export default function ShowtimePage() {
             .reduce((sum, s) => sum + parseFloat(s.price), 0)
         : 0
     : 0;
-
   const effectiveSelectedCount = selectionIsForThisShow ? selectedSeatIds.length : 0;
-
   return (
     <PageTransition>
       <div className="min-h-screen py-16 md:py-24">
@@ -206,7 +185,6 @@ export default function ShowtimePage() {
               Back to Catalog
             </Button>
           </motion.div>
-
           {showtimeLoading ? (
             <InfoSkeleton />
           ) : showtime ? (
@@ -233,7 +211,6 @@ export default function ShowtimePage() {
                         </p>
                       </div>
                     </div>
-
                     <div className="flex items-start gap-3">
                       <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10 shrink-0">
                         <Clock className="h-4 w-4 text-primary" />
@@ -245,7 +222,6 @@ export default function ShowtimePage() {
                         </p>
                       </div>
                     </div>
-
                     <div className="flex items-start gap-3">
                       <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10 shrink-0">
                         <MapPin className="h-4 w-4 text-primary" />
@@ -257,7 +233,6 @@ export default function ShowtimePage() {
                         </p>
                       </div>
                     </div>
-
                     <div className="flex items-start gap-3">
                       <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10 shrink-0">
                         <DollarSign className="h-4 w-4 text-primary" />
@@ -276,7 +251,6 @@ export default function ShowtimePage() {
               </Card>
             </motion.div>
           ) : null}
-
           {showtime && (
             <motion.div variants={childVariants} className="mb-10">
               <Card className="overflow-hidden">
@@ -323,8 +297,7 @@ export default function ShowtimePage() {
               </Card>
             </motion.div>
           )}
-
-          {/* Selected seats bar */}
+          {}
           <AnimatePresence>
             {selectionIsForThisShow && selectedSeatIds.length > 0 && (
               <motion.div
@@ -362,7 +335,6 @@ export default function ShowtimePage() {
               </motion.div>
             )}
           </AnimatePresence>
-
           <motion.div variants={childVariants}>
             <div className="flex items-center gap-3 mb-8">
               <h2 className="text-2xl font-bold tracking-tight">Seat Map</h2>
@@ -384,7 +356,6 @@ export default function ShowtimePage() {
               )}
             </div>
           </motion.div>
-
           {seatMapLoading ? (
             <div className="space-y-8">
               {[1, 2, 3].map((section) => (
@@ -452,7 +423,6 @@ export default function ShowtimePage() {
               <p>No seat data available for this showtime.</p>
             </div>
           )}
-
           <motion.div variants={childVariants} className="mt-16">
             <Card className="overflow-hidden">
               <CardContent className="py-6">

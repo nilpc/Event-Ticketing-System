@@ -1,4 +1,3 @@
-# Event Ticketing namespace — all services run here.
 apiVersion: v1
 kind: Namespace
 metadata:

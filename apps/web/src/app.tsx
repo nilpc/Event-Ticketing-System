@@ -8,7 +8,6 @@ import { AuthProvider } from "@/stores/auth-store";
 import { BookingFlowProvider } from "@/stores/booking-store";
 import Navbar from "@/components/layout/navbar";
 import ProtectedRoute from "@/components/layout/protected-route";
-
 const LoginPage = React.lazy(() => import("@/pages/login-page"));
 const SignupPage = React.lazy(() => import("@/pages/signup-page"));
 const GoogleCallbackPage = React.lazy(() => import("@/pages/google-callback-page"));
@@ -19,11 +18,9 @@ const QueuePage = React.lazy(() => import("@/pages/queue-page"));
 const CheckoutPage = React.lazy(() => import("@/pages/checkout-page"));
 const AccountPage = React.lazy(() => import("@/pages/account-page"));
 const AdminPage = React.lazy(() => import("@/pages/admin-page"));
-
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 });
-
 function Fallback() {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -31,7 +28,6 @@ function Fallback() {
     </div>
   );
 }
-
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>

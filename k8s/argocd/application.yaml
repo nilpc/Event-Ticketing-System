@@ -1,15 +1,3 @@
-# ArgoCD Application: GitOps source of truth for the event-ticketing workload.
-# Syncs the k8s/prod overlay from the git repo.
-#
-# Sync policy rationale:
-#   - automated.sync: true  -> deploys every push to main
-#   - prune: false          -> NEVER deletes resources not in git (e.g. the helm-managed
-#                              redis StatefulSet in the same namespace is left untouched)
-#   - selfHeal: false       -> manual `kubectl apply`/rollout-restart changes are not reverted
-#                              (deploy.ps1 relies on this for image rollouts)
-#
-# cert-manager, redis, keda, ESO, LB controller etc. are installed via helm (scripts/init.ps1)
-# and are intentionally OUTSIDE this Application.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

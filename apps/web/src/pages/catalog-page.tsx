@@ -19,9 +19,7 @@ import { catalogApi } from "@/lib/api-routes";
 import { MovieCard } from "@/components/catalog/movie-card";
 import { EventCard } from "@/components/catalog/event-card";
 import type { EventResponse } from "@/types/api";
-
 const PREMIUM_EASE = [0.32, 0.72, 0, 1] as const;
-
 const containerVariants = {
   hidden: { opacity: 0, y: 32 },
   visible: {
@@ -30,12 +28,10 @@ const containerVariants = {
     transition: { duration: 0.6, ease: PREMIUM_EASE, staggerChildren: 0.1 },
   },
 };
-
 const childVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: PREMIUM_EASE } },
 };
-
 function CardSkeleton() {
   return (
     <Card className="overflow-hidden">
@@ -51,14 +47,11 @@ function CardSkeleton() {
     </Card>
   );
 }
-
 type TabType = "all" | "movies" | "events";
-
 export default function CatalogPage() {
   const navigate = useNavigate();
   const [showtimeInput, setShowtimeInput] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("all");
-
   const {
     data: events,
     isLoading: eventsLoading,
@@ -67,25 +60,20 @@ export default function CatalogPage() {
     queryKey: ["events"],
     queryFn: () => catalogApi.getEvents().then((r) => r.data),
   });
-
   if (eventsError) {
     toast.error("Failed to load catalog data. Please try again.");
   }
-
   const movies = events?.filter((e) => e.event_type === "MOVIE") ?? [];
   const liveEvents = events?.filter((e) => e.event_type === "EVENT") ?? [];
-
   const filteredEvents =
     activeTab === "movies"
       ? movies
       : activeTab === "events"
         ? liveEvents
         : events ?? [];
-
   const handleShowtimeSearch = () => {
     const trimmed = showtimeInput.trim();
     if (!trimmed) return;
-
     const isPrefixedId = /^(STE|STM)\d{2,}$/i.test(trimmed);
     if (isPrefixedId) {
       navigate(`/event/${trimmed.toUpperCase()}`);
@@ -93,23 +81,20 @@ export default function CatalogPage() {
       navigate(`/events/${trimmed}`);
     }
   };
-
   const lookupId = showtimeInput.trim().toUpperCase();
   const isPrefixedId = /^(STE|STM)\d{2,}$/.test(lookupId);
   const matchedEvent = isPrefixedId
     ? events?.find((e) => e.event_id === lookupId)
     : null;
-
   const tabs: { key: TabType; label: string; icon: React.ReactNode; count: number }[] = [
     { key: "all", label: "All", icon: <Zap className="h-3.5 w-3.5" />, count: events?.length ?? 0 },
     { key: "movies", label: "Movies", icon: <Film className="h-3.5 w-3.5" />, count: movies.length },
     { key: "events", label: "Events", icon: <CalendarDays className="h-3.5 w-3.5" />, count: liveEvents.length },
   ];
-
   return (
     <PageTransition>
       <div className="min-h-screen">
-        {/* Hero - cinematic spacing */}
+        {}
         <motion.section
           className="relative py-32 md:py-48 overflow-hidden"
           variants={containerVariants}
@@ -119,7 +104,6 @@ export default function CatalogPage() {
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="h-[800px] w-[800px] rounded-full bg-primary/[0.03] blur-[120px]" />
           </div>
-
           <div className="relative max-w-4xl mx-auto px-6 text-center">
             <motion.div variants={childVariants} className="mb-6">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20">
@@ -143,18 +127,16 @@ export default function CatalogPage() {
             </motion.p>
           </div>
         </motion.section>
-
-        {/* Tabs + Content */}
+        {}
         <motion.section
           className="max-w-6xl mx-auto px-6 pb-24"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-          {/* Tab Bar - pill design */}
+          {}
           <motion.div variants={childVariants} className="flex items-center gap-4 mb-10">
             <h2 className="text-2xl font-bold tracking-tight">Browse</h2>
-
             <div className="ml-auto flex gap-1 bg-muted/30 p-1 rounded-full border border-white/[0.04]">
               {tabs.map((tab) => (
                 <button
@@ -175,8 +157,7 @@ export default function CatalogPage() {
               ))}
             </div>
           </motion.div>
-
-          {/* Cards Grid */}
+          {}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {eventsLoading
               ? Array.from({ length: 3 }).map((_, i) => (
@@ -193,7 +174,6 @@ export default function CatalogPage() {
                       />
                     );
                   }
-
                   return (
                     <EventCard
                       key={event.event_id}
@@ -202,15 +182,13 @@ export default function CatalogPage() {
                   );
                 })}
           </div>
-
           {!eventsLoading && filteredEvents.length === 0 && (
             <div className="text-center py-20 text-muted-foreground">
               <p>No {activeTab === "all" ? "" : activeTab} found.</p>
             </div>
           )}
         </motion.section>
-
-        {/* Search by ID */}
+        {}
         <motion.section
           className="max-w-6xl mx-auto px-6 pb-32"
           variants={containerVariants}
@@ -245,7 +223,6 @@ export default function CatalogPage() {
                     <Search className="h-4 w-4" />
                   </Button>
                 </div>
-
                 {isPrefixedId && showtimeInput.trim() && (
                   <div className="mt-4 max-w-md mx-auto">
                     {matchedEvent ? (

@@ -13,16 +13,12 @@ import { Label } from "@/components/ui/label";
 import { authApi } from "@/lib/api-routes";
 import { useAuth } from "@/stores/auth-store";
 import type { AxiosError } from "axios";
-
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
-
 type LoginForm = z.infer<typeof loginSchema>;
-
 const PREMIUM_EASE = [0.32, 0.72, 0, 1] as const;
-
 const containerVariants = {
   hidden: { opacity: 0, y: 32 },
   visible: {
@@ -31,17 +27,14 @@ const containerVariants = {
     transition: { duration: 0.6, ease: PREMIUM_EASE, staggerChildren: 0.08 },
   },
 };
-
 const childVariants = {
   hidden: { opacity: 0, y: 16 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: PREMIUM_EASE } },
 };
-
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login: storeLogin } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-
   const {
     register,
     handleSubmit,
@@ -49,7 +42,6 @@ export default function LoginPage() {
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   });
-
   const loginMutation = useMutation({
     mutationFn: (data: LoginForm) => authApi.login(data).then((r) => r.data),
     onSuccess: (data) => {
@@ -64,7 +56,6 @@ export default function LoginPage() {
       toast.error(error.response?.data?.detail || "Login failed. Please try again.");
     },
   });
-
   const googleMutation = useMutation({
     mutationFn: () => authApi.getGoogleAuthUrl().then((r) => r.data),
     onSuccess: (data) => {
@@ -74,11 +65,9 @@ export default function LoginPage() {
       toast.error("Failed to initiate Google sign-in.");
     },
   });
-
   const onSubmit = (data: LoginForm) => {
     loginMutation.mutate(data);
   };
-
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <motion.div
@@ -96,7 +85,6 @@ export default function LoginPage() {
               Sign in to your account
             </p>
           </motion.div>
-
           <motion.div variants={childVariants}>
             <div className="flex rounded-full bg-muted/30 p-1 mb-6 border border-white/[0.04]">
               <div className="flex-1 text-center py-2 text-sm font-medium bg-primary/15 text-primary rounded-full border border-primary/20">
@@ -110,7 +98,6 @@ export default function LoginPage() {
               </Link>
             </div>
           </motion.div>
-
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <motion.div variants={childVariants} className="space-y-2">
               <Label className="text-xs font-medium text-muted-foreground">Email</Label>
@@ -128,7 +115,6 @@ export default function LoginPage() {
                 <p className="text-xs text-destructive">{errors.email.message}</p>
               )}
             </motion.div>
-
             <motion.div variants={childVariants} className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-medium text-muted-foreground">Password</Label>
@@ -160,7 +146,6 @@ export default function LoginPage() {
                 <p className="text-xs text-destructive">{errors.password.message}</p>
               )}
             </motion.div>
-
             <motion.div variants={childVariants}>
               <Button
                 type="submit"
@@ -179,7 +164,6 @@ export default function LoginPage() {
               </Button>
             </motion.div>
           </form>
-
           <motion.div variants={childVariants} className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -189,7 +173,6 @@ export default function LoginPage() {
                 <span className="bg-card/50 px-3 text-muted-foreground/40">or</span>
               </div>
             </div>
-
             <Button
               type="button"
               variant="outline"
@@ -223,7 +206,6 @@ export default function LoginPage() {
               Sign up with Google
             </Button>
           </motion.div>
-
           <motion.p
             variants={childVariants}
             className="text-center text-sm text-muted-foreground mt-6"

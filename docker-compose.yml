@@ -1,22 +1,3 @@
-# Local development stack. Mirrors the Kubernetes deployment (k8s/base) so the
-# same Docker images run here and in production:
-#   postgres → redis → api (FastAPI) + web (nginx) [+ workers profile]
-#
-# Usage:
-#   docker compose up --build                  # start the full stack
-#   docker compose up -d --build               # detached
-#   docker compose --profile workers up -d     # + standalone worker containers
-#   docker compose down -v                     # stop and wipe the DB volume
-#
-# The api service already runs the three background workers in-process (FR-9 /
-# NFR-3), so they are NOT started by default. Start them as separate containers
-# with the `workers` profile to mirror the k8s/base worker deployments exactly.
-#
-# Host ports are configurable via .env (see .env.example). Defaults avoid
-# clashing with a host Postgres on 5432:
-#   POSTGRES_PORT=5433  REDIS_PORT=6379  WEB_PORT=8080
-# After boot, open http://localhost:8080 (admin seeded with ADMIN_PASSWORD).
-
 x-backend: &backend
   build:
     context: .
@@ -26,13 +7,10 @@ x-backend: &backend
   environment:
     DATABASE_URL: postgresql+asyncpg://testuser:testpass@postgres:5432/event_ticketing
     REDIS_URL: redis://redis:6379/0
-    # Browser origin of the SPA — CORS must match it.
     CORS_ORIGINS: ${WEB_ORIGIN:-http://localhost:8080}
     CLIENT_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
-    # Empty JWT keys → entrypoint.sh generates ephemeral RSA keys (dev mode).
     JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
     JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
-    # Seeded master admin password. Unset → a random one is printed in api logs.
     ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -45,7 +23,6 @@ x-backend: &backend
       condition: service_healthy
     redis:
       condition: service_healthy
-
 services:
   postgres:
     image: postgres:16
@@ -63,7 +40,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -74,12 +50,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-
   api:
     <<: *backend
-    # Runs migrations + seed on first boot (entrypoint.sh), then serves gunicorn
-    # on :8000. The image HEALTHCHECK drives `depends_on: service_healthy`.
-
   web:
     build:
       context: .
@@ -94,27 +66,23 @@ services:
     depends_on:
       api:
         condition: service_healthy
-
   sweeper:
     <<: *backend
     profiles: ["workers"]
     command: ["python", "-m", "services.workers", "sweeper"]
     healthcheck:
       disable: true
-
   relay:
     <<: *backend
     profiles: ["workers"]
     command: ["python", "-m", "services.workers", "relay"]
     healthcheck:
       disable: true
-
   admitter:
     <<: *backend
     profiles: ["workers"]
     command: ["python", "-m", "services.workers", "admitter"]
     healthcheck:
       disable: true
-
 volumes:
   pgdata:

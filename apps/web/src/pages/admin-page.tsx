@@ -11,13 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DateTimeInput } from "@/components/ui/date-time-input";
 import type { EventType, AdminEventResponse, VenueResponse, ShowtimeResponse } from "@/types/api";
-
 type Tab = "catalog" | "newshow" | "users";
-
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("catalog");
   const { isMasterAdmin } = useAuth();
-
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: "catalog", label: "Catalog", icon: <Film className="h-4 w-4" /> },
     { key: "newshow", label: "New Show", icon: <Plus className="h-4 w-4" /> },
@@ -25,7 +22,6 @@ export default function AdminPage() {
   if (isMasterAdmin) {
     tabs.push({ key: "users", label: "Users", icon: <Users className="h-4 w-4" /> });
   }
-
   return (
     <PageTransition>
       <div className="min-h-screen px-4 py-16 md:py-24">
@@ -36,7 +32,6 @@ export default function AdminPage() {
             </div>
             <h1 className="text-xl font-semibold tracking-tight">Merchant Dashboard</h1>
           </div>
-
           <div className="flex gap-1 p-1 rounded-xl bg-muted/30">
             {tabs.map((t) => (
               <button
@@ -53,7 +48,6 @@ export default function AdminPage() {
               </button>
             ))}
           </div>
-
           {tab === "catalog" && <CatalogTab />}
           {tab === "newshow" && <NewShowTab />}
           {tab === "users" && <UsersTab />}
@@ -62,31 +56,23 @@ export default function AdminPage() {
     </PageTransition>
   );
 }
-
-// ── Catalog Tab ────────────────────────────────────────────────────────────
-
 function CatalogTab() {
   const queryClient = useQueryClient();
   const { userId, isMasterAdmin } = useAuth();
-
   const canManageEvent = (e: AdminEventResponse) =>
     isMasterAdmin || (e.created_by != null && e.created_by === userId);
-
   const { data: events, isLoading: eventsLoading } = useQuery({
     queryKey: ["adminEvents"],
     queryFn: () => adminApi.getAllEvents().then((r) => r.data),
   });
-
   const { data: venues, isLoading: venuesLoading } = useQuery({
     queryKey: ["adminVenues"],
     queryFn: () => catalogApi.getVenues().then((r) => r.data),
   });
-
   const { data: showtimes, isLoading: showtimesLoading } = useQuery({
     queryKey: ["adminShowtimes"],
     queryFn: () => adminApi.getAllShowtimes().then((r) => r.data),
   });
-
   const deleteEvent = useMutation({
     mutationFn: (id: string) => adminApi.deleteEvent(id),
     onSuccess: () => { toast.success("Event deleted."); queryClient.invalidateQueries({ queryKey: ["adminEvents"] }); },
@@ -102,7 +88,6 @@ function CatalogTab() {
     onSuccess: () => { toast.success("Showtime deleted."); queryClient.invalidateQueries({ queryKey: ["adminShowtimes"] }); },
     onError: () => { toast.error("Failed to delete showtime."); },
   });
-
   const updateEvent = useMutation({
     mutationFn: ({ id, data }: { id: string; data: { name?: string; description?: string; event_type?: EventType } }) =>
       adminApi.updateEvent(id, data),
@@ -121,10 +106,8 @@ function CatalogTab() {
     onSuccess: () => { toast.success("Showtime updated."); queryClient.invalidateQueries({ queryKey: ["adminShowtimes"] }); },
     onError: () => { toast.error("Failed to update showtime."); },
   });
-
   const eventMap = (events ?? []).reduce<Record<string, AdminEventResponse>>((m, e) => { m[e.event_id] = e; return m; }, {});
   const venueMap = (venues ?? []).reduce<Record<string, VenueResponse>>((m, v) => { m[v.venue_id] = v; return m; }, {});
-
   return (
     <div className="space-y-8">
       <Section title="Events & Movies" icon={<Film className="h-4 w-4" />} loading={eventsLoading} empty="No events yet."
@@ -140,7 +123,6 @@ function CatalogTab() {
           />
         ))}
       </Section>
-
       <Section title="Venues" icon={<MapPin className="h-4 w-4" />} loading={venuesLoading} empty="No venues yet."
         count={venues?.length}>
         {venues?.map((v) => (
@@ -154,7 +136,6 @@ function CatalogTab() {
           />
         ))}
       </Section>
-
       <Section title="Showtimes" icon={<Calendar className="h-4 w-4" />} loading={showtimesLoading} empty="No showtimes yet."
         count={showtimes?.length}>
         {showtimes?.map((s) => {
@@ -180,7 +161,6 @@ function CatalogTab() {
     </div>
   );
 }
-
 function Section({ title, icon, loading, empty, count, children }: {
   title: string; icon: React.ReactNode; loading: boolean; empty: string;
   count?: number; children: React.ReactNode;
@@ -202,9 +182,6 @@ function Section({ title, icon, loading, empty, count, children }: {
     </div>
   );
 }
-
-// ── Editable Event Row ─────────────────────────────────────────────────────
-
 function EditableEventRow({ event, canManage, onUpdate, onDelete, isPending }: {
   event: AdminEventResponse;
   canManage: boolean;
@@ -216,10 +193,8 @@ function EditableEventRow({ event, canManage, onUpdate, onDelete, isPending }: {
   const [name, setName] = useState(event.name);
   const [desc, setDesc] = useState(event.description ?? "");
   const [eventType, setEventType] = useState<EventType>(event.event_type);
-
   const save = () => { onUpdate({ name, description: desc || undefined, event_type: eventType }); setEditing(false); };
   const cancel = () => { setName(event.name); setDesc(event.description ?? ""); setEventType(event.event_type); setEditing(false); };
-
   if (editing) {
     return (
       <div className="p-3 rounded-xl bg-muted/20 space-y-2">
@@ -241,7 +216,6 @@ function EditableEventRow({ event, canManage, onUpdate, onDelete, isPending }: {
       </div>
     );
   }
-
   return (
     <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20">
       <div>
@@ -263,9 +237,6 @@ function EditableEventRow({ event, canManage, onUpdate, onDelete, isPending }: {
     </div>
   );
 }
-
-// ── Editable Venue Row ─────────────────────────────────────────────────────
-
 function EditableVenueRow({ venue, isMasterAdmin, onUpdate, onDelete, isPending }: {
   venue: VenueResponse;
   isMasterAdmin: boolean;
@@ -276,10 +247,8 @@ function EditableVenueRow({ venue, isMasterAdmin, onUpdate, onDelete, isPending 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(venue.name);
   const [capacity, setCapacity] = useState(String(venue.capacity));
-
   const save = () => { onUpdate({ name, capacity: parseInt(capacity, 10) }); setEditing(false); };
   const cancel = () => { setName(venue.name); setCapacity(String(venue.capacity)); setEditing(false); };
-
   if (editing) {
     return (
       <div className="p-3 rounded-xl bg-muted/20 space-y-2">
@@ -296,7 +265,6 @@ function EditableVenueRow({ venue, isMasterAdmin, onUpdate, onDelete, isPending 
       </div>
     );
   }
-
   return (
     <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20">
       <div>
@@ -318,9 +286,6 @@ function EditableVenueRow({ venue, isMasterAdmin, onUpdate, onDelete, isPending 
     </div>
   );
 }
-
-// ── Editable Showtime Row ──────────────────────────────────────────────────
-
 function EditableShowtimeRow({ showtime, eventLabel, venueLabel, canManage, onUpdate, onDelete, isPending }: {
   showtime: ShowtimeResponse;
   eventLabel: string;
@@ -334,7 +299,6 @@ function EditableShowtimeRow({ showtime, eventLabel, venueLabel, canManage, onUp
   const [price, setPrice] = useState(showtime.base_price);
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
-
   const save = () => {
     const data: { base_price?: number; start_time?: string; end_time?: string } = {};
     if (price !== showtime.base_price) data.base_price = parseFloat(price);
@@ -349,7 +313,6 @@ function EditableShowtimeRow({ showtime, eventLabel, venueLabel, canManage, onUp
     if (Object.keys(data).length > 0) onUpdate(data);
     setEditing(false);
   };
-
   if (editing) {
     return (
       <div className="p-3 rounded-xl bg-muted/20 space-y-2">
@@ -369,7 +332,6 @@ function EditableShowtimeRow({ showtime, eventLabel, venueLabel, canManage, onUp
       </div>
     );
   }
-
   return (
     <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20">
       <div>
@@ -391,47 +353,36 @@ function EditableShowtimeRow({ showtime, eventLabel, venueLabel, canManage, onUp
     </div>
   );
 }
-
-// ── New Show Tab ───────────────────────────────────────────────────────────
-
 function NewShowTab() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { userId, isMasterAdmin } = useAuth();
-
   const [eventMode, setEventMode] = useState<"select" | "new">("select");
   const [selectedEventId, setSelectedEventId] = useState("");
   const [newEventName, setNewEventName] = useState("");
   const [newEventType, setNewEventType] = useState<EventType>("MOVIE");
   const [newEventDesc, setNewEventDesc] = useState("");
-
   const [venueMode, setVenueMode] = useState<"select" | "new">("select");
   const [selectedVenueId, setSelectedVenueId] = useState("");
   const [newVenueName, setNewVenueName] = useState("");
   const [newVenueCapacity, setNewVenueCapacity] = useState("");
-
   const [price, setPrice] = useState("");
   const [slots, setSlots] = useState<{ id: number; start: string; end: string }[]>([]);
   const slotCounter = useRef(0);
-
   const { data: events } = useQuery({
     queryKey: ["adminEvents"],
     queryFn: () => adminApi.getAllEvents().then((r) => r.data),
   });
-
   const visibleEvents = (events ?? []).filter(
     (e) => isMasterAdmin || (e.created_by != null && e.created_by === userId),
   );
-
   const { data: venues } = useQuery({
     queryKey: ["adminVenues"],
     queryFn: () => adminApi.getAllVenues().then((r) => r.data),
   });
-
   const visibleVenues = (venues ?? []).filter(
     (v) => isMasterAdmin || (v.created_by != null && v.created_by === userId),
   );
-
   const addSlot = () =>
     setSlots((prev) => [...prev, { id: ++slotCounter.current, start: "", end: "" }]);
   const removeSlot = (id: number) => setSlots((prev) => prev.filter((s) => s.id !== id));
@@ -439,7 +390,6 @@ function NewShowTab() {
     setSlots((prev) => prev.map((s) => (s.id === id ? { ...s, start } : s)));
   const setSlotEnd = (id: number, end: string) =>
     setSlots((prev) => prev.map((s) => (s.id === id ? { ...s, end } : s)));
-
   const slotValid = slots.map((s) => {
     const startD = s.start ? new Date(s.start) : null;
     const endD = s.end ? new Date(s.end) : null;
@@ -454,12 +404,10 @@ function NewShowTab() {
     };
   });
   const allSlotsValid = slots.length > 0 && slotValid.every((s) => s.valid);
-
   const submit = useMutation({
     mutationFn: async () => {
       let eventId = selectedEventId;
       let venueId = selectedVenueId;
-
       if (eventMode === "new") {
         const res = await adminApi.createEvent({
           event_type: newEventType,
@@ -468,7 +416,6 @@ function NewShowTab() {
         });
         eventId = res.data.event_id;
       }
-
       if (venueMode === "new") {
         const res = await adminApi.createVenue({
           name: newVenueName,
@@ -476,7 +423,6 @@ function NewShowTab() {
         });
         venueId = res.data.venue_id;
       }
-
       const batchSlots = slotValid
         .filter((s) => s.valid)
         .map((s) => ({ start_time: s.startIso!, end_time: s.endIso! }));
@@ -508,15 +454,13 @@ function NewShowTab() {
       toast.error(err.response?.data?.detail ?? "Failed to create show.");
     },
   });
-
   const canSubmit =
     (eventMode === "select" ? !!selectedEventId : !!newEventName.trim()) &&
     (venueMode === "select" ? !!selectedVenueId : !!newVenueName.trim() && !!newVenueCapacity && parseInt(newVenueCapacity, 10) >= 1) &&
     !!price && allSlotsValid;
-
   return (
     <div className="space-y-6">
-      {/* Event */}
+      {}
       <Card>
         <SectionLabel icon={<Film className="h-3.5 w-3.5" />} text="Event / Movie" />
         <RadioGroup value={eventMode} onChange={setEventMode} />
@@ -554,8 +498,7 @@ function NewShowTab() {
           </div>
         )}
       </Card>
-
-      {/* Venue */}
+      {}
       <Card>
         <SectionLabel icon={<MapPin className="h-3.5 w-3.5" />} text="Venue" />
         <RadioGroup value={venueMode} onChange={setVenueMode} />
@@ -584,8 +527,7 @@ function NewShowTab() {
           </div>
         )}
       </Card>
-
-      {/* Showtime */}
+      {}
       <Card>
         <SectionLabel icon={<Calendar className="h-3.5 w-3.5" />} text="Showtime Slots" />
         <div className="space-y-3">
@@ -599,7 +541,6 @@ function NewShowTab() {
               </Button>
             </div>
           </div>
-
           {slots.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               Add one or more date/time slots — each slot creates its own showtime.
@@ -636,7 +577,6 @@ function NewShowTab() {
           </p>
         </div>
       </Card>
-
       <Button onClick={() => submit.mutate()} disabled={!canSubmit || submit.isPending} className="w-full rounded-full" size="lg">
         {submit.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
         {submit.isPending ? "Creating Shows…" : `Create ${slots.length > 0 ? `${slots.length} ` : ""}Show${slots.length === 1 ? "" : "s"}`}
@@ -644,13 +584,9 @@ function NewShowTab() {
     </div>
   );
 }
-
-// ── Users Tab ─────────────────────────────────────────────────────────────
-
 function UsersTab() {
   const [userId, setUserId] = useState("");
   const [result, setResult] = useState<{ email: string } | null>(null);
-
   const promoteUser = useMutation({
     mutationFn: (uid: string) => adminApi.promoteUser(uid).then(r => r.data),
     onSuccess: (data) => {
@@ -662,7 +598,6 @@ function UsersTab() {
       toast.error(err.response?.data?.detail ?? "Failed to promote user.");
     },
   });
-
   return (
     <div className="space-y-4">
       <div className="p-6 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl space-y-4">
@@ -697,7 +632,6 @@ function UsersTab() {
     </div>
   );
 }
-
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div className="p-6 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl space-y-4">
@@ -705,7 +639,6 @@ function Card({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
 function SectionLabel({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
     <div className="flex items-center gap-2">
@@ -714,7 +647,6 @@ function SectionLabel({ icon, text }: { icon: React.ReactNode; text: string }) {
     </div>
   );
 }
-
 function RadioGroup({ value, onChange }: { value: "select" | "new"; onChange: (v: "select" | "new") => void }) {
   return (
     <div className="flex gap-4 text-sm">
@@ -729,7 +661,6 @@ function RadioGroup({ value, onChange }: { value: "select" | "new"; onChange: (v
     </div>
   );
 }
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">

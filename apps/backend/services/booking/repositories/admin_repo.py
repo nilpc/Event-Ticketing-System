@@ -1,25 +1,17 @@
-"""Admin CRUD repository — write operations for events, venues, showtimes."""
-
 from __future__ import annotations
-
 from uuid import UUID
-
 from sqlalchemy import delete, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from services.booking.models.event import Event
 from services.booking.models.seat import Seat
 from services.booking.models.showtime import Showtime
 from services.booking.models.venue import Venue
 
-
 class AdminRepository:
-    """Write-only admin queries — SRP, NFR-6."""
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    # ── Events ─────────────────────────────────────────────────────
     async def create_event(self, event: Event) -> Event:
         self.session.add(event)
         await self.session.flush()
@@ -47,7 +39,6 @@ class AdminRepository:
     async def delete_event(self, event_id: str) -> None:
         await self.session.execute(delete(Event).where(Event.event_id == event_id))
 
-    # ── Venues ─────────────────────────────────────────────────────
     async def create_venue(self, venue: Venue) -> Venue:
         self.session.add(venue)
         await self.session.flush()
@@ -75,21 +66,16 @@ class AdminRepository:
     async def delete_venue(self, venue_id: UUID) -> None:
         await self.session.execute(delete(Venue).where(Venue.venue_id == venue_id))
 
-    # ── Showtimes ──────────────────────────────────────────────────
     async def list_showtimes(self) -> list[Showtime]:
         result = await self.session.execute(select(Showtime).order_by(Showtime.start_time))
         return list(result.scalars().all())
 
     async def list_showtimes_by_event(self, event_id: str) -> list[Showtime]:
-        result = await self.session.execute(
-            select(Showtime).where(Showtime.event_id == event_id)
-        )
+        result = await self.session.execute(select(Showtime).where(Showtime.event_id == event_id))
         return list(result.scalars().all())
 
     async def list_showtimes_by_venue(self, venue_id: UUID) -> list[Showtime]:
-        result = await self.session.execute(
-            select(Showtime).where(Showtime.venue_id == venue_id)
-        )
+        result = await self.session.execute(select(Showtime).where(Showtime.venue_id == venue_id))
         return list(result.scalars().all())
 
     async def create_showtime(self, showtime: Showtime) -> Showtime:
@@ -112,14 +98,7 @@ class AdminRepository:
         await self.session.execute(delete(Seat).where(Seat.show_id == show_id))
         await self.session.execute(delete(Showtime).where(Showtime.show_id == show_id))
 
-    # ── Seats ──────────────────────────────────────────────────────
     async def create_seats(self, rows: list[dict]) -> None:
-        """Bulk-insert seat rows without populating the ORM identity map.
-
-        NFR-x: keeps memory bounded when auto-generating seats for large
-        venues (e.g. 20k+ capacity) instead of holding every Seat ORM
-        object until commit.
-        """
         if not rows:
             return
         await self.session.execute(insert(Seat), rows)

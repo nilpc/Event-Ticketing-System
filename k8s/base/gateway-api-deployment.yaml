@@ -33,7 +33,6 @@ spec:
                   matchLabels:
                     app.kubernetes.io/name: gateway-api
                 topologyKey: kubernetes.io/hostname
-
       initContainers:
         - name: migrate
           image: event-ticketing-api:latest
@@ -54,7 +53,6 @@ spec:
             limits:
               cpu: 200m
               memory: 128Mi
-
       containers:
         - name: api
           image: event-ticketing-api:latest
@@ -68,7 +66,6 @@ spec:
             - name: http
               containerPort: 8000
               protocol: TCP
-
           resources:
             requests:
               cpu: 100m
@@ -76,7 +73,6 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
-
           livenessProbe:
             httpGet:
               path: /health
@@ -85,7 +81,6 @@ spec:
             periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 3
-
           readinessProbe:
             httpGet:
               path: /ready
@@ -94,11 +89,9 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
-
           envFrom:
             - secretRef:
                 name: event-ticketing-secrets
-
           lifecycle:
             preStop:
               exec:

@@ -1,6 +1,4 @@
-#!/bin/sh
 set -e
-
 echo "==> Writing JWT keys from environment..."
 if [ -n "$JWT_PRIVATE_KEY" ]; then
     echo "$JWT_PRIVATE_KEY" > certs/private.pem
@@ -16,16 +14,12 @@ if [ ! -f certs/private.pem ] || [ ! -f certs/public.pem ]; then
     openssl genrsa -out certs/private.pem 2048 2>/dev/null
     openssl rsa -in certs/private.pem -pubout -out certs/public.pem 2>/dev/null
 fi
-
-# K8s pods run migrations via an initContainer/Job and keep seed data in RDS,
-# so DB init is opt-out at the container level (RUN_DB_INIT=false).
 if [ "${RUN_DB_INIT:-true}" = "true" ]; then
     echo "==> Checking database..."
     python -c "
 import os, asyncio
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
-
 async def check():
     engine = create_async_engine(os.getenv('DATABASE_URL'))
     async with engine.begin() as conn:
@@ -45,23 +39,14 @@ async def check():
             else:
                 print('    Database OK')
     await engine.dispose()
-
 asyncio.run(check())
 "
-
     echo "==> Running migrations..."
     alembic upgrade head
-
     echo "==> Seeding database..."
     python seed.py
 else
     echo "==> RUN_DB_INIT=false — skipping migrations/seed (managed by k8s initContainer/Job)"
 fi
-
 echo "==> Starting server..."
 exec gunicorn services.gateway.app:create_app \
-  --worker-class uvicorn.workers.UvicornWorker \
-  --workers 2 \
-  --bind 0.0.0.0:8000 \
-  --timeout 120 \
-  --access-logfile -

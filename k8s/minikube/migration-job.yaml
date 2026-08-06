@@ -1,4 +1,3 @@
-# FR-13: Migration job for Minikube (no Helm hooks).
 apiVersion: batch/v1
 kind: Job
 metadata:

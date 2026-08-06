@@ -1,9 +1,7 @@
 ﻿import { createContext, useCallback, useContext, useState } from "react";
-
 const QUEUE_TOKEN_KEY = "ets_queue_token";
 const QUEUE_SHOW_KEY = "ets_queue_show_id";
 const SELECTED_SEATS_KEY = "ets_selected_seats";
-
 interface BookingFlowState {
   showId: string | null;
   selectedSeatIds: string[];
@@ -12,7 +10,6 @@ interface BookingFlowState {
   bookingId: string | null;
   idempotencyKey: string | null;
 }
-
 interface BookingFlowContextValue extends BookingFlowState {
   setShowId: (showId: string) => void;
   setQueueToken: (token: string, showId?: string) => void;
@@ -22,9 +19,7 @@ interface BookingFlowContextValue extends BookingFlowState {
   setBookingResult: (bookingId: string) => void;
   reset: () => void;
 }
-
 const BookingFlowContext = createContext<BookingFlowContextValue | null>(null);
-
 function readPersistedQueueToken(): string | null {
   try {
     return localStorage.getItem(QUEUE_TOKEN_KEY);
@@ -32,7 +27,6 @@ function readPersistedQueueToken(): string | null {
     return null;
   }
 }
-
 function readPersistedQueueShowId(): string | null {
   try {
     return localStorage.getItem(QUEUE_SHOW_KEY);
@@ -40,7 +34,6 @@ function readPersistedQueueShowId(): string | null {
     return null;
   }
 }
-
 function readPersistedSeats(): { showId: string | null; seatIds: string[] } {
   try {
     const raw = localStorage.getItem(SELECTED_SEATS_KEY);
@@ -57,7 +50,6 @@ function readPersistedSeats(): { showId: string | null; seatIds: string[] } {
     return { showId: null, seatIds: [] };
   }
 }
-
 export function BookingFlowProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<BookingFlowState>(() => {
     const persistedSeats = readPersistedSeats();
@@ -70,11 +62,9 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
       idempotencyKey: null,
     };
   });
-
   const setShowId = useCallback((showId: string) => {
     setState((prev) => ({ ...prev, showId }));
   }, []);
-
   const setQueueToken = useCallback((token: string, showId?: string) => {
     try {
       localStorage.setItem(QUEUE_TOKEN_KEY, token);
@@ -82,7 +72,6 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
         localStorage.setItem(QUEUE_SHOW_KEY, showId);
       }
     } catch {
-      // storage unavailable
     }
     setState((prev) => ({
       ...prev,
@@ -90,7 +79,6 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
       queueShowId: showId ?? prev.queueShowId,
     }));
   }, []);
-
   const toggleSeat = useCallback((showId: string, seatId: string) => {
     setState((prev) => {
       const currentSeatIds = prev.showId === showId ? prev.selectedSeatIds : [];
@@ -98,7 +86,6 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
       const nextSeatIds = isSelected
         ? currentSeatIds.filter((id) => id !== seatId)
         : [...currentSeatIds, seatId];
-
       try {
         if (nextSeatIds.length > 0) {
           localStorage.setItem(
@@ -109,9 +96,7 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
           localStorage.removeItem(SELECTED_SEATS_KEY);
         }
       } catch {
-        // storage unavailable
       }
-
       return {
         ...prev,
         showId,
@@ -119,16 +104,13 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
       };
     });
   }, []);
-
   const clearSelectedSeats = useCallback(() => {
     try {
       localStorage.removeItem(SELECTED_SEATS_KEY);
     } catch {
-      // storage unavailable
     }
     setState((prev) => ({ ...prev, showId: null, selectedSeatIds: [] }));
   }, []);
-
   const setLockedSeats = useCallback((seatIds: string[], idempotencyKey: string, showId: string) => {
     setState((prev) => ({
       ...prev,
@@ -137,18 +119,15 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
       idempotencyKey,
     }));
   }, []);
-
   const setBookingResult = useCallback((bookingId: string) => {
     setState((prev) => ({ ...prev, bookingId }));
   }, []);
-
   const reset = useCallback(() => {
     try {
       localStorage.removeItem(QUEUE_TOKEN_KEY);
       localStorage.removeItem(QUEUE_SHOW_KEY);
       localStorage.removeItem(SELECTED_SEATS_KEY);
     } catch {
-      // storage unavailable
     }
     setState({
       showId: null,
@@ -159,7 +138,6 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
       idempotencyKey: null,
     });
   }, []);
-
   return (
     <BookingFlowContext.Provider
       value={{
@@ -177,8 +155,6 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
     </BookingFlowContext.Provider>
   );
 }
-
-// eslint-disable-next-line react-refresh/only-export-components
 export function useBookingFlow(): BookingFlowContextValue {
   const context = useContext(BookingFlowContext);
   if (!context) {

@@ -17,9 +17,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-
 const PREMIUM_EASE = [0.32, 0.72, 0, 1] as const;
-
 const container = {
   hidden: { opacity: 0 },
   show: {
@@ -27,12 +25,10 @@ const container = {
     transition: { staggerChildren: 0.1, ease: PREMIUM_EASE },
   },
 };
-
 const item = {
   hidden: { opacity: 0, y: 24 },
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: PREMIUM_EASE } },
 };
-
 export default function AccountPage() {
   const navigate = useNavigate();
   const { userId, logout } = useAuth();
@@ -41,13 +37,11 @@ export default function AccountPage() {
   const [loading, setLoading] = useState<"delete" | "anonymize" | null>(
     null,
   );
-
   const { data: bookings, isLoading: bookingsLoading, isError: bookingsError, refetch: refetchBookings } = useQuery({
     queryKey: ["userBookings"],
     queryFn: () => bookingApi.getUserBookings().then((r) => r.data),
     retry: 1,
   });
-
   const handleDelete = async () => {
     setLoading("delete");
     try {
@@ -62,7 +56,6 @@ export default function AccountPage() {
       setDeleteOpen(false);
     }
   };
-
   const handleAnonymize = async () => {
     setLoading("anonymize");
     try {
@@ -77,13 +70,11 @@ export default function AccountPage() {
       setAnonymizeOpen(false);
     }
   };
-
   const handleLogout = () => {
     logout();
     navigate("/");
     toast.success("Logged out");
   };
-
   return (
     <PageTransition>
       <div className="max-w-3xl mx-auto px-6 py-16 md:py-24">
@@ -95,14 +86,13 @@ export default function AccountPage() {
         >
           Account Settings
         </motion.h1>
-
         <motion.div
           variants={container}
           initial="hidden"
           animate="show"
           className="space-y-6"
         >
-          {/* Profile Card */}
+          {}
           <motion.div variants={item} className="p-6 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10">
@@ -126,8 +116,7 @@ export default function AccountPage() {
               </div>
             </div>
           </motion.div>
-
-          {/* My Bookings */}
+          {}
           <motion.div variants={item} className="p-6 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10">
@@ -207,8 +196,7 @@ export default function AccountPage() {
               </div>
             )}
           </motion.div>
-
-          {/* GDPR Data Controls */}
+          {}
           <motion.div variants={item} className="p-6 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10">
@@ -216,7 +204,6 @@ export default function AccountPage() {
               </div>
               <h2 className="text-lg font-semibold">Data &amp; Privacy</h2>
             </div>
-
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/[0.04]">
                 <div>
@@ -234,7 +221,6 @@ export default function AccountPage() {
                   Delete
                 </Button>
               </div>
-
               <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/[0.04]">
                 <div>
                   <p className="text-sm">Anonymize my data</p>
@@ -253,8 +239,7 @@ export default function AccountPage() {
               </div>
             </div>
           </motion.div>
-
-          {/* Session Info */}
+          {}
           <motion.div variants={item} className="p-6 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10">
@@ -275,8 +260,7 @@ export default function AccountPage() {
             </div>
           </motion.div>
         </motion.div>
-
-        {/* Delete Account Dialog */}
+        {}
         <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
           <DialogContent className="rounded-2xl border border-white/[0.06] bg-card/80 backdrop-blur-xl">
             <DialogHeader>
@@ -310,8 +294,7 @@ export default function AccountPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
-        {/* Anonymize Account Dialog */}
+        {}
         <Dialog open={anonymizeOpen} onOpenChange={setAnonymizeOpen}>
           <DialogContent className="rounded-2xl border border-white/[0.06] bg-card/80 backdrop-blur-xl">
             <DialogHeader>

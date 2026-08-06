@@ -5,24 +5,19 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { authApi } from "@/lib/api-routes";
 import { useAuth } from "@/stores/auth-store";
-
 export default function GoogleCallbackPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { login: storeLogin } = useAuth();
-
   useEffect(() => {
     const code = searchParams.get("code");
     const state = searchParams.get("state");
-
     if (!code || !state) {
       toast.error("Missing authentication parameters.");
       navigate("/login");
       return;
     }
-
     let cancelled = false;
-
     authApi
       .handleGoogleCallback(code, state)
       .then((res) => {
@@ -39,12 +34,10 @@ export default function GoogleCallbackPage() {
         toast.error("Google sign-in failed. Please try again.");
         navigate("/login");
       });
-
     return () => {
       cancelled = true;
     };
   }, [searchParams, navigate, storeLogin]);
-
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <motion.div

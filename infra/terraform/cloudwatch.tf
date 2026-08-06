@@ -1,17 +1,12 @@
-# CloudWatch dashboard for operational visibility.
-# Requires ALB, EKS, RDS, WAF, and NAT Gateway to exist.
 locals {
   cw_dashboard_name = "${var.cluster_name}-operations"
 }
-
 resource "aws_cloudwatch_dashboard" "this" {
   dashboard_name = local.cw_dashboard_name
-
   dashboard_body = jsonencode({
     start          = "-PT6H"
     periodOverride = "auto"
     widgets = [
-      # ── Row 1: EKS + NAT ──────────────────────────────────────────
       {
         type   = "metric"
         x      = 0
@@ -46,7 +41,6 @@ resource "aws_cloudwatch_dashboard" "this" {
           title  = "NAT Gateway Traffic"
         }
       },
-      # ── Row 2: ALB ────────────────────────────────────────────────
       {
         type   = "metric"
         x      = 0
@@ -80,7 +74,6 @@ resource "aws_cloudwatch_dashboard" "this" {
           title  = "ALB Target Response Time"
         }
       },
-      # ── Row 3: RDS ────────────────────────────────────────────────
       {
         type   = "metric"
         x      = 0
@@ -114,7 +107,6 @@ resource "aws_cloudwatch_dashboard" "this" {
           title  = "RDS CPU / Memory"
         }
       },
-      # ── Row 4: WAF ────────────────────────────────────────────────
       {
         type   = "metric"
         x      = 0
@@ -132,7 +124,6 @@ resource "aws_cloudwatch_dashboard" "this" {
           title  = "WAF Request Action"
         }
       },
-      # ── Row 5: Cost ──────────────────────────────────────────────
       {
         type   = "metric"
         x      = 6
@@ -150,7 +141,6 @@ resource "aws_cloudwatch_dashboard" "this" {
           setPeriodToTimeRange = true
         }
       },
-      # ── Row 6: Custom text ────────────────────────────────────────
       {
         type   = "text"
         x      = 0

@@ -1,4 +1,3 @@
-# Outbox Relay Deployment — polls outbox_events every 5s with FOR UPDATE SKIP LOCKED.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -29,7 +28,6 @@ spec:
                   matchLabels:
                     app.kubernetes.io/name: relay
                 topologyKey: kubernetes.io/hostname
-
       containers:
         - name: relay
           image: event-ticketing-api:latest
@@ -47,7 +45,6 @@ spec:
             limits:
               cpu: 200m
               memory: 128Mi
-
           livenessProbe:
             exec:
               command:
@@ -58,7 +55,6 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
-
           envFrom:
             - secretRef:
                 name: event-ticketing-secrets

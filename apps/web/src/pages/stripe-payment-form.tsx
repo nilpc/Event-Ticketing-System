@@ -11,16 +11,13 @@ import {
 import type { StripeError } from "@stripe/stripe-js";
 import { Button } from "@/components/ui/button";
 import { paymentApi } from "@/lib/api-routes";
-
 const PREMIUM_EASE = [0.32, 0.72, 0, 1] as const;
-
 interface StripePaymentFormProps {
   totalPrice: number;
   paymentId: string;
   onSuccess: () => void;
   onError: (msg: string) => void;
 }
-
 export default function StripePaymentForm({
   totalPrice,
   paymentId,
@@ -30,11 +27,9 @@ export default function StripePaymentForm({
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) return;
-
     setProcessing(true);
     try {
       const { error, paymentIntent } = await stripe.confirmPayment({
@@ -44,7 +39,6 @@ export default function StripePaymentForm({
         },
         redirect: "if_required",
       });
-
       if (error) {
         const msg = handleStripeError(error);
         onError(msg);
@@ -52,14 +46,12 @@ export default function StripePaymentForm({
         setProcessing(false);
         return;
       }
-
       if (paymentIntent && paymentIntent.status === "succeeded") {
         let syncOk = false;
         try {
           const syncRes = await paymentApi.syncPayment(paymentId);
           syncOk = syncRes.data.booking_status === "CONFIRMED";
         } catch (syncErr) {
-          // Stripe has captured the payment — log for debugging but don't block
           console.error("syncPayment failed:", syncErr);
           toast.warning(
             "Payment captured by Stripe. If your booking doesn't appear in a few seconds, please refresh your account page.",
@@ -85,7 +77,6 @@ export default function StripePaymentForm({
       setProcessing(false);
     }
   };
-
   return (
     <motion.form
       onSubmit={handleSubmit}
@@ -104,7 +95,6 @@ export default function StripePaymentForm({
           Complete Payment
         </h2>
       </div>
-
       <PaymentElement
         options={{
           layout: "tabs",
@@ -112,7 +102,6 @@ export default function StripePaymentForm({
           wallets: { link: "never" },
         }}
       />
-
       <Button
         type="submit"
         className="w-full"
@@ -131,7 +120,6 @@ export default function StripePaymentForm({
     </motion.form>
   );
 }
-
 function handleStripeError(error: StripeError): string {
   switch (error.type) {
     case "card_error":
@@ -141,5 +129,3 @@ function handleStripeError(error: StripeError): string {
       return "Payment failed. Please try again.";
   }
 }
-
-

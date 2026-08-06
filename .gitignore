@@ -1,4 +1,3 @@
-# ── Python ──────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
@@ -6,66 +5,53 @@ __pycache__/
 *.egg
 *.whl
 
-# ── Virtual environments ────────────────────────────────────────────────
 venv/
 .venv/
 ENV/
 
-# ── Environment / secrets ───────────────────────────────────────────────
 .env
 .env.*
 !.env.example
 certs/
 *.pem
 
-# ── Testing ─────────────────────────────────────────────────────────────
 .pytest_cache/
 .coverage
 htmlcov/
 .hypothesis/
 test-results.xml
 
-# ── Load testing ────────────────────────────────────────────────────────
 locustfile.py
 report.html
 
-# ── Type checking / linting ────────────────────────────────────────────
 .mypy_cache/
 .ruff_cache/
 
-# ── Alembic ─────────────────────────────────────────────────────────────
 **/migrations/versions/__pycache__/
 
-# ── Node / JS ───────────────────────────────────────────────────────────
 node_modules/
 dist/
 .turbo/
 package-lock.json
 
-# ── Frontend build / AI agent artifacts ─────────────────────────────────
 apps/web/dist/
 apps/web/node_modules/
 apps/web/.agents/
 apps/web/skills-lock.json
 
-# ── Logs ────────────────────────────────────────────────────────────────
 *.log
 
-# ── Checkpoint / test scripts ──────────────────────────────────────────
 _ckpt_*.py
 
-# ── IDE ─────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# ── OS ──────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# ── Terraform ──────────────────────────────────────────────────────────
 infra/terraform/.terraform/
 infra/terraform/.terraform.lock.hcl
 infra/terraform/*.tfstate
@@ -76,8 +62,15 @@ infra/terraform/*.tfplan
 infra/terraform/terraform.tfvars
 !infra/terraform/terraform.tfvars.example
 
-# ── Misc ────────────────────────────────────────────────────────────────
+docs/HLD.md
+docs/LLD.md
+AGENTS.md
+.github/skills/
+.github/hooks/
+
 *.tmp
+
 *.bak
 docker-compose.override.yml
 .opencode/
+

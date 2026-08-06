@@ -1,5 +1,3 @@
-# FR-9: Sweeper Deployment — reverts zombie PENDING bookings every 60s.
-# No HTTP server; liveness is process-based.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,7 +28,6 @@ spec:
                   matchLabels:
                     app.kubernetes.io/name: sweeper
                 topologyKey: kubernetes.io/hostname
-
       containers:
         - name: sweeper
           image: event-ticketing-api:latest
@@ -48,8 +45,6 @@ spec:
             limits:
               cpu: 200m
               memory: 128Mi
-
-          # FR-12: Liveness — process alive check
           livenessProbe:
             exec:
               command:
@@ -60,7 +55,6 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
-
           envFrom:
             - secretRef:
                 name: event-ticketing-secrets

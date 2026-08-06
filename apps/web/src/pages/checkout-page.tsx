@@ -24,27 +24,21 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { SeatResponse } from "@/types/api";
 import StripePaymentForm from "./stripe-payment-form";
-
 const stripePromise = loadStripe(
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "",
 );
-
 type CheckoutStage = "locking" | "booking" | "payment" | "complete";
-
 const PREMIUM_EASE = [0.32, 0.72, 0, 1] as const;
-
 const STAGES = [
   { key: "locking" as const, label: "Locking Seats" },
   { key: "booking" as const, label: "Creating Booking" },
   { key: "payment" as const, label: "Payment" },
 ];
-
 function formatTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
-
 export default function CheckoutPage() {
   const { showId } = useParams<{ showId: string }>();
   const navigate = useNavigate();
@@ -59,7 +53,6 @@ export default function CheckoutPage() {
   } = useBookingFlow();
   const [localIdempotencyKey, setLocalIdempotencyKey] = useState<string | null>(null);
   const [queueValidated, setQueueValidated] = useState(false);
-
   const [stage, setStage] = useState<CheckoutStage>("locking");
   const [error, setError] = useState("");
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
@@ -69,16 +62,13 @@ export default function CheckoutPage() {
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   const stageIndex = STAGES.findIndex((s) => s.key === stage);
-
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
   }, []);
-
   useEffect(() => {
     if (!expiresAt) return;
     const tick = () => {
@@ -97,12 +87,9 @@ export default function CheckoutPage() {
     timerRef.current = setInterval(tick, 1000);
     return clearTimer;
   }, [expiresAt, clearTimer, navigate, showId]);
-
-  // Validate queue session
   useEffect(() => {
     if (!showId) return;
     let cancelled = false;
-
     const validate = async () => {
       if (!queueToken) {
         setQueueValidated(true);
@@ -125,16 +112,12 @@ export default function CheckoutPage() {
         }
       }
     };
-
     validate();
     return () => { cancelled = true; };
   }, [showId, queueToken, setQueueToken, navigate]);
-
-  // Lock all selected seats
   useEffect(() => {
     if (!showId || selectedSeatIds.length === 0 || stage !== "locking" || !queueValidated) return;
     let cancelled = false;
-
     const lock = async () => {
       try {
         const { data } = await bookingApi.lockSeats({
@@ -142,7 +125,6 @@ export default function CheckoutPage() {
           seat_ids: selectedSeatIds,
         });
         if (cancelled) return;
-
         setLockedSeats(data.locked_seat_ids, data.idempotency_key, showId);
         setLocalIdempotencyKey(data.idempotency_key);
         setExpiresAt(new Date(data.expires_at).getTime());
@@ -160,24 +142,18 @@ export default function CheckoutPage() {
         }
       }
     };
-
     lock();
     return () => {
       cancelled = true;
     };
   }, [showId, selectedSeatIds, stage, queueValidated, setLockedSeats]);
-
-  // Create booking
   useEffect(() => {
     if (!showId || selectedSeatIds.length === 0 || stage !== "booking" || !localIdempotencyKey) return;
-
     if (!queueToken) {
       setError("Queue session expired. Please rejoin the queue.");
       return;
     }
-
     let cancelled = false;
-
     const book = async () => {
       try {
         const result = await bookingApi.bookSeats(
@@ -199,7 +175,6 @@ export default function CheckoutPage() {
         }
       }
     };
-
     book();
     return () => {
       cancelled = true;
@@ -212,12 +187,9 @@ export default function CheckoutPage() {
     queueToken,
     setBookingResult,
   ]);
-
-  // Fetch seat prices and create PaymentIntent on entering payment stage
   useEffect(() => {
     if (!showId || selectedSeatIds.length === 0 || stage !== "payment") return;
     let cancelled = false;
-
     const init = async () => {
       try {
         const [mapResult, intentResult] = await Promise.all([
@@ -238,26 +210,21 @@ export default function CheckoutPage() {
         }
       }
     };
-
     if (bookingId) init();
     return () => { cancelled = true; };
   }, [showId, selectedSeatIds, stage, bookingId]);
-
   const totalPrice = seatPrices.reduce((sum, s) => sum + parseFloat(s.price), 0);
-
   const handlePaymentSuccess = () => {
     setStage("complete");
     resetBookingFlow();
     setTimeout(() => navigate("/account"), 1500);
   };
-
   const handlePaymentError = (msg: string) => {
     setPaymentError(msg);
     if (msg.includes("expired") || msg.includes("Expired")) {
       setError("Booking has expired. Please start over.");
     }
   };
-
   const timerColor =
     timeLeft !== null
       ? timeLeft < 60
@@ -266,7 +233,6 @@ export default function CheckoutPage() {
           ? "text-amber-400"
           : "text-muted-foreground"
       : "text-muted-foreground";
-
   if (error) {
     return (
       <PageTransition>
@@ -282,12 +248,11 @@ export default function CheckoutPage() {
       </PageTransition>
     );
   }
-
   return (
     <PageTransition>
       <div className="min-h-screen px-4 py-16 md:py-24">
         <div className="max-w-lg mx-auto space-y-8">
-          {/* Countdown Timer */}
+          {}
           {timeLeft !== null && stage !== "complete" && (
             <div
               className={cn(
@@ -299,8 +264,7 @@ export default function CheckoutPage() {
               Time remaining: {formatTime(timeLeft)}
             </div>
           )}
-
-          {/* Stepper */}
+          {}
           <div className="p-6 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl">
             <div className="flex items-center justify-between">
               {STAGES.map((s, i) => (
@@ -338,8 +302,7 @@ export default function CheckoutPage() {
               ))}
             </div>
           </div>
-
-          {/* Selected seats summary */}
+          {}
           {selectedSeatIds.length > 0 && stage !== "complete" && (
             <div className="p-4 rounded-2xl border border-white/[0.06] bg-card/50 backdrop-blur-xl">
               <div className="flex items-center gap-2 mb-2">
@@ -350,8 +313,7 @@ export default function CheckoutPage() {
               </div>
             </div>
           )}
-
-          {/* Stage Content */}
+          {}
           <AnimatePresence mode="wait">
             {stage === "locking" && (
               <motion.div
@@ -365,7 +327,6 @@ export default function CheckoutPage() {
                 <p className="text-muted-foreground">Securing your seats...</p>
               </motion.div>
             )}
-
             {stage === "booking" && (
               <motion.div
                 key="booking"
@@ -378,7 +339,6 @@ export default function CheckoutPage() {
                 <p className="text-muted-foreground">Creating your booking...</p>
               </motion.div>
             )}
-
             {stage === "payment" && !clientSecret && !paymentError && (
               <motion.div
                 key="loading-stripe"
@@ -391,7 +351,6 @@ export default function CheckoutPage() {
                 <p className="text-muted-foreground">Preparing payment...</p>
               </motion.div>
             )}
-
             {stage === "payment" && clientSecret && (
               <Elements
                 stripe={stripePromise}
@@ -425,7 +384,6 @@ export default function CheckoutPage() {
                 />
               </Elements>
             )}
-
             {stage === "complete" && (
               <motion.div
                 key="complete"
