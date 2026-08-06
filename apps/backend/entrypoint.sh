@@ -1,3 +1,4 @@
+#!/bin/sh
 set -e
 echo "==> Writing JWT keys from environment..."
 if [ -n "$JWT_PRIVATE_KEY" ]; then
