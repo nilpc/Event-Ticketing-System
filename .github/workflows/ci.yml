@@ -167,5 +167,5 @@ jobs:
       - name: Build API image
         run: docker build -t event-ticketing-api:ci --target api .
       - name: Build Web image
-        run: >-
-          docker build -t event-ticketing-web:ci --target web
+        run: docker build -t event-ticketing-web:ci --target web .
+
