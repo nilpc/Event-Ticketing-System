@@ -46,24 +46,31 @@ def _setup_database():
     from core.config import settings
     from core.db.base import Base
 
-    sync_url = settings.DATABASE_URL.replace("+asyncpg", "").replace(
-        "ssl=require", "sslmode=require"
-    )
-    sync_engine = create_engine(sync_url)
-    with sync_engine.begin() as conn:
-        conn.execute(text("DROP SCHEMA IF EXISTS identity CASCADE"))
-        conn.execute(text("DROP SCHEMA IF EXISTS booking CASCADE"))
-        conn.execute(text("CREATE SCHEMA identity"))
-        conn.execute(text("CREATE SCHEMA booking"))
-        Base.metadata.create_all(bind=conn)
-        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS booking.event_serial_seq START 1"))
-        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS booking.movie_serial_seq START 1"))
-    yield
-    with sync_engine.begin() as conn:
-        Base.metadata.drop_all(bind=conn)
-        conn.execute(text("DROP SCHEMA IF EXISTS identity CASCADE"))
-        conn.execute(text("DROP SCHEMA IF EXISTS booking CASCADE"))
-    sync_engine.dispose()
+    try:
+        sync_url = settings.DATABASE_URL.replace("+asyncpg", "").replace(
+            "ssl=require", "sslmode=require"
+        )
+        sync_engine = create_engine(sync_url)
+        with sync_engine.begin() as conn:
+            conn.execute(text("DROP SCHEMA IF EXISTS identity CASCADE"))
+            conn.execute(text("DROP SCHEMA IF EXISTS booking CASCADE"))
+            conn.execute(text("CREATE SCHEMA identity"))
+            conn.execute(text("CREATE SCHEMA booking"))
+            Base.metadata.create_all(bind=conn)
+            conn.execute(text("CREATE SEQUENCE IF NOT EXISTS booking.event_serial_seq START 1"))
+            conn.execute(text("CREATE SEQUENCE IF NOT EXISTS booking.movie_serial_seq START 1"))
+        yield
+        try:
+            with sync_engine.begin() as conn:
+                Base.metadata.drop_all(bind=conn)
+                conn.execute(text("DROP SCHEMA IF EXISTS identity CASCADE"))
+                conn.execute(text("DROP SCHEMA IF EXISTS booking CASCADE"))
+            sync_engine.dispose()
+        except Exception:
+            pass
+    except Exception:
+        yield
+
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -71,8 +78,12 @@ async def _dispose_pool():
     yield
     from core.db.session import engine, register_pool_listeners
 
-    await engine.dispose()
-    register_pool_listeners()
+    try:
+        await engine.dispose()
+        register_pool_listeners()
+    except Exception:
+        pass
+
 
 
 @pytest_asyncio.fixture

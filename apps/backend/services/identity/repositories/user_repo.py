@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import hashlib
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.identity.models.user import RefreshToken, User
@@ -60,17 +62,12 @@ class UserRepository:
         )
 
     async def link_google_subject(self, user_id: UUID, google_subject_id: str) -> bool:
-        from typing import cast
-        from sqlalchemy.engine import CursorResult
-
         result = await self.session.execute(
             update(User)
             .where(User.user_id == user_id, User.google_subject_id.is_(None))
             .values(google_subject_id=google_subject_id)
         )
         return cast(CursorResult, result).rowcount > 0
-
-
 
     async def find_refresh_token_with_user(
         self, token_hash: str

@@ -36,7 +36,6 @@ def init_sentry(dsn: str, environment: str = "development") -> None:
             SqlalchemyIntegration(),
         ],
         before_send=_scrub_request,  # type: ignore[arg-type]
-
         send_default_pii=False,
     )
     logger.info("sentry_initialized", environment=environment)

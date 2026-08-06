@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.enums import SeatStatus
@@ -29,11 +31,8 @@ class SeatRepository:
                 )
                 .values(status=SeatStatus.PENDING_PAYMENT)
             )
-            from typing import cast
-            from sqlalchemy.engine import CursorResult
 
             results[seat_id] = "ok" if cast(CursorResult, result).rowcount else "unavailable"
-
 
         return results
 
