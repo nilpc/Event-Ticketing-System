@@ -1,3 +1,4 @@
+#!/bin/sh
 set -e
 echo "==> Writing JWT keys from environment..."
 if [ -n "$JWT_PRIVATE_KEY" ]; then
@@ -49,4 +50,5 @@ else
     echo "==> RUN_DB_INIT=false — skipping migrations/seed (managed by k8s initContainer/Job)"
 fi
 echo "==> Starting server..."
-exec gunicorn services.gateway.app:create_app \
+exec gunicorn services.gateway.app:create_app --bind 0.0.0.0:8000 --workers 2 --worker-class uvicorn.workers.UvicornWorker "$@"
+
