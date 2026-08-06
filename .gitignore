@@ -70,7 +70,13 @@ AGENTS.md
 
 *.tmp
 
-*.bak
+.bak
 docker-compose.override.yml
 .opencode/
 
+# Antigravity / AI Tools
+.agents/
+.gemini/
+.system_generated/
+brain/
+scratch/

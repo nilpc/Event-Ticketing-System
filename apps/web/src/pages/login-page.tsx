@@ -205,7 +205,6 @@ export default function LoginPage() {
               )}
               Sign in with Google
             </Button>
-
           </motion.div>
           <motion.p
             variants={childVariants}

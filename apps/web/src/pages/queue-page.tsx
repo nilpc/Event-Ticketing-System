@@ -73,7 +73,6 @@ export default function QueuePage() {
               return;
             }
           } catch {
-            /* ignore recovery failure and proceed to join */
           }
         }
         const { data: result } = await queueApi.joinQueue({ show_id: showId });
@@ -101,7 +100,6 @@ export default function QueuePage() {
       clearPolling();
     };
   }, [showId, navigate, pollStatus, clearPolling, setQueueToken, queueToken, queueShowId]);
-
   return (
     <PageTransition>
       <div className="min-h-screen flex items-center justify-center px-4">

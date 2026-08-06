@@ -1,7 +1,5 @@
 from __future__ import annotations
-
 from pydantic import BaseModel
-
 
 class OAuthAuthorizeResponse(BaseModel):
     authorize_url: str

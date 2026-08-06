@@ -1,17 +1,14 @@
 from __future__ import annotations
-
 from uuid import UUID
-
 from sqlalchemy import delete, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from services.booking.models.event import Event
 from services.booking.models.seat import Seat
 from services.booking.models.showtime import Showtime
 from services.booking.models.venue import Venue
 
-
 class AdminRepository:
+
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
@@ -24,13 +21,12 @@ class AdminRepository:
         result = await self.session.execute(select(Event).where(Event.event_id == event_id))
         return result.scalar_one_or_none()
 
-    async def list_events(self, created_by: UUID | None = None) -> list[Event]:
+    async def list_events(self, created_by: UUID | None=None) -> list[Event]:
         query = select(Event)
         if created_by is not None:
             query = query.where(Event.created_by == created_by)
         result = await self.session.execute(query.order_by(Event.name))
         return list(result.scalars().all())
-
 
     async def get_event_owner(self, event_id: str) -> UUID | None:
         event = await self.get_event(event_id)
@@ -56,7 +52,7 @@ class AdminRepository:
         result = await self.session.execute(select(Venue).where(Venue.venue_id == venue_id))
         return result.scalar_one_or_none()
 
-    async def list_venues(self, created_by: UUID | None = None) -> list[Venue]:
+    async def list_venues(self, created_by: UUID | None=None) -> list[Venue]:
         query = select(Venue)
         if created_by is not None:
             query = query.where(Venue.created_by == created_by)
@@ -78,13 +74,12 @@ class AdminRepository:
         await self.session.execute(delete(Venue).where(Venue.venue_id == venue_id))
         await self.session.commit()
 
-    async def list_showtimes(self, created_by: UUID | None = None) -> list[Showtime]:
+    async def list_showtimes(self, created_by: UUID | None=None) -> list[Showtime]:
         query = select(Showtime)
         if created_by is not None:
             query = query.join(Event).where(Event.created_by == created_by)
         result = await self.session.execute(query.order_by(Showtime.start_time))
         return list(result.scalars().all())
-
 
     async def list_showtimes_by_event(self, event_id: str) -> list[Showtime]:
         result = await self.session.execute(select(Showtime).where(Showtime.event_id == event_id))

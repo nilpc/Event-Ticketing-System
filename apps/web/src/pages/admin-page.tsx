@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DateTimeInput } from "@/components/ui/date-time-input";
-import type { EventType, AdminEventResponse, VenueResponse, ShowtimeResponse } from "@/types/api";
+import type { EventType, AdminEventResponse, VenueResponse, AdminVenueResponse, ShowtimeResponse } from "@/types/api";
 type Tab = "catalog" | "newshow" | "users";
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("catalog");
@@ -115,7 +115,7 @@ function CatalogTab() {
     onSuccess: () => { toast.success("Showtime updated."); invalidateAll(); },
     onError: () => { toast.error("Failed to update showtime."); },
   });
-
+  const canManageVenue = (v: VenueResponse) => isMasterAdmin || (v as AdminVenueResponse).created_by === userId;
   const eventMap = (events ?? []).reduce<Record<string, AdminEventResponse>>((m, e) => { m[e.event_id] = e; return m; }, {});
   const venueMap = (venues ?? []).reduce<Record<string, VenueResponse>>((m, v) => { m[v.venue_id] = v; return m; }, {});
   return (
@@ -139,7 +139,7 @@ function CatalogTab() {
           <EditableVenueRow
             key={v.venue_id}
             venue={v}
-            isMasterAdmin={isMasterAdmin}
+            canManage={canManageVenue(v)}
             onUpdate={(data) => updateVenue.mutate({ id: v.venue_id, data })}
             onDelete={() => deleteVenue.mutate(v.venue_id)}
             isPending={updateVenue.isPending || deleteVenue.isPending}
@@ -247,9 +247,9 @@ function EditableEventRow({ event, canManage, onUpdate, onDelete, isPending }: {
     </div>
   );
 }
-function EditableVenueRow({ venue, isMasterAdmin, onUpdate, onDelete, isPending }: {
+function EditableVenueRow({ venue, canManage, onUpdate, onDelete, isPending }: {
   venue: VenueResponse;
-  isMasterAdmin: boolean;
+  canManage: boolean;
   onUpdate: (data: { name?: string; capacity?: number }) => void;
   onDelete: () => void;
   isPending: boolean;
@@ -260,15 +260,19 @@ function EditableVenueRow({ venue, isMasterAdmin, onUpdate, onDelete, isPending 
   const save = () => { onUpdate({ name, capacity: parseInt(capacity, 10) }); setEditing(false); };
   const cancel = () => { setName(venue.name); setCapacity(String(venue.capacity)); setEditing(false); };
   if (editing) {
+    const isCapacityValid = parseInt(capacity, 10) >= 1 && parseInt(capacity, 10) <= 1000;
     return (
       <div className="p-3 rounded-xl bg-muted/20 space-y-2">
         <div className="grid grid-cols-2 gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 text-sm rounded-lg" placeholder="Name" />
-          <Input type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} className="h-8 text-sm rounded-lg" placeholder="Capacity" />
+          <div className="flex flex-col gap-1">
+            <Input type="number" max={1000} value={capacity} onChange={(e) => setCapacity(e.target.value)} className={`h-8 text-sm rounded-lg ${!isCapacityValid && capacity ? "border-red-500" : ""}`} placeholder="Capacity" />
+            {!isCapacityValid && capacity && <span className="text-[10px] text-red-500">Max capacity is 1000</span>}
+          </div>
         </div>
         <div className="flex gap-1 justify-end">
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancel} disabled={isPending}><X className="h-3.5 w-3.5" /></Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-green-400" onClick={save} disabled={isPending || !name.trim() || parseInt(capacity, 10) < 1}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-green-400" onClick={save} disabled={isPending || !name.trim() || !isCapacityValid}>
             {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
           </Button>
         </div>
@@ -281,7 +285,7 @@ function EditableVenueRow({ venue, isMasterAdmin, onUpdate, onDelete, isPending 
         <p className="text-sm font-medium">{venue.name}</p>
         <p className="text-xs text-muted-foreground">{venue.venue_id} · {venue.capacity} seats</p>
       </div>
-      {isMasterAdmin && (
+      {canManage && (
         <div className="flex gap-0.5">
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
             onClick={() => setEditing(true)} disabled={isPending}>
@@ -306,12 +310,12 @@ function EditableShowtimeRow({ showtime, eventLabel, venueLabel, canManage, onUp
   isPending: boolean;
 }) {
   const [editing, setEditing] = useState(false);
-  const [price, setPrice] = useState(showtime.base_price);
+  const [price, setPrice] = useState(showtime.back_price);
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const save = () => {
     const data: { base_price?: number; start_time?: string; end_time?: string } = {};
-    if (price !== showtime.base_price) data.base_price = parseFloat(price);
+    if (price !== showtime.back_price) data.base_price = parseFloat(price);
     if (start) {
       const d = new Date(start);
       if (!Number.isNaN(d.getTime())) data.start_time = d.toISOString();
@@ -346,7 +350,7 @@ function EditableShowtimeRow({ showtime, eventLabel, venueLabel, canManage, onUp
     <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20">
       <div>
         <p className="text-sm font-medium">{eventLabel} @ {venueLabel}</p>
-        <p className="text-xs text-muted-foreground">{showtime.show_id.slice(0, 8)}… · ₹{showtime.base_price} · {new Date(showtime.start_time).toLocaleDateString()}</p>
+        <p className="text-xs text-muted-foreground">{showtime.show_id.slice(0, 8)}… · ₹{showtime.back_price} · {new Date(showtime.start_time).toLocaleDateString()}</p>
       </div>
       {canManage && (
         <div className="flex gap-0.5">
@@ -376,7 +380,9 @@ function NewShowTab() {
   const [selectedVenueId, setSelectedVenueId] = useState("");
   const [newVenueName, setNewVenueName] = useState("");
   const [newVenueCapacity, setNewVenueCapacity] = useState("");
-  const [price, setPrice] = useState("");
+  const [frontPrice, setFrontPrice] = useState("");
+  const [middlePrice, setMiddlePrice] = useState("");
+  const [backPrice, setBackPrice] = useState("");
   const [slots, setSlots] = useState<{ id: number; start: string; end: string }[]>([]);
   const slotCounter = useRef(0);
   const { data: events } = useQuery({
@@ -442,7 +448,9 @@ function NewShowTab() {
       await adminApi.createShowtimesBatch({
         event_id: eventId,
         venue_id: venueId,
-        base_price: parseFloat(price),
+        front_price: parseFloat(frontPrice),
+        middle_price: parseFloat(middlePrice),
+        back_price: parseFloat(backPrice),
         slots: batchSlots,
       });
     },
@@ -454,7 +462,7 @@ function NewShowTab() {
       setNewEventName(""); setNewEventDesc("");
       setVenueMode("select"); setSelectedVenueId("");
       setNewVenueName(""); setNewVenueCapacity("");
-      setPrice(""); setSlots([]); slotCounter.current = 0;
+      setFrontPrice(""); setMiddlePrice(""); setBackPrice(""); setSlots([]); slotCounter.current = 0;
       queryClient.invalidateQueries({ queryKey: ["adminEvents"] });
       queryClient.invalidateQueries({ queryKey: ["adminVenues"] });
       queryClient.invalidateQueries({ queryKey: ["adminShowtimes"] });
@@ -468,10 +476,14 @@ function NewShowTab() {
       toast.error(err.response?.data?.detail ?? "Failed to create show.");
     },
   });
+  const isValidVenueCapacity = parseInt(newVenueCapacity, 10) >= 1;
   const canSubmit =
     (eventMode === "select" ? !!selectedEventId : !!newEventName.trim()) &&
-    (venueMode === "select" ? !!selectedVenueId : !!newVenueName.trim() && !!newVenueCapacity && parseInt(newVenueCapacity, 10) >= 1) &&
-    !!price && allSlotsValid;
+    (venueMode === "select" ? !!selectedVenueId : !!newVenueName.trim() && !!newVenueCapacity && isValidVenueCapacity) &&
+    !!frontPrice && parseFloat(frontPrice) > 0 &&
+    !!middlePrice && parseFloat(middlePrice) > 0 &&
+    !!backPrice && parseFloat(backPrice) > 0 &&
+    allSlotsValid;
   return (
     <div className="space-y-6">
       {}
@@ -536,7 +548,7 @@ function NewShowTab() {
               <Input placeholder="Venue name" value={newVenueName} onChange={(e) => setNewVenueName(e.target.value)} className="rounded-xl" />
             </Field>
             <Field label="Capacity">
-              <Input type="number" placeholder="e.g. 100" value={newVenueCapacity} onChange={(e) => setNewVenueCapacity(e.target.value)} className="rounded-xl" />
+              <Input type="number" min={1} placeholder="e.g. 10000" value={newVenueCapacity} onChange={(e) => setNewVenueCapacity(e.target.value)} className="rounded-xl" />
             </Field>
           </div>
         )}
@@ -546,14 +558,20 @@ function NewShowTab() {
         <SectionLabel icon={<Calendar className="h-3.5 w-3.5" />} text="Showtime Slots" />
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-4">
-            <Field label="Base Price (₹)">
-              <Input type="number" placeholder="e.g. 75.00" value={price} onChange={(e) => setPrice(e.target.value)} className="rounded-xl" />
+            <Field label="Front Price (₹)">
+              <Input type="number" placeholder="e.g. 150.00" value={frontPrice} onChange={(e) => setFrontPrice(e.target.value)} className="rounded-xl" />
             </Field>
-            <div className="col-span-2 flex items-end justify-end">
-              <Button type="button" variant="outline" size="sm" onClick={addSlot} className="rounded-full">
-                <Plus className="h-4 w-4 mr-1" /> Add Slot
-              </Button>
-            </div>
+            <Field label="Middle Price (₹)">
+              <Input type="number" placeholder="e.g. 100.00" value={middlePrice} onChange={(e) => setMiddlePrice(e.target.value)} className="rounded-xl" />
+            </Field>
+            <Field label="Back Price (₹)">
+              <Input type="number" placeholder="e.g. 75.00" value={backPrice} onChange={(e) => setBackPrice(e.target.value)} className="rounded-xl" />
+            </Field>
+          </div>
+          <div className="flex justify-end pt-2">
+            <Button type="button" variant="outline" size="sm" onClick={addSlot} className="rounded-full">
+              <Plus className="h-4 w-4 mr-1" /> Add Slot
+            </Button>
           </div>
           {slots.length === 0 ? (
             <p className="text-xs text-muted-foreground">
@@ -583,7 +601,6 @@ function NewShowTab() {
               );
             })
           )}
-
           {slots.length > 0 && !allSlotsValid ? (
             <p className="text-xs text-red-400">
               Each slot needs a valid start &amp; end time, with start before end.

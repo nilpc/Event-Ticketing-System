@@ -43,7 +43,7 @@ Source of truth: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) (Enterprise PRD 
 
 ## Current Status
 
-- **Phases 1–10 complete** (see [`docs/PHASES.md`](docs/PHASES.md) for per-phase status).
+- **Phases 1–11 complete** (see [`docs/PHASES.md`](docs/PHASES.md) for per-phase status).
 - **Live on AWS EKS**: Terraform (VPC, EKS, RDS, IAM, CloudWatch), ArgoCD auto-syncs `k8s/prod/` on push to `main`, ECR images via `scripts/deploy.ps1`.
 - **Payment flow verified in production**: queue → lock → book → card-only Stripe charge → webhook auto-confirms the booking in ~2s.
 

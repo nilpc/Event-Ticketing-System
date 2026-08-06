@@ -68,9 +68,7 @@ export function useSeatWebSocket({
           onSeatUpdate(data as SeatUpdate);
         }
       } catch {
-        /* ignore */
       }
-
     };
     ws.onclose = (event) => {
       setIsConnected(false);

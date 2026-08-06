@@ -1,4 +1,3 @@
-#!/bin/sh
 set -e
 echo "==> Writing JWT keys from environment..."
 if [ -n "$JWT_PRIVATE_KEY" ]; then
@@ -51,4 +50,3 @@ else
 fi
 echo "==> Starting server..."
 exec gunicorn services.gateway.app:create_app --bind 0.0.0.0:8000 --workers 2 --worker-class uvicorn.workers.UvicornWorker "$@"
-

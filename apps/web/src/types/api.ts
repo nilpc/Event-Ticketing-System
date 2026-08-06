@@ -46,15 +46,24 @@ export interface ShowtimeResponse {
   show_id: string;
   event_id: string;
   venue_id: string;
-  base_price: string;
+  front_price: string;
+  middle_price: string;
+  back_price: string;
   start_time: string;
   end_time: string;
 }
 export interface SeatResponse {
   seat_id: string;
+  section: string;
   tier: string;
   price: string;
   status: "AVAILABLE" | "PENDING_PAYMENT" | "SOLD";
+}
+export interface SectionSummaryResponse {
+  section: string;
+  tier: string;
+  total_seats: number;
+  available_seats: number;
 }
 export interface SeatMapResponse {
   show_id: string;
@@ -149,7 +158,9 @@ export interface VenueUpdateRequest {
 export interface ShowtimeCreateRequest {
   event_id: string;
   venue_id: string;
-  base_price: number;
+  front_price: number;
+  middle_price: number;
+  back_price: number;
   start_time: string;
   end_time: string;
   auto_seats?: boolean;
@@ -161,12 +172,16 @@ export interface ShowtimeSlot {
 export interface ShowtimeBatchCreateRequest {
   event_id: string;
   venue_id: string;
-  base_price: number;
+  front_price: number;
+  middle_price: number;
+  back_price: number;
   auto_seats?: boolean;
   slots: ShowtimeSlot[];
 }
 export interface ShowtimeUpdateRequest {
-  base_price?: number;
+  front_price?: number;
+  middle_price?: number;
+  back_price?: number;
   start_time?: string;
   end_time?: string;
 }

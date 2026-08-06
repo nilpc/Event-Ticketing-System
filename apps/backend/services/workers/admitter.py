@@ -1,42 +1,35 @@
 from __future__ import annotations
-
 import asyncio
 from uuid import UUID
-
 import structlog
-
 from services.booking.repositories.lock_repo import LockRepository
-
 logger = structlog.get_logger()
 ADMIT_BATCH_SIZE = 10
 ADMIT_INTERVAL_SECONDS = 2
 
-
 async def run_admitter() -> None:
-    logger.info("admitter_started", interval=ADMIT_INTERVAL_SECONDS, batch=ADMIT_BATCH_SIZE)
+    logger.info('admitter_started', interval=ADMIT_INTERVAL_SECONDS, batch=ADMIT_BATCH_SIZE)
     while True:
         try:
             await admit_batch()
         except Exception as exc:
-            logger.error("admitter_iteration_failed", error=str(exc))
+            logger.error('admitter_iteration_failed', error=str(exc))
         await asyncio.sleep(ADMIT_INTERVAL_SECONDS)
-
 
 async def admit_batch() -> None:
     try:
         from core.redis import get_redis
-
         redis_client = get_redis()
     except Exception:
         return
     lock_repo = LockRepository(session=None, redis_client=redis_client)
     cursor = 0
     while True:
-        cursor, keys = await redis_client.scan(cursor, match="queue:*", count=100)
+        cursor, keys = await redis_client.scan(cursor, match='queue:*', count=100)
         for key in keys:
             if isinstance(key, bytes):
                 key = key.decode()
-            parts = key.split(":")
+            parts = key.split(':')
             if len(parts) != 2:
                 continue
             show_id = parts[1]
@@ -55,6 +48,6 @@ async def admit_batch() -> None:
                 except (ValueError, TypeError):
                     continue
                 token = await lock_repo.admit_user(show_uuid, user_uuid)
-                logger.info("user_admitted", show_id=show_id, user_id=user_id, token=token[:8])
+                logger.info('user_admitted', show_id=show_id, user_id=user_id, token=token[:8])
         if cursor == 0:
             break

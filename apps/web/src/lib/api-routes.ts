@@ -32,6 +32,7 @@ import type {
   ShowtimeBatchCreateRequest,
   ShowtimeUpdateRequest,
   UserPromoteResponse,
+  SectionSummaryResponse,
 } from "../types/api";
 export const authApi = {
   signup(data: SignupRequest) {
@@ -69,8 +70,11 @@ export const catalogApi = {
   getShowtime(showId: string) {
     return api.get<ShowtimeResponse>(`/showtimes/${showId}`);
   },
-  getSeatMap(showId: string) {
-    return api.get<SeatMapResponse>(`/showtimes/${showId}/seats`);
+  getSections(showId: string) {
+    return api.get<SectionSummaryResponse[]>(`/showtimes/${showId}/sections`);
+  },
+  getSeatMap(showId: string, section?: string) {
+    return api.get<SeatMapResponse>(`/showtimes/${showId}/seats`, { params: section ? { section } : undefined });
   },
   getShowtimesByEvent(eventId: string) {
     return api.get<ShowtimeResponse[]>(`/events/${eventId}/showtimes`);

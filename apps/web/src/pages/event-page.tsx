@@ -95,7 +95,6 @@ export default function EventPage() {
     enabled: !!eventId,
     staleTime: 60000,
   });
-
   if (eventsError || venuesError || showtimesError) {
     toast.error("Failed to load event details. Please try again.");
   }
@@ -255,7 +254,7 @@ export default function EventPage() {
                         <div className="lg:ml-auto flex items-center gap-5">
                           <span className="text-xl font-bold">
                             <span className="text-gradient">
-                              ₹{parseFloat(st.base_price).toFixed(2)}
+                              ₹{parseFloat(st.back_price).toFixed(2)}
                             </span>
                           </span>
                           <Button

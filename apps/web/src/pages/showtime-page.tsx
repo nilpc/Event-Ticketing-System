@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
   Clock,
@@ -13,6 +13,8 @@ import {
   XCircle,
   Users,
   ShoppingCart,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,7 @@ import { PageTransition } from "@/components/layout/page-transition";
 import { catalogApi } from "@/lib/api-routes";
 import { useAuth } from "@/stores/auth-store";
 import { useBookingFlow } from "@/stores/booking-store";
+import { useSeatWebSocket } from "@/hooks/use-seat-websocket";
 import type { SeatResponse } from "@/types/api";
 const PREMIUM_EASE = [0.32, 0.72, 0, 1] as const;
 const MAX_SEATS = 8;
@@ -119,12 +122,30 @@ export default function ShowtimePage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { queueToken, queueShowId, selectedSeatIds, toggleSeat, showId: selectionShowId, setShowId } = useBookingFlow();
+  const [selectedSection, setSelectedSection] = useState<string | null>(null);
   useEffect(() => {
     if (showId) {
       setShowId(showId);
     }
   }, [showId, setShowId]);
-
+  const queryClient = useQueryClient();
+  const { isConnected } = useSeatWebSocket({
+    showId: showId!,
+    enabled: !!showId,
+    onSeatUpdate: (update) => {
+      if (selectedSection) {
+        queryClient.setQueryData(["seatMap", showId, selectedSection], (oldData: any) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            seats: oldData.seats.map((seat: SeatResponse) =>
+              seat.seat_id === update.seat_id ? { ...seat, status: update.status } : seat
+            ),
+          };
+        });
+      }
+    },
+  });
   const selectionIsForThisShow = !!showId && selectionShowId === showId;
   const {
     data: showtime,
@@ -146,20 +167,27 @@ export default function ShowtimePage() {
     staleTime: 60000,
   });
   const {
+    data: sections,
+    isLoading: sectionsLoading,
+  } = useQuery({
+    queryKey: ["sections", showId],
+    queryFn: () => catalogApi.getSections(showId!).then((r) => r.data),
+    enabled: !!showId,
+  });
+  const {
     data: seatMap,
     isLoading: seatMapLoading,
     error: seatMapError,
   } = useQuery({
-    queryKey: ["seatMap", showId],
-    queryFn: () => catalogApi.getSeatMap(showId!).then((r) => r.data),
-    enabled: !!showId,
+    queryKey: ["seatMap", showId, selectedSection],
+    queryFn: () => catalogApi.getSeatMap(showId!, selectedSection!).then((r) => r.data),
+    enabled: !!showId && !!selectedSection,
   });
   if (showtimeError || seatMapError) {
     toast.error("Failed to load showtime details. Please try again.");
   }
   const event = events?.find((e) => e.event_id === showtime?.event_id);
   const venue = venues?.find((v) => v.venue_id === showtime?.venue_id);
-
   const handleSeatClick = (seat: SeatResponse) => {
     if (seat.status !== "AVAILABLE") return;
     if (!isAuthenticated) {
@@ -219,6 +247,15 @@ export default function ShowtimePage() {
                     <span className="text-[10px] font-mono uppercase tracking-wider bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
                       {event?.event_type ?? "EVENT"}
                     </span>
+                    {isConnected ? (
+                      <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-green-400 bg-green-400/10 px-2.5 py-0.5 rounded-full border border-green-400/20">
+                        <Wifi className="w-3 h-3" /> Live
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground bg-muted/20 px-2.5 py-0.5 rounded-full border border-muted/20">
+                        <WifiOff className="w-3 h-3" /> Offline
+                      </span>
+                    )}
                   </div>
                   <CardTitle className="text-3xl tracking-tight mb-2">
                     {event?.name ?? "Event Details"}
@@ -270,7 +307,7 @@ export default function ShowtimePage() {
                         <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">Starting From</p>
                         <p className="text-xl font-bold mt-1">
                           <span className="text-gradient">
-                            ₹{parseFloat(showtime.base_price).toFixed(2)}
+                            ₹{parseFloat(showtime.back_price).toFixed(2)}
                           </span>
                         </p>
                       </div>
@@ -279,7 +316,6 @@ export default function ShowtimePage() {
                 </CardContent>
               </Card>
             </motion.div>
-
           ) : null}
           {showtime && (
             <motion.div variants={childVariants} className="mb-10">
@@ -365,95 +401,127 @@ export default function ShowtimePage() {
               </motion.div>
             )}
           </AnimatePresence>
-          <motion.div variants={childVariants}>
-            <div className="flex items-center gap-3 mb-8">
-              <h2 className="text-2xl font-bold tracking-tight">Seat Map</h2>
-              {!seatMapLoading && seatMap && (
-                <div className="flex items-center gap-4 text-xs text-muted-foreground ml-auto">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-primary/60" />
-                    {availableCount} available
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-amber-500/60" />
-                    {pendingCount} pending
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/30" />
-                    {soldCount} sold
-                  </span>
+          {(!selectedSection) ? (
+            <motion.div variants={childVariants} className="mt-8">
+              <h2 className="text-2xl font-bold tracking-tight mb-6">Select a Section</h2>
+              {sectionsLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
                 </div>
+              ) : sections && sections.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {sections.map((sec) => (
+                    <Card key={sec.section} className="hover:border-primary/50 cursor-pointer transition-colors" onClick={() => setSelectedSection(sec.section)}>
+                      <CardContent className="p-4 flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-lg">{sec.section}</span>
+                          <span className="text-[10px] font-mono uppercase tracking-wider bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                            {sec.tier}
+                          </span>
+                        </div>
+                        <div className="text-sm text-muted-foreground flex justify-between">
+                          <span>{sec.available_seats} Available</span>
+                          <span>{sec.total_seats} Total</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No sections available.</p>
               )}
-            </div>
-          </motion.div>
-          {seatMapLoading ? (
-            <div className="space-y-8">
-              {[1, 2, 3].map((section) => (
-                <motion.div key={section} variants={childVariants}>
-                  <Skeleton className="h-5 w-24 mb-4" />
-                  <div className="flex flex-wrap gap-2">
-                    {Array.from({ length: 12 }).map((_, i) => (
-                      <SeatSkeleton key={i} />
-                    ))}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : seatMap ? (
-            <motion.div
-              className="space-y-10"
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-            >
-              {Object.entries(groupedSeats).map(([tier, seats]) => (
-                <motion.div key={tier} variants={childVariants}>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-4 flex items-center gap-3">
-                    <span className="h-px flex-1 bg-white/[0.04]" />
-                    <span>{tier}</span>
-                    <span className="h-px flex-1 bg-white/[0.04]" />
-                  </h3>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {seats.map((seat) => {
-                      const isSelected =
-                        selectionIsForThisShow && selectedSeatIds.includes(seat.seat_id);
-                      const isDisabled =
-                        seat.status !== "AVAILABLE" ||
-                        (!isSelected && effectiveSelectedCount >= MAX_SEATS);
-                      return (
-                        <motion.button
-                          key={seat.seat_id}
-                          variants={seatVariants}
-                          whileHover={!isDisabled ? { scale: 1.08, y: -2 } : {}}
-                          whileTap={!isDisabled ? { scale: 0.95 } : {}}
-                          className={`relative flex flex-col items-center justify-center h-11 w-12 rounded-xl text-xs font-mono transition-all duration-200 ${seatButtonClasses(seat.status, isSelected)}`}
-                          onClick={() => handleSeatClick(seat)}
-                          disabled={isDisabled}
-                          title={
-                            isSelected
-                              ? `${seat.seat_id} - ₹${parseFloat(seat.price).toFixed(2)} (selected)`
-                              : seat.status === "AVAILABLE"
-                                ? `${seat.seat_id} - ₹${parseFloat(seat.price).toFixed(2)}`
-                                : seat.status === "PENDING_PAYMENT"
-                                  ? `${seat.seat_id} - Pending`
-                                  : `${seat.seat_id} - Sold`
-                          }
-                        >
-                          <SeatIcon status={seat.status} isSelected={isSelected} />
-                          <span className="mt-0.5 text-[9px] leading-none">{seat.seat_id}</span>
-                        </motion.button>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              ))}
             </motion.div>
           ) : (
-            <div className="text-center py-20 text-muted-foreground">
-              <p>No seat data available for this showtime.</p>
-            </div>
+            <>
+              <motion.div variants={childVariants}>
+                <div className="flex items-center gap-3 mb-8 mt-8">
+                  <Button variant="outline" size="sm" onClick={() => setSelectedSection(null)} className="rounded-full">
+                    <ArrowLeft className="h-4 w-4 mr-2" /> Sections
+                  </Button>
+                  <h2 className="text-2xl font-bold tracking-tight">Seat Map: {selectedSection}</h2>
+                  {!seatMapLoading && seatMap && (
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground ml-auto">
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-full bg-primary/60" />
+                        {availableCount} available
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-full bg-amber-500/60" />
+                        {pendingCount} pending
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/30" />
+                        {soldCount} sold
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+              {seatMapLoading ? (
+                <div className="space-y-8">
+                  {[1, 2, 3].map((section) => (
+                    <motion.div key={section} variants={childVariants}>
+                      <Skeleton className="h-5 w-24 mb-4" />
+                      <div className="flex flex-wrap gap-2">
+                        {Array.from({ length: 12 }).map((_, i) => (
+                          <SeatSkeleton key={i} />
+                        ))}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : seatMap ? (
+                <motion.div
+                  className="space-y-10"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                >
+                  {Object.entries(groupedSeats).map(([tier, seats]) => (
+                    <motion.div key={tier} variants={childVariants}>
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        {seats.map((seat) => {
+                          const isSelected =
+                            selectionIsForThisShow && selectedSeatIds.includes(seat.seat_id);
+                          const isDisabled =
+                            seat.status !== "AVAILABLE" ||
+                            (!isSelected && effectiveSelectedCount >= MAX_SEATS);
+                          return (
+                            <motion.button
+                              key={seat.seat_id}
+                              variants={seatVariants}
+                              whileHover={!isDisabled ? { scale: 1.08, y: -2 } : {}}
+                              whileTap={!isDisabled ? { scale: 0.95 } : {}}
+                              className={`relative flex flex-col items-center justify-center h-11 w-12 rounded-xl text-xs font-mono transition-all duration-200 ${seatButtonClasses(seat.status, isSelected)}`}
+                              onClick={() => handleSeatClick(seat)}
+                              disabled={isDisabled}
+                              title={
+                                isSelected
+                                  ? `${seat.seat_id} - ₹${parseFloat(seat.price).toFixed(2)} (selected)`
+                                  : seat.status === "AVAILABLE"
+                                    ? `${seat.seat_id} - ₹${parseFloat(seat.price).toFixed(2)}`
+                                    : seat.status === "PENDING_PAYMENT"
+                                      ? `${seat.seat_id} - Pending`
+                                      : `${seat.seat_id} - Sold`
+                              }
+                            >
+                              <SeatIcon status={seat.status} isSelected={isSelected} />
+                              <span className="mt-0.5 text-[9px] leading-none">{seat.seat_id.replace(selectedSection + "-", "")}</span>
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              ) : (
+                <div className="text-center py-20 text-muted-foreground">
+                  <p>No seat data available for this showtime.</p>
+                </div>
+              )}
+            </>
           )}
-          <motion.div variants={childVariants} className="mt-16">
+<motion.div variants={childVariants} className="mt-16">
             <Card className="overflow-hidden">
               <CardContent className="py-6">
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-sm text-muted-foreground">

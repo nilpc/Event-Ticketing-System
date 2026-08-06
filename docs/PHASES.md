@@ -22,7 +22,7 @@ Event Ticketing Backend - Phased Build Plan
 | 8 | Rate Limiting & Advanced Caching (NFR-8) | Complete |
 | 9 | WebSocket Live Seat Updates (FR-14) | Complete |
 | 10 | Architecture Hardening & Scale Optimizations | Complete |
-
+| 11 | High-Capacity Venues & 3-Tier Pricing | Complete |
 ## What We've Done So Far
 
 - **Local dev**: Minikube cluster runs the full stack (gateway, api, web, sweeper, relay, admitter, migration job) with local Postgres/Redis; Docker Compose quick-start for one-command bring-up with auto-migration + auto-seed.
@@ -239,3 +239,14 @@ _Real-time seat map updates using WebSockets, powered by Redis Pub/Sub. (Consoli
 **3\. Connection Manager (`websocket_manager.py`):** per-show in-memory connection sets; Redis Pub/Sub backplane keeps multi-replica clusters consistent; dead connections are silently pruned on broadcast; clients fall back to polling on reconnect.
 
 **4\. Tests:** `tests/gateway/test_websocket_manager.py` in CI.
+
+**Phase 11: High-Capacity Venues (Sectioning) & 3-Tier Pricing**
+
+_Scale seat maps to handle large stadiums without DOM lag and introduce tiered pricing._
+
+**Status: ✅ Complete.**
+
+**1\. Seat Sectioning:** Chunk seat generation into batches of 100 per section (`SEC-1`, `SEC-2`, etc.) to prevent massive primary key conflicts and unbounded DOM nodes.
+**2\. Tiered Pricing:** Replaced flat `base_price` with `front_price`, `middle_price`, and `back_price`. 
+**3\. 2-Step Seat Selection UI:** Refactored `showtime-page.tsx` to first ask users to pick a section, then render only that section's seats.
+**4\. Frontend Testing:** Initialized Vitest, configured it with Vite, and added basic test suites for UI components to ensure frontend regressions are caught early.

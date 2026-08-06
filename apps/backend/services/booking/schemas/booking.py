@@ -1,34 +1,27 @@
 from __future__ import annotations
-
 from datetime import datetime
 from uuid import UUID
-
 from pydantic import BaseModel
-
 
 class BookRequest(BaseModel):
     show_id: UUID
     seat_ids: list[str]
     idempotency_key: str
 
-
 class BookResponse(BaseModel):
     booking_id: UUID
     status: str
     expires_at: datetime
-
 
 class MockConfirmResponse(BaseModel):
     booking_id: UUID
     status: str
     seat_ids: list[str]
 
-
 class BookingSeatInfo(BaseModel):
     seat_id: str
     tier: str
     price: str
-
 
 class BookingListItem(BaseModel):
     booking_id: str

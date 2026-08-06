@@ -70,7 +70,6 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
         localStorage.removeItem(QUEUE_TOKEN_KEY);
         localStorage.removeItem(QUEUE_SHOW_KEY);
       } catch {
-        /* ignore */
       }
       return {
         ...prev,
@@ -82,7 +81,6 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
       };
     });
   }, []);
-
   const setQueueToken = useCallback((token: string, showId?: string) => {
     try {
       localStorage.setItem(QUEUE_TOKEN_KEY, token);
@@ -90,7 +88,6 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
         localStorage.setItem(QUEUE_SHOW_KEY, showId);
       }
     } catch {
-      /* ignore */
     }
     setState((prev) => ({
       ...prev,
@@ -115,7 +112,6 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
           localStorage.removeItem(SELECTED_SEATS_KEY);
         }
       } catch {
-        /* ignore */
       }
       return {
         ...prev,
@@ -128,7 +124,6 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
     try {
       localStorage.removeItem(SELECTED_SEATS_KEY);
     } catch {
-      /* ignore */
     }
     setState((prev) => ({ ...prev, showId: null, selectedSeatIds: [] }));
   }, []);
@@ -149,7 +144,6 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
       localStorage.removeItem(QUEUE_SHOW_KEY);
       localStorage.removeItem(SELECTED_SEATS_KEY);
     } catch {
-      /* ignore */
     }
     setState({
       showId: null,

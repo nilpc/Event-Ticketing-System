@@ -1,23 +1,18 @@
 from __future__ import annotations
-
 import asyncio
 from contextlib import asynccontextmanager
-
 import structlog
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
-
 logger = structlog.get_logger()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from core.config import settings
     from core.observability import configure_logging, init_sentry
-
     configure_logging(log_level=settings.LOG_LEVEL, log_format=settings.LOG_FORMAT)
-    logger.info("app_starting", env=settings.SENTRY_ENVIRONMENT)
+    logger.info('app_starting', env=settings.SENTRY_ENVIRONMENT)
     init_sentry(dsn=settings.SENTRY_DSN, environment=settings.SENTRY_ENVIRONMENT)
     from services.workers.admitter import run_admitter
     from services.workers.relay import run_relay
@@ -26,87 +21,65 @@ async def lifespan(app: FastAPI):
     async def _supervised(name: str, coro_fn):
         while True:
             try:
-                logger.info(f"{name}_worker_starting")
+                logger.info(f'{name}_worker_starting')
                 await coro_fn()
             except asyncio.CancelledError:
-                logger.info(f"{name}_worker_cancelled")
+                logger.info(f'{name}_worker_cancelled')
                 raise
             except Exception as exc:
-                logger.error(f"{name}_worker_died", error=str(exc))
+                logger.error(f'{name}_worker_died', error=str(exc))
                 await asyncio.sleep(5)
-
-    sweeper_task = asyncio.create_task(_supervised("sweeper", run_sweeper))
-    relay_task = asyncio.create_task(_supervised("relay", run_relay))
-    admitter_task = asyncio.create_task(_supervised("admitter", run_admitter))
+    sweeper_task = asyncio.create_task(_supervised('sweeper', run_sweeper))
+    relay_task = asyncio.create_task(_supervised('relay', run_relay))
+    admitter_task = asyncio.create_task(_supervised('admitter', run_admitter))
     yield
     sweeper_task.cancel()
     relay_task.cancel()
     admitter_task.cancel()
-    logger.info("app_shutting_down")
+    logger.info('app_shutting_down')
     from core.db.session import engine
-
     await engine.dispose()
     from core.redis import _redis_client
-
     if _redis_client is not None:
         await _redis_client.aclose()
 
-
 def create_app() -> FastAPI:
-    app = FastAPI(title="Event Ticketing Backend", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title='Event Ticketing Backend', version='0.1.0', lifespan=lifespan)
     from starlette.middleware.base import BaseHTTPMiddleware
-
     from core.config import settings
 
     async def _security_headers(request, call_next):
         response = await call_next(request)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "0"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = (
-            "camera=(), microphone=(), geolocation=(), interest-cohort=()"
-        )
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://*.stripe.com; style-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com; img-src 'self' data: https://q.stripe.com https://m.stripe.com https://*.stripe.com; font-src 'self' https://js.stripe.com https://fonts.gstatic.com; connect-src 'self' https://api.stripe.com https://r.stripe.com https://m.stripe.com https://b.stripe.com https://*.stripe.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.stripe.com; object-src 'none'"
-        )
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-XSS-Protection'] = '0'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=(), interest-cohort=()'
+        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://*.stripe.com; style-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com; img-src 'self' data: https://q.stripe.com https://m.stripe.com https://*.stripe.com; font-src 'self' https://js.stripe.com https://fonts.gstatic.com; connect-src 'self' https://api.stripe.com https://r.stripe.com https://m.stripe.com https://b.stripe.com https://*.stripe.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.stripe.com; object-src 'none'"
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         return response
-
     app.add_middleware(BaseHTTPMiddleware, dispatch=_security_headers)
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[o.strip() for o in settings.CORS_ORIGINS.split(",")],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in settings.CORS_ORIGINS.split(',')], allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
     from core.middleware import RequestContextMiddleware
-
     app.add_middleware(RequestContextMiddleware)
     from services.gateway.middleware import IdentityMiddleware
-
     app.add_middleware(IdentityMiddleware)
     from fastapi.responses import JSONResponse
     from slowapi import _rate_limit_exceeded_handler
     from slowapi.errors import RateLimitExceeded
     from slowapi.middleware import SlowAPIMiddleware
-
     from core.middleware.rate_limit import create_limiter
-
     limiter = create_limiter()
     app.state.limiter = limiter
 
     def _rate_limit_handler(request: Request, exc: Exception):
         if isinstance(exc, RateLimitExceeded):
             return _rate_limit_exceeded_handler(request, exc)
-        logger.warning("rate_limit_backend_unavailable", error=str(exc))
-        return JSONResponse(status_code=503, content={"detail": "Rate limit backend unavailable"})
-
+        logger.warning('rate_limit_backend_unavailable', error=str(exc))
+        return JSONResponse(status_code=503, content={'detail': 'Rate limit backend unavailable'})
     app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
     try:
         from redis.exceptions import ConnectionError as RedisConnectionError
-
         app.add_exception_handler(RedisConnectionError, _rate_limit_handler)
     except ImportError:
         pass
@@ -120,7 +93,6 @@ def create_app() -> FastAPI:
     from services.identity.routers.auth import router as auth_router
     from services.payment.routers.payment import router as payment_router
     from services.payment.routers.webhooks import router as webhook_router
-
     app.include_router(auth_router)
     app.include_router(catalog_router)
     app.include_router(payment_router)
@@ -131,26 +103,23 @@ def create_app() -> FastAPI:
     app.include_router(admin_router)
     app.include_router(ws_router)
 
-    @app.get("/health", tags=["ops"])
+    @app.get('/health', tags=['ops'])
     async def health() -> dict:
-        return {"status": "ok"}
+        return {'status': 'ok'}
 
-    @app.get("/ready", tags=["ops"])
+    @app.get('/ready', tags=['ops'])
     async def ready() -> dict:
         try:
             from core.db.session import engine
-
             async with engine.connect() as conn:
-                await conn.execute(text("SELECT 1"))
+                await conn.execute(text('SELECT 1'))
         except Exception as exc:
-            raise HTTPException(status_code=503, detail="DB not ready") from exc
+            raise HTTPException(status_code=503, detail='DB not ready') from exc
         try:
             from core.redis import get_redis
-
             r = get_redis()
             await r.ping()
         except Exception as exc:
-            raise HTTPException(status_code=503, detail="Redis not ready") from exc
-        return {"status": "ready"}
-
+            raise HTTPException(status_code=503, detail='Redis not ready') from exc
+        return {'status': 'ready'}
     return app
