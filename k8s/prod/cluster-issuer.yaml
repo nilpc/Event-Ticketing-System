@@ -16,6 +16,7 @@ spec:
                 annotations:
                   alb.ingress.kubernetes.io/group.name: event-ticketing
                   alb.ingress.kubernetes.io/scheme: internet-facing
+---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:

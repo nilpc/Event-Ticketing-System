@@ -1,3 +1,4 @@
+---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -11,6 +12,7 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: gateway-api
+---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -24,6 +26,7 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: gateway-web
+---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -37,6 +40,7 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: sweeper
+---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -50,6 +54,7 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: relay
+---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:

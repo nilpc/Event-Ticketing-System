@@ -47,6 +47,7 @@ spec:
       volumes:
         - name: pgdata
           emptyDir: {}
+---
 apiVersion: v1
 kind: Service
 metadata:

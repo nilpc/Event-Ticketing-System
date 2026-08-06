@@ -1,13 +1,18 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+
 namespace: event-ticketing
+
 resources:
   - ../base
+
   - secrets.yaml
   - postgres.yaml
   - redis.yaml
   - ingress.yaml
+
   - migration-job.yaml
+
 patches:
   - patch: |-
       apiVersion: keda.sh/v1alpha1
@@ -51,6 +56,7 @@ patches:
         name: migrate
         namespace: event-ticketing
       $patch: delete
+
   - target:
       kind: Deployment
       name: gateway-api
