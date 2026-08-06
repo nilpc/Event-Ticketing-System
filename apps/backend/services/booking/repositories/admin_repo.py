@@ -1,14 +1,17 @@
 from __future__ import annotations
+
 from uuid import UUID
+
 from sqlalchemy import delete, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from services.booking.models.event import Event
 from services.booking.models.seat import Seat
 from services.booking.models.showtime import Showtime
 from services.booking.models.venue import Venue
 
-class AdminRepository:
 
+class AdminRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 

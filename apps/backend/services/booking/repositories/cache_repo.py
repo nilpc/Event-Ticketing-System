@@ -1,15 +1,18 @@
 from __future__ import annotations
+
 import json
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
+
 import structlog
+
 if TYPE_CHECKING:
     import redis.asyncio as aioredis
 logger = structlog.get_logger()
 
-class CacheRepository:
 
-    def __init__(self, redis_client: aioredis.Redis | None=None) -> None:
+class CacheRepository:
+    def __init__(self, redis_client: aioredis.Redis | None = None) -> None:
         self.redis = redis_client
 
     async def invalidate(self, key: str) -> None:
@@ -28,7 +31,7 @@ class CacheRepository:
                 return 0
             return await self.redis.delete(*keys)
         except Exception:
-            logger.warning('invalidate_pattern_failed', pattern=pattern)
+            logger.warning("invalidate_pattern_failed", pattern=pattern)
             return 0
 
     async def get(self, key: str) -> str | None:
@@ -39,18 +42,25 @@ class CacheRepository:
             return result.decode()
         return result
 
-    async def set(self, key: str, value: str, ttl: int=300) -> None:
+    async def set(self, key: str, value: str, ttl: int = 300) -> None:
         if self.redis is None:
             return
         await self.redis.set(key, value, ex=ttl)
 
-    async def get_or_set(self, key: str, factory: Callable[[], Any], ttl: int=300, serialize: Callable[[Any], str]=json.dumps, deserialize: Callable[[str], Any]=json.loads) -> Any:
+    async def get_or_set(
+        self,
+        key: str,
+        factory: Callable[[], Any],
+        ttl: int = 300,
+        serialize: Callable[[Any], str] = json.dumps,
+        deserialize: Callable[[str], Any] = json.loads,
+    ) -> Any:
         if self.redis is None:
             return await factory()
         try:
             cached = await self.redis.get(key)
         except Exception:
-            logger.warning('cache_read_failed', key=key)
+            logger.warning("cache_read_failed", key=key)
             return await factory()
         if cached is not None:
             if isinstance(cached, bytes):
@@ -60,7 +70,7 @@ class CacheRepository:
         try:
             await self.redis.set(key, serialize(value), ex=ttl)
         except Exception:
-            logger.warning('cache_write_failed', key=key)
+            logger.warning("cache_write_failed", key=key)
         return value
 
     async def publish_invalidation(self, channel: str, data: dict[str, Any]) -> None:
@@ -69,4 +79,4 @@ class CacheRepository:
         try:
             await self.redis.publish(channel, json.dumps(data))
         except Exception:
-            logger.warning('publish_invalidation_failed', channel=channel)
+            logger.warning("publish_invalidation_failed", channel=channel)
