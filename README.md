@@ -6,7 +6,8 @@ A full-stack, enterprise-grade event ticketing platform built for flash-sale sce
 [![Backend Engineering](https://img.shields.io/badge/Backend-4.4%2F5.0-blue.svg)](#system-architecture-rating)
 [![Deployment & GitOps](https://img.shields.io/badge/Deployment-4.6%2F5.0-purple.svg)](#system-architecture-rating)
 
-Source of truth: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) (Enterprise PRD & Requirement Contract), [`docs/PHASES.md`](docs/PHASES.md) (Build Roadmap & Release Plan), [`docs/HLD.md`](docs/HLD.md) (High-Level Architecture & Scorecards), and [`docs/LLD.md`](docs/LLD.md) (Low-Level Design & Data Specifications).
+Source of truth: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) (Enterprise PRD & Requirement Contract) and [`docs/PHASES.md`](docs/PHASES.md) (Build Roadmap & Release Plan).
+
 
 ## System Architecture Rating
 
