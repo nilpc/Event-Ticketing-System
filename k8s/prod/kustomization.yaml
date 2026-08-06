@@ -1,12 +1,15 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+
 namespace: event-ticketing
+
 resources:
   - ../base
   - ingress.yaml
   - external-secret.yaml
   - cluster-issuer.yaml
   - redis-master-service.yaml
+
 images:
   - name: event-ticketing-api
     newName: 078682762568.dkr.ecr.us-east-1.amazonaws.com/event-ticketing-api
@@ -14,6 +17,7 @@ images:
   - name: event-ticketing-web
     newName: 078682762568.dkr.ecr.us-east-1.amazonaws.com/event-ticketing-web
     newTag: main
+
 patches:
   - patch: |-
       apiVersion: batch/v1
@@ -22,6 +26,7 @@ patches:
         name: migrate
         namespace: event-ticketing
       $patch: delete
+
   - target:
       kind: Deployment
       name: gateway-api
@@ -44,6 +49,7 @@ patches:
         value:
           - name: RUN_DB_INIT
             value: "false"
+
   - target:
       kind: Deployment
       name: gateway-web
@@ -58,6 +64,7 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
+
   - target:
       kind: Deployment
       name: sweeper
@@ -69,6 +76,7 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
+
   - target:
       kind: Deployment
       name: relay
@@ -80,6 +88,7 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
+
   - target:
       kind: Deployment
       name: admitter
