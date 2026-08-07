@@ -32,9 +32,9 @@ class CatalogRepository:
         return list(result.scalars().all())
 
     async def get_sections(self, show_id: UUID) -> list[dict]:
-        from sqlalchemy import func
+        from sqlalchemy import func, case
         from core.enums import SeatStatus
-        stmt = select(Seat.section, func.max(Seat.tier).label('tier'), func.count(Seat.seat_id).label('total_seats'), func.sum(func.case((Seat.status == SeatStatus.AVAILABLE, 1), else_=0)).label('available_seats')).where(Seat.show_id == show_id).group_by(Seat.section).order_by(Seat.section)
+        stmt = select(Seat.section, func.max(Seat.tier).label('tier'), func.count(Seat.seat_id).label('total_seats'), func.sum(case((Seat.status == SeatStatus.AVAILABLE, 1), else_=0)).label('available_seats')).where(Seat.show_id == show_id).group_by(Seat.section).order_by(Seat.section)
         result = await self.session.execute(stmt)
         return [{'section': row.section, 'tier': row.tier, 'total_seats': row.total_seats, 'available_seats': int(row.available_seats) if row.available_seats else 0} for row in result.all()]
 
