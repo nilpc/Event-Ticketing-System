@@ -37,12 +37,7 @@ class _EventDef(TypedDict):
     hours_from_now: int
     duration_hours: int
 EVENTS: list[_EventDef] = [{'name': 'Dune: Part Three — World Premiere', 'description': "The epic conclusion to Denis Villeneuve's sci-fi saga. Red carpet premiere with cast Q&A.", 'event_type': 'MOVIE', 'venue_idx': 0, 'front_price': 180.0, 'middle_price': 120.0, 'back_price': 90.0, 'hours_from_now': 24, 'duration_hours': 3}, {'name': 'Interstellar: 10th Anniversary Screening', 'description': "Christopher Nolan's masterpiece returns to the big screen in IMAX with a live orchestral score.", 'event_type': 'MOVIE', 'venue_idx': 1, 'front_price': 127.5, 'middle_price': 85.0, 'back_price': 63.8, 'hours_from_now': 48, 'duration_hours': 3}, {'name': 'Beyoncé — Renaissance World Tour', 'description': 'The global superstar performs her chart-topping hits live in a spectacular production.', 'event_type': 'EVENT', 'venue_idx': 5, 'front_price': 225.0, 'middle_price': 150.0, 'back_price': 112.5, 'hours_from_now': 72, 'duration_hours': 3}, {'name': 'NBA Finals — Game 5', 'description': 'The championship showdown. Can the underdogs force a Game 6?', 'event_type': 'EVENT', 'venue_idx': 7, 'front_price': 142.5, 'middle_price': 95.0, 'back_price': 71.2, 'hours_from_now': 36, 'duration_hours': 3}, {'name': 'Coldplay — Music of the Spheres Tour', 'description': 'An immersive, sustainable concert experience with stunning visuals and fan-favorite anthems.', 'event_type': 'EVENT', 'venue_idx': 3, 'front_price': 165.0, 'middle_price': 110.0, 'back_price': 82.5, 'hours_from_now': 96, 'duration_hours': 3}, {'name': 'The Beatles Tribute — Let It Be', 'description': "A multi-award-winning West End show recreating the magic of The Beatles' final years.", 'event_type': 'EVENT', 'venue_idx': 6, 'front_price': 97.5, 'middle_price': 65.0, 'back_price': 48.8, 'hours_from_now': 12, 'duration_hours': 2}, {'name': 'Marvel Studios: Avengers Secret Wars Premiere', 'description': 'The biggest crossover event in cinema history. First screening with surprise guest appearances.', 'event_type': 'MOVIE', 'venue_idx': 0, 'front_price': 195.0, 'middle_price': 130.0, 'back_price': 97.5, 'hours_from_now': 168, 'duration_hours': 3}, {'name': 'Formula 1 — Monaco Grand Prix Viewing Party', 'description': "Watch the world's most prestigious race on the big screen with live commentary and food trucks.", 'event_type': 'EVENT', 'venue_idx': 2, 'front_price': 67.5, 'middle_price': 45.0, 'back_price': 33.8, 'hours_from_now': 60, 'duration_hours': 5}, {'name': 'Hamilton — Broadway Revival', 'description': "Lin-Manuel Miranda's revolutionary musical returns with a star-studded new cast.", 'event_type': 'EVENT', 'venue_idx': 4, 'front_price': 262.5, 'middle_price': 175.0, 'back_price': 131.2, 'hours_from_now': 120, 'duration_hours': 3}, {'name': 'Stand-Up Comedy Night — Dave Chappelle', 'description': 'An evening of sharp, unfiltered comedy from one of the greatest of all time.', 'event_type': 'EVENT', 'venue_idx': 1, 'front_price': 135.0, 'middle_price': 90.0, 'back_price': 67.5, 'hours_from_now': 10, 'duration_hours': 2}]
-SEATS = [
-    ('A1', 'SEC-1', 'vip', 150.0), ('A2', 'SEC-1', 'vip', 150.0), ('A3', 'SEC-1', 'vip', 150.0),
-    ('B1', 'SEC-2', 'premium', 100.0), ('B2', 'SEC-2', 'premium', 100.0), ('B3', 'SEC-2', 'premium', 100.0),
-    ('C1', 'SEC-3', 'standard', 75.0), ('C2', 'SEC-3', 'standard', 75.0), ('C3', 'SEC-3', 'standard', 75.0),
-    ('D1', 'SEC-3', 'standard', 75.0), ('D2', 'SEC-3', 'standard', 75.0), ('D3', 'SEC-3', 'standard', 75.0)
-]
+
 
 async def seed(reset: bool=False):
     db_url = os.getenv('DATABASE_URL', '')
@@ -100,9 +95,24 @@ async def seed(reset: bool=False):
                 sid = uuid4()
                 show_ids.append(sid)
                 await session.execute(text("INSERT INTO booking.showtimes (show_id, event_id, venue_id, front_price, middle_price, back_price, start_time, end_time) VALUES (:sid, :eid, :vid, :fp, :mp, :bp, NOW() + :hours * INTERVAL '1 hour', NOW() + (:hours + :dur) * INTERVAL '1 hour')"), {'sid': sid, 'eid': eid, 'vid': vid, 'fp': ev['front_price'], 'mp': ev['middle_price'], 'bp': ev['back_price'], 'hours': ev['hours_from_now'], 'dur': ev['duration_hours']})
+            import random
             for sid in show_ids:
-                for seat_id, section, tier, price in SEATS:
-                    await session.execute(text("INSERT INTO booking.seats (show_id, seat_id, section, tier, price, status) VALUES (:sid, :seat_id, :sec, :tier, :price, 'AVAILABLE')"), {'sid': sid, 'seat_id': seat_id, 'sec': section, 'tier': tier, 'price': price})
+                num_seats = random.randint(50, 10000)
+                seat_params = []
+                for i in range(num_seats):
+                    sec_idx = i % 3
+                    section = f"SEC-{sec_idx + 1}"
+                    tier = ["vip", "premium", "standard"][sec_idx]
+                    price = [150.0, 100.0, 75.0][sec_idx]
+                    seat_id = f"S{i+1}"
+                    seat_params.append({'sid': sid, 'seat_id': seat_id, 'sec': section, 'tier': tier, 'price': price})
+                
+                if seat_params:
+                    # SQLAlchemy uses executemany under the hood for a list of dictionaries
+                    await session.execute(
+                        text("INSERT INTO booking.seats (show_id, seat_id, section, tier, price, status) VALUES (:sid, :seat_id, :sec, :tier, :price, 'AVAILABLE')"),
+                        seat_params
+                    )
             event_count = sum((1 for e in EVENTS if e['event_type'] == 'EVENT'))
             movie_count = sum((1 for e in EVENTS if e['event_type'] == 'MOVIE'))
             if event_count > 0:
