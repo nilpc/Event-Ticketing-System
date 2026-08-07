@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import uuid
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
+
 from httpx import AsyncClient
 from sqlalchemy import update
+
 PASSWORD = 'Str0ng!Pass#2024'
 
 def _auth(token: str) -> dict[str, str]:
@@ -233,5 +236,5 @@ async def test_large_venue_auto_seats_generates_all_rows(client: AsyncClient) ->
     payload['auto_seats'] = True
     r = await client.post('/v1/admin/showtimes', json=payload, headers=_auth(token))
     assert r.status_code == 201, f'Showtime create failed: {r.status_code} {r.text}'
-    show_id = r.json()['show_id']
+    _ = r.json()['show_id']
     pass

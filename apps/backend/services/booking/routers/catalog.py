@@ -1,12 +1,22 @@
 from __future__ import annotations
+
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.db.session import get_db_session
 from core.redis import get_redis
 from services.booking.repositories.cache_repo import CacheRepository
-from services.booking.schemas.catalog import EventResponse, SeatMapResponse, SectionSummaryResponse, ShowtimeResponse, VenueResponse
+from services.booking.schemas.catalog import (
+    EventResponse,
+    SeatMapResponse,
+    SectionSummaryResponse,
+    ShowtimeResponse,
+    VenueResponse,
+)
 from services.booking.services.catalog_service import CatalogService
+
 router = APIRouter(prefix='/v1', tags=['catalog'])
 CDN_CACHE_HEADER = 'public, max-age=15, s-maxage=60, stale-while-revalidate=30'
 

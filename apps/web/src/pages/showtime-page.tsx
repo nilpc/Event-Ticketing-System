@@ -134,7 +134,7 @@ export default function ShowtimePage() {
     enabled: !!showId,
     onSeatUpdate: (update) => {
       if (selectedSection) {
-        queryClient.setQueryData(["seatMap", showId, selectedSection], (oldData: any) => {
+        queryClient.setQueryData(["seatMap", showId, selectedSection], (oldData: { seats: SeatResponse[] } | undefined) => {
           if (!oldData) return oldData;
           return {
             ...oldData,

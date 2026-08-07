@@ -1,12 +1,15 @@
 from __future__ import annotations
+
 import json
 import time
 from decimal import Decimal
 from uuid import UUID, uuid4
+
 import pytest
 import stripe
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.enums import BookingStatus, SeatStatus
 from services.booking.models.booking import Booking
 from services.booking.models.outbox_event import OutboxEvent
@@ -19,6 +22,7 @@ from services.booking.repositories.seat_repo import SeatRepository
 from services.payment.repositories.payment_repo import PaymentRepository
 from services.payment.services.webhook_service import WebhookService
 from tests.payment.fakes import FakeWebhookProvider, make_stripe_event
+
 
 async def _create_payment(session: AsyncSession, booking_id: UUID, provider_payment_id: str, status: str='requires_action') -> UUID:
     repo = PaymentRepository(session)
@@ -54,7 +58,7 @@ async def test_webhook_succeeded(db_session, booking_fixture) -> None:
     booking = (await db_session.execute(select(Booking).where(Booking.booking_id == booking_fixture['booking_id']))).scalar_one()
     assert booking.status == BookingStatus.CONFIRMED
     seats = (await db_session.execute(select(Seat).where(Seat.show_id == booking_fixture['show_id']))).scalars().all()
-    assert all((s.status == SeatStatus.SOLD for s in seats))
+    assert all(s.status == SeatStatus.SOLD for s in seats)
     outbox = (await db_session.execute(select(OutboxEvent).where(OutboxEvent.aggregate_id == booking_fixture['booking_id']))).scalars().all()
     assert {e.event_type for e in outbox} == {'BOOKING_CONFIRMED'}
     assert len(outbox) == len(booking_fixture['seat_ids'])
@@ -86,7 +90,7 @@ async def test_webhook_payment_failed(db_session, booking_fixture) -> None:
     booking = (await db_session.execute(select(Booking).where(Booking.booking_id == booking_fixture['booking_id']))).scalar_one()
     assert booking.status == BookingStatus.FAILED
     seats = (await db_session.execute(select(Seat).where(Seat.show_id == booking_fixture['show_id']))).scalars().all()
-    assert all((s.status == SeatStatus.AVAILABLE for s in seats))
+    assert all(s.status == SeatStatus.AVAILABLE for s in seats)
 
 async def test_webhook_invalid_signature(db_session, booking_fixture) -> None:
     svc = _webhook_service(db_session)

@@ -1,10 +1,14 @@
 from __future__ import annotations
+
 import asyncio
 from typing import Any, Protocol
+
 import stripe
 import structlog
+
 from core.config import settings
 from core.exceptions import PaymentProviderError
+
 logger = structlog.get_logger()
 
 class PaymentIntentProvider(Protocol):

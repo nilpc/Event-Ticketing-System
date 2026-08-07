@@ -1,4 +1,5 @@
-﻿import { createContext, useCallback, useContext, useEffect, useState } from "react";
+﻿/* eslint-disable react-refresh/only-export-components */
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { authApi } from "@/lib/api-routes";
 interface AuthContextValue {
   isAuthenticated: boolean;
@@ -21,6 +22,7 @@ function parseJwtSub(token: string): string | null {
     const json = JSON.parse(decoded);
     return typeof json.sub === "string" ? json.sub : null;
   } catch {
+    // Ignore
     return null;
   }
 }

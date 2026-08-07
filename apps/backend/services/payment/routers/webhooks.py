@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.db.session import get_db_session
 from core.redis import get_redis
 from services.booking.repositories.booking_repo import BookingRepository
@@ -9,6 +11,7 @@ from services.booking.repositories.lock_repo import LockRepository
 from services.booking.repositories.seat_repo import SeatRepository
 from services.payment.repositories.payment_repo import PaymentRepository
 from services.payment.services.webhook_service import WebhookService
+
 router = APIRouter(prefix='/v1/webhooks', tags=['webhooks'])
 logger = structlog.get_logger()
 

@@ -1,8 +1,12 @@
 from __future__ import annotations
+
 import json
 from unittest.mock import AsyncMock, MagicMock
+
 import pytest
+
 from services.booking.repositories.cache_repo import CacheRepository
+
 
 @pytest.fixture
 def mock_redis() -> AsyncMock:

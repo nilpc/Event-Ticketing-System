@@ -1,8 +1,12 @@
 from __future__ import annotations
+
 import uuid
 from datetime import UTC, datetime, timedelta
+
 from jose import jwt
+
 from core.config import settings
+
 _KID = 'rsa-2048-1'
 _private_key: str | None = None
 _public_key: str | None = None

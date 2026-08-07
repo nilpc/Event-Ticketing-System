@@ -1,11 +1,15 @@
 from __future__ import annotations
+
 import json
 from unittest.mock import AsyncMock
 from uuid import uuid4
+
 import pytest
+
 from services.booking.repositories.cache_repo import CacheRepository
 from services.booking.schemas.catalog import ShowtimeResponse, VenueResponse
 from services.booking.services.catalog_service import CatalogService
+
 
 @pytest.fixture
 def mock_session() -> AsyncMock:

@@ -1,9 +1,13 @@
 from __future__ import annotations
+
 from decimal import Decimal
 from uuid import UUID
+
 from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from services.booking.models.payment import Payment
+
 
 class PaymentRepository:
 

@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 import sentry_sdk
 import structlog
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
 logger = structlog.get_logger()
 
 def init_sentry(dsn: str, environment: str='development') -> None:

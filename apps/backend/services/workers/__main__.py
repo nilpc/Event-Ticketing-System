@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 import asyncio
 import sys
+
 _WORKERS = {'sweeper': 'services.workers.sweeper', 'relay': 'services.workers.relay', 'admitter': 'services.workers.admitter'}
 
 def main() -> None:

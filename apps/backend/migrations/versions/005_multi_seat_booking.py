@@ -1,6 +1,7 @@
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import UUID
+
 revision = '005'
 down_revision = '004'
 branch_labels = None

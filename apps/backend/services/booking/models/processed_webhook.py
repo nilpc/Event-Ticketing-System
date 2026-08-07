@@ -1,9 +1,13 @@
 from __future__ import annotations
+
 from datetime import UTC, datetime
+
 from sqlalchemy import DateTime, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+
 from core.db.base import Base
+
 
 class ProcessedWebhookEvent(Base):
     __tablename__ = 'processed_webhook_events'

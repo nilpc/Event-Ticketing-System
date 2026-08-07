@@ -1,12 +1,20 @@
 from __future__ import annotations
+
 from uuid import UUID
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.db.session import get_db_session
 from core.security.auth import get_current_user_id
 from services.payment.providers.stripe_client import StripeClient
-from services.payment.schemas.payment import PaymentIntentRequest, PaymentIntentResponse, PaymentSyncResponse
+from services.payment.schemas.payment import (
+    PaymentIntentRequest,
+    PaymentIntentResponse,
+    PaymentSyncResponse,
+)
 from services.payment.services.payment_service import PaymentService
+
 router = APIRouter(prefix='/v1/payments', tags=['payments'])
 
 def _get_payment_service(session: AsyncSession=Depends(get_db_session)) -> PaymentService:

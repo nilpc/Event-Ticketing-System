@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import uuid
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
+
 from httpx import AsyncClient
 from sqlalchemy import update
+
 
 async def _make_admin(client: AsyncClient, email: str, password: str) -> str:
     from core.db.session import async_session_factory

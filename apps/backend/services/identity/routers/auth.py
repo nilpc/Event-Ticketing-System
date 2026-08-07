@@ -1,16 +1,27 @@
 from __future__ import annotations
+
 import secrets
+
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.db.session import get_db_session
 from core.exceptions import WeakPasswordError
 from core.redis import get_redis
-from services.identity.schemas.auth import ErrorResponse, LoginRequest, LoginResponse, RefreshRequest, SignupRequest, SignupResponse
+from services.identity.schemas.auth import (
+    ErrorResponse,
+    LoginRequest,
+    LoginResponse,
+    RefreshRequest,
+    SignupRequest,
+    SignupResponse,
+)
 from services.identity.schemas.oauth import OAuthAuthorizeResponse
 from services.identity.services.auth_service import AuthService
 from services.identity.services.oauth_service import OAuthService
 from services.identity.services.session_service import SessionService
+
 logger = structlog.get_logger()
 router = APIRouter(prefix='/v1/auth', tags=['identity'])
 

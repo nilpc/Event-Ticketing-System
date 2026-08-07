@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.enums import BookingStatus
 from services.booking.models.booking import Booking
 from services.booking.models.booking_event import BookingEvent
@@ -11,6 +14,7 @@ from services.booking.models.booking_seat import BookingSeat
 from services.booking.models.outbox_event import OutboxEvent
 from services.booking.models.processed_webhook import ProcessedWebhookEvent
 from services.booking.models.seat import Seat
+
 
 class BookingRepository:
 

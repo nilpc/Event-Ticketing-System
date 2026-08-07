@@ -1,10 +1,14 @@
 from __future__ import annotations
+
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING
+
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from starlette.routing import BaseRoute, Match
+
 from core.config import settings
+
 if TYPE_CHECKING:
     from starlette.types import Scope
 

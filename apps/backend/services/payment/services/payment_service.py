@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
+
 import structlog
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.enums import BookingStatus, PaymentStatus
 from core.exceptions import BookingConflictError, NotFoundError
 from services.booking.repositories.booking_repo import BookingRepository
@@ -11,6 +14,7 @@ from services.booking.repositories.seat_repo import SeatRepository
 from services.payment.providers.stripe_client import PaymentIntentProvider
 from services.payment.repositories.payment_repo import PaymentRepository
 from services.payment.schemas.payment import PaymentIntentResponse, PaymentSyncResponse
+
 logger = structlog.get_logger()
 EXPIRY_GUARD_MINUTES = 2
 

@@ -1,6 +1,9 @@
 from __future__ import annotations
+
 import redis.asyncio as aioredis
+
 from core.config import settings
+
 _redis_client: aioredis.Redis | None = None
 
 def get_redis() -> aioredis.Redis:

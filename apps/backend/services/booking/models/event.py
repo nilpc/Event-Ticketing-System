@@ -1,9 +1,12 @@
 import uuid
+
 from sqlalchemy import Enum, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
+
 from core.db.base import Base
 from core.enums import EventType
+
 
 class Event(Base):
     __tablename__ = 'events'

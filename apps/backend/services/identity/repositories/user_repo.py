@@ -1,12 +1,16 @@
 from __future__ import annotations
+
 import hashlib
 from datetime import UTC, datetime
 from typing import cast
 from uuid import UUID
+
 from sqlalchemy import select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from services.identity.models.user import RefreshToken, User
+
 
 class UserRepository:
 

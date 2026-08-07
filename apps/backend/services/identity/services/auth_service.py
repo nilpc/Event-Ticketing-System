@@ -1,15 +1,24 @@
 from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
+
 import structlog
 import zxcvbn
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.exceptions import NotFoundError, WeakPasswordError
 from core.security.jwt import create_access_token
 from core.security.refresh import create_refresh_token
 from services.identity.repositories.user_repo import UserRepository
-from services.identity.schemas.auth import LoginRequest, LoginResponse, SignupRequest, SignupResponse
+from services.identity.schemas.auth import (
+    LoginRequest,
+    LoginResponse,
+    SignupRequest,
+    SignupResponse,
+)
+
 logger = structlog.get_logger()
 MIN_PASSWORD_SCORE = 3
 MAX_FAILED_ATTEMPTS = 5

@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.enums import EventType
+
 _EVENT_SEQ = 'booking.event_serial_seq'
 _MOVIE_SEQ = 'booking.movie_serial_seq'
 

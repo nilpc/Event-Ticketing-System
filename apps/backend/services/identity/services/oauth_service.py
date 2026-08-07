@@ -1,13 +1,17 @@
 from __future__ import annotations
+
 from urllib.parse import urlencode
+
 import httpx
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.config import settings
 from core.security.jwt import create_access_token
 from core.security.refresh import create_refresh_token
 from services.identity.repositories.user_repo import UserRepository
 from services.identity.schemas.auth import LoginResponse
+
 GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'

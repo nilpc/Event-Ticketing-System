@@ -1,6 +1,9 @@
 from __future__ import annotations
+
 import uuid
+
 from httpx import AsyncClient
+
 
 async def test_signup_returns_201(client: AsyncClient) -> None:
     email = f'test_{uuid.uuid4().hex[:8]}@example.com'

@@ -1,8 +1,12 @@
 from __future__ import annotations
+
 import asyncio
 from uuid import UUID
+
 import structlog
+
 from services.booking.repositories.lock_repo import LockRepository
+
 logger = structlog.get_logger()
 ADMIT_BATCH_SIZE = 10
 ADMIT_INTERVAL_SECONDS = 2

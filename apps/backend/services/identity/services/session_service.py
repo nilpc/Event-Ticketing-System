@@ -1,14 +1,18 @@
 from __future__ import annotations
+
 import hashlib
 from datetime import UTC, datetime
 from uuid import UUID
+
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.exceptions import NotFoundError
 from core.security.jwt import create_access_token
 from core.security.refresh import create_refresh_token, revoke_refresh_token, rotate_refresh_token
 from services.identity.repositories.user_repo import UserRepository
 from services.identity.schemas.auth import LoginResponse
+
 logger = structlog.get_logger()
 
 class SessionService:

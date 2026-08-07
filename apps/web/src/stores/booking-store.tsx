@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useState } from "react";
 const QUEUE_TOKEN_KEY = "ets_queue_token";
 const QUEUE_SHOW_KEY = "ets_queue_show_id";
@@ -24,6 +25,7 @@ function readPersistedQueueToken(): string | null {
   try {
     return localStorage.getItem(QUEUE_TOKEN_KEY);
   } catch {
+    // Ignore
     return null;
   }
 }
@@ -31,6 +33,7 @@ function readPersistedQueueShowId(): string | null {
   try {
     return localStorage.getItem(QUEUE_SHOW_KEY);
   } catch {
+    // Ignore
     return null;
   }
 }
@@ -47,6 +50,7 @@ function readPersistedSeats(): { showId: string | null; seatIds: string[] } {
       seatIds: Array.isArray(parsed.seatIds) ? parsed.seatIds : [],
     };
   } catch {
+    // Ignore
     return { showId: null, seatIds: [] };
   }
 }
@@ -70,6 +74,7 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
         localStorage.removeItem(QUEUE_TOKEN_KEY);
         localStorage.removeItem(QUEUE_SHOW_KEY);
       } catch {
+        // Ignore
       }
       return {
         ...prev,
@@ -88,6 +93,7 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
         localStorage.setItem(QUEUE_SHOW_KEY, showId);
       }
     } catch {
+      // Ignore
     }
     setState((prev) => ({
       ...prev,
@@ -112,6 +118,7 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
           localStorage.removeItem(SELECTED_SEATS_KEY);
         }
       } catch {
+        // Ignore
       }
       return {
         ...prev,
@@ -124,6 +131,7 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
     try {
       localStorage.removeItem(SELECTED_SEATS_KEY);
     } catch {
+      // Ignore
     }
     setState((prev) => ({ ...prev, showId: null, selectedSeatIds: [] }));
   }, []);
@@ -144,6 +152,7 @@ export function BookingFlowProvider({ children }: { children: React.ReactNode })
       localStorage.removeItem(QUEUE_SHOW_KEY);
       localStorage.removeItem(SELECTED_SEATS_KEY);
     } catch {
+      // Ignore
     }
     setState({
       showId: null,

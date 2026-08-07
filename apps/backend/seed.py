@@ -4,9 +4,11 @@ import os
 import secrets
 from typing import TypedDict
 from uuid import uuid4
+
 from dotenv import load_dotenv
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 load_dotenv()
 MASTER_ADMIN_EMAIL = 'admin@event-ticketing.dev'
 MERCHANT_ADMIN_EMAIL = 'merchant@event-ticketing.dev'
@@ -116,8 +118,8 @@ async def seed(reset: bool=False):
                         text("INSERT INTO booking.seats (show_id, seat_id, section, tier, price, status) VALUES (:sid, :seat_id, :sec, :tier, :price, 'AVAILABLE')"),
                         seat_params
                     )
-            event_count = sum((1 for e in EVENTS if e['event_type'] == 'EVENT'))
-            movie_count = sum((1 for e in EVENTS if e['event_type'] == 'MOVIE'))
+            event_count = sum(1 for e in EVENTS if e['event_type'] == 'EVENT')
+            movie_count = sum(1 for e in EVENTS if e['event_type'] == 'MOVIE')
             if event_count > 0:
                 await session.execute(text("SELECT setval('booking.event_serial_seq', :n)"), {'n': event_count})
             if movie_count > 0:

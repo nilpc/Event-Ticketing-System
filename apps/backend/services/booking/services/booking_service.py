@@ -1,16 +1,30 @@
 from __future__ import annotations
+
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.enums import BookingStatus
-from core.exceptions import BookingConflictError, InvalidTokenError, PersistenceError, SeatUnavailableError
+from core.exceptions import (
+    BookingConflictError,
+    InvalidTokenError,
+    PersistenceError,
+    SeatUnavailableError,
+)
 from services.booking.repositories.booking_repo import BookingRepository
 from services.booking.repositories.cache_repo import CacheRepository
 from services.booking.repositories.lock_repo import LockRepository
 from services.booking.repositories.seat_repo import SeatRepository
-from services.booking.schemas.booking import BookingListItem, BookingSeatInfo, BookResponse, MockConfirmResponse
+from services.booking.schemas.booking import (
+    BookingListItem,
+    BookingSeatInfo,
+    BookResponse,
+    MockConfirmResponse,
+)
+
 logger = structlog.get_logger()
 BOOKING_EXPIRY_MINUTES = 10
 

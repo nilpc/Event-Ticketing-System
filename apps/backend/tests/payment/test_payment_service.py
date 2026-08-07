@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
+
 import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.enums import BookingStatus, PaymentStatus, SeatStatus
 from core.exceptions import BookingConflictError, NotFoundError, PaymentProviderError
 from services.booking.models.booking import Booking
@@ -15,6 +18,7 @@ from services.identity.models.user import User
 from services.payment.repositories.payment_repo import PaymentRepository
 from services.payment.services.payment_service import PaymentService
 from tests.payment.fakes import FakeStripeClient
+
 
 async def _create_payment(session: AsyncSession, booking_id: UUID, provider_payment_id: str, status: str='requires_action') -> UUID:
     repo = PaymentRepository(session)
@@ -99,7 +103,7 @@ async def test_sync_payment_succeeded(db_session, booking_fixture) -> None:
     assert booking.status == BookingStatus.CONFIRMED
     seats = (await db_session.execute(select(Seat).where(Seat.show_id == booking_fixture['show_id']))).scalars().all()
     assert {s.seat_id for s in seats} == set(booking_fixture['seat_ids'])
-    assert all((s.status == SeatStatus.SOLD for s in seats))
+    assert all(s.status == SeatStatus.SOLD for s in seats)
     outbox = (await db_session.execute(select(OutboxEvent).where(OutboxEvent.aggregate_id == booking_fixture['booking_id']))).scalars().all()
     assert {e.event_type for e in outbox} == {'BOOKING_CONFIRMED'}
     assert len(outbox) == len(booking_fixture['seat_ids'])
@@ -116,7 +120,7 @@ async def test_sync_payment_pending(db_session, booking_fixture) -> None:
     booking = (await db_session.execute(select(Booking).where(Booking.booking_id == booking_fixture['booking_id']))).scalar_one()
     assert booking.status == BookingStatus.PENDING
     seats = (await db_session.execute(select(Seat).where(Seat.show_id == booking_fixture['show_id']))).scalars().all()
-    assert all((s.status == SeatStatus.PENDING_PAYMENT for s in seats))
+    assert all(s.status == SeatStatus.PENDING_PAYMENT for s in seats)
 
 async def test_sync_payment_not_found(db_session, booking_fixture) -> None:
     svc = PaymentService(db_session, FakeStripeClient())

@@ -1,11 +1,15 @@
 from __future__ import annotations
+
 from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from services.booking.models.event import Event
 from services.booking.models.seat import Seat
 from services.booking.models.showtime import Showtime
 from services.booking.models.venue import Venue
+
 
 class CatalogRepository:
 
@@ -32,7 +36,8 @@ class CatalogRepository:
         return list(result.scalars().all())
 
     async def get_sections(self, show_id: UUID) -> list[dict]:
-        from sqlalchemy import func, case
+        from sqlalchemy import case, func
+
         from core.enums import SeatStatus
         stmt = select(Seat.section, func.max(Seat.tier).label('tier'), func.count(Seat.seat_id).label('total_seats'), func.sum(case((Seat.status == SeatStatus.AVAILABLE, 1), else_=0)).label('available_seats')).where(Seat.show_id == show_id).group_by(Seat.section).order_by(Seat.section)
         result = await self.session.execute(stmt)

@@ -68,6 +68,7 @@ export function useSeatWebSocket({
           onSeatUpdate(data as SeatUpdate);
         }
       } catch {
+        // Ignore error
       }
     };
     ws.onclose = (event) => {

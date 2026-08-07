@@ -1,10 +1,14 @@
 from __future__ import annotations
+
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
+
 from pydantic import BaseModel, Field, model_validator
+
 from core.enums import EventType
 from services.booking.schemas.catalog import EventResponse, VenueResponse
+
 
 class EventCreate(BaseModel):
     event_type: EventType

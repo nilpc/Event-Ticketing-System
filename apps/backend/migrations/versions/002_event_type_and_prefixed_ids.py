@@ -1,6 +1,8 @@
 from collections.abc import Sequence
+
 import sqlalchemy as sa
 from alembic import op
+
 revision: str = '002'
 down_revision: str | None = '001'
 branch_labels: Sequence[str] | None = None

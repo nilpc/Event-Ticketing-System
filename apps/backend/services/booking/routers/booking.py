@@ -1,16 +1,30 @@
 from __future__ import annotations
+
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.db.session import get_db_session
-from core.exceptions import BookingConflictError, InvalidTokenError, PersistenceError, SeatUnavailableError
+from core.exceptions import (
+    BookingConflictError,
+    InvalidTokenError,
+    PersistenceError,
+    SeatUnavailableError,
+)
 from core.redis import get_redis
 from services.booking.repositories.booking_repo import BookingRepository
 from services.booking.repositories.cache_repo import CacheRepository
 from services.booking.repositories.lock_repo import LockRepository
 from services.booking.repositories.seat_repo import SeatRepository
-from services.booking.schemas.booking import BookingListItem, BookRequest, BookResponse, MockConfirmResponse
+from services.booking.schemas.booking import (
+    BookingListItem,
+    BookRequest,
+    BookResponse,
+    MockConfirmResponse,
+)
 from services.booking.services.booking_service import BookingService
+
 router = APIRouter(prefix='/v1', tags=['booking'])
 
 def _get_booking_service(session: AsyncSession=Depends(get_db_session)) -> BookingService:

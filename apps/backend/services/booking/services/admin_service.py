@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import uuid
 from collections.abc import Iterator
+
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.enums import SeatStatus
 from core.ids import generate_event_id
 from services.booking.models.event import Event
@@ -11,8 +14,17 @@ from services.booking.models.showtime import Showtime
 from services.booking.models.venue import Venue
 from services.booking.repositories.admin_repo import AdminRepository
 from services.booking.repositories.cache_repo import CacheRepository
-from services.booking.schemas.admin import EventCreate, EventUpdate, ShowtimeBatchCreate, ShowtimeCreate, ShowtimeUpdate, VenueCreate, VenueUpdate
+from services.booking.schemas.admin import (
+    EventCreate,
+    EventUpdate,
+    ShowtimeBatchCreate,
+    ShowtimeCreate,
+    ShowtimeUpdate,
+    VenueCreate,
+    VenueUpdate,
+)
 from services.identity.models.user import User
+
 logger = structlog.get_logger()
 
 class AdminService:

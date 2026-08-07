@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 import uuid
+
 import structlog
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+
 logger = structlog.get_logger()
 _PUBLIC_PREFIXES: tuple[str, ...] = ('/health', '/ready', '/v1/auth/', '/v1/venues', '/v1/events', '/v1/showtimes', '/v1/webhooks/', '/docs', '/openapi.json', '/redoc')
 _STRIPPED_HEADERS: tuple[str, ...] = ('x-user-id', 'x-request-id', 'x-correlation-id')
@@ -48,10 +51,11 @@ class IdentityMiddleware(BaseHTTPMiddleware):
                 break
         if auth_header.lower().startswith('bearer '):
             token = auth_header[7:]
-        is_public = any((request.url.path == p or request.url.path.startswith(p) for p in _PUBLIC_PREFIXES))
+        is_public = any(request.url.path == p or request.url.path.startswith(p) for p in _PUBLIC_PREFIXES)
         if token:
             try:
                 from jose import JWTError
+
                 from core.security.jwt import decode_access_token
                 claims = decode_access_token(token)
                 user_id = claims.get('sub', '')

@@ -1,9 +1,17 @@
 from __future__ import annotations
+
 from uuid import UUID
+
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from services.booking.repositories.lock_repo import LockRepository
-from services.booking.schemas.queue import QueueJoinResponse, QueueRecoverResponse, QueueStatusResponse
+from services.booking.schemas.queue import (
+    QueueJoinResponse,
+    QueueRecoverResponse,
+    QueueStatusResponse,
+)
+
 logger = structlog.get_logger()
 ADMISSION_RATE = 10
 

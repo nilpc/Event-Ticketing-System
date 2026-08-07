@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 import json
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
+
 import structlog
+
 if TYPE_CHECKING:
     import redis.asyncio as aioredis
 logger = structlog.get_logger()

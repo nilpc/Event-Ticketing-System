@@ -1,12 +1,20 @@
 from __future__ import annotations
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.db.session import get_db_session
 from core.redis import get_redis
 from services.booking.repositories.lock_repo import LockRepository
-from services.booking.schemas.queue import QueueJoinRequest, QueueJoinResponse, QueueRecoverResponse, QueueStatusResponse
+from services.booking.schemas.queue import (
+    QueueJoinRequest,
+    QueueJoinResponse,
+    QueueRecoverResponse,
+    QueueStatusResponse,
+)
 from services.booking.services.queue_service import QueueService
+
 router = APIRouter(prefix='/v1/queue', tags=['queue'])
 
 def _get_queue_service(session: AsyncSession=Depends(get_db_session)) -> QueueService:

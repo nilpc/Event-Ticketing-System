@@ -1,8 +1,11 @@
 from collections.abc import AsyncGenerator
+
 import structlog
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from core.config import settings
+
 logger = structlog.get_logger()
 
 def _on_connect(dbapi_conn, connection_record) -> None:

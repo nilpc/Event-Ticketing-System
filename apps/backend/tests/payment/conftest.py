@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+
 import pytest_asyncio
+
 from core.db.session import async_session_factory
 from core.enums import EventType, SeatStatus
 from services.booking.models.booking import Booking
@@ -13,6 +16,7 @@ from services.booking.models.seat import Seat
 from services.booking.models.showtime import Showtime
 from services.booking.models.venue import Venue
 from services.identity.models.user import User
+
 
 @pytest_asyncio.fixture
 async def booking_fixture() -> AsyncGenerator[dict, None]:

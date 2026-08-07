@@ -1,13 +1,17 @@
 from __future__ import annotations
+
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
+
 from sqlalchemy import DateTime, Enum, ForeignKeyConstraint, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from core.db.base import Base
 from core.enums import BookingStatus
+
 if TYPE_CHECKING:
     from .booking_event import BookingEvent
     from .booking_seat import BookingSeat

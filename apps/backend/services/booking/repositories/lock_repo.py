@@ -1,9 +1,13 @@
 from __future__ import annotations
+
 from uuid import UUID
+
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.exceptions import RedisUnavailableError
 from core.redis import get_redis
+
 logger = structlog.get_logger()
 _RELEASE_SEAT_LOCK_LUA = '\nif redis.call("GET", KEYS[1]) == ARGV[1] then\n    return redis.call("DEL", KEYS[1])\nelse\n    return 0\nend\n'
 _ACQUIRE_SEAT_LOCK_LUA = '\nlocal current = redis.call("GET", KEYS[1])\nif current == false then\n    return redis.call("SET", KEYS[1], ARGV[1], "EX", ARGV[2]) and 1 or 0\nelseif current == ARGV[1] then\n    redis.call("EXPIRE", KEYS[1], ARGV[2])\n    return 1\nelse\n    return 0\nend\n'

@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
 from core.enums import BookingStatus, EventType, SeatStatus
 from services.booking.models.booking import Booking
 from services.booking.models.booking_seat import BookingSeat
@@ -13,6 +16,7 @@ from services.booking.models.seat import Seat
 from services.booking.models.showtime import Showtime
 from services.booking.models.venue import Venue
 from services.identity.models.user import User
+
 
 async def _seed_user(session: AsyncSession) -> uuid.UUID:
     user_id = uuid.uuid4()
@@ -62,7 +66,7 @@ async def test_zero_double_bookings_under_concurrency() -> None:
     results = await asyncio.gather(*tasks, return_exceptions=True)
     for i, r in enumerate(results):
         assert not isinstance(r, Exception), f'Task {i} raised an exception: {r}'
-    successes = sum((1 for r in results if r is True))
+    successes = sum(1 for r in results if r is True)
     assert successes <= 5, f'Expected at most 5 bookings, got {successes}'
     async with async_session_factory() as session:
         dupes = await session.execute(select(Booking.seat_id, func.count()).where(Booking.show_id == show_id, Booking.status == BookingStatus.PENDING).group_by(Booking.seat_id).having(func.count() > 1))

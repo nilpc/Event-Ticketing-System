@@ -1,8 +1,11 @@
 import uuid
+
 from sqlalchemy import Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
+
 from core.db.base import Base
+
 
 class Venue(Base):
     __tablename__ = 'venues'

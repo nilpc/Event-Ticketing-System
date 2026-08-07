@@ -1,10 +1,14 @@
 from __future__ import annotations
+
 import uuid
 from datetime import UTC, datetime
+
 from sqlalchemy import DateTime, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
+
 from core.db.base import Base
+
 
 class OutboxEvent(Base):
     __tablename__ = 'outbox_events'

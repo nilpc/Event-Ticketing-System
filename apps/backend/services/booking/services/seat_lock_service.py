@@ -1,12 +1,16 @@
 from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
+
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.exceptions import BookingConflictError, SeatUnavailableError
 from services.booking.repositories.lock_repo import LockRepository
 from services.booking.repositories.seat_repo import SeatRepository
 from services.booking.schemas.seat_lock import SeatLockResponse
+
 logger = structlog.get_logger()
 SEAT_LOCK_TTL = 600
 HOLD_LIMIT_TTL = 600

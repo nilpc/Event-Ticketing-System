@@ -1,9 +1,13 @@
 from __future__ import annotations
+
 import json
 from unittest.mock import AsyncMock
+
 import pytest
 from fastapi import WebSocket
+
 from services.gateway.websocket_manager import ConnectionManager
+
 
 @pytest.fixture
 def manager() -> ConnectionManager:

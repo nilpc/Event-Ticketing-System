@@ -1,12 +1,15 @@
 from __future__ import annotations
+
 import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession
+
 os.environ.setdefault('DATABASE_URL', 'postgresql+asyncpg://testuser:testpass@localhost:5433/event_ticketing')
 os.environ.setdefault('REDIS_URL', 'redis://localhost:6380/0')
 os.environ.setdefault('LOG_FORMAT', 'console')

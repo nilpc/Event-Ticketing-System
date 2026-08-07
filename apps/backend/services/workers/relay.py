@@ -1,8 +1,12 @@
 from __future__ import annotations
+
 import asyncio
+
 import structlog
+
 from core.db.session import async_session_factory
 from services.booking.repositories.booking_repo import BookingRepository
+
 logger = structlog.get_logger()
 RELAY_FALLBACK_INTERVAL = 5.0
 _notify_event = asyncio.Event()

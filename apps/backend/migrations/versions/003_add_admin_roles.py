@@ -1,5 +1,6 @@
 import sqlalchemy as sa
 from alembic import op
+
 revision = '003'
 down_revision = '002'
 branch_labels = None

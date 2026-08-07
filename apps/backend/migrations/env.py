@@ -1,14 +1,16 @@
 from __future__ import annotations
+
 import asyncio
 import os
 from logging.config import fileConfig
+
 from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import pool, text
 from sqlalchemy.ext.asyncio import async_engine_from_config
+
 from core.db.base import Base
-from services.identity.models import User, RefreshToken
-from services.booking.models import Venue, Event, Showtime, Seat, Booking, BookingSeat, Payment, OutboxEvent
+
 load_dotenv()
 config = context.config
 db_url = os.getenv('DATABASE_URL')

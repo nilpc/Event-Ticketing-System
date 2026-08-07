@@ -1,5 +1,6 @@
 import enum
 
+
 class EventType(enum.StrEnum):
     MOVIE = 'MOVIE'
     EVENT = 'EVENT'

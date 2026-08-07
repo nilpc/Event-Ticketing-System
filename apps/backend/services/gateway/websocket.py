@@ -1,10 +1,14 @@
 from __future__ import annotations
+
 import asyncio
 import json
+
 import structlog
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from jose import JWTError
+
 from services.gateway.websocket_manager import manager
+
 logger = structlog.get_logger()
 ws_router = APIRouter()
 

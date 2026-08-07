@@ -73,6 +73,7 @@ export default function QueuePage() {
               return;
             }
           } catch {
+            // Ignore
           }
         }
         const { data: result } = await queueApi.joinQueue({ show_id: showId });

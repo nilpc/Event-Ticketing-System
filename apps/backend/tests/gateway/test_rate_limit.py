@@ -1,12 +1,16 @@
 from __future__ import annotations
+
 from collections.abc import AsyncGenerator
 from unittest.mock import patch
+
 import pytest
 import slowapi.middleware as _sm
 from httpx import AsyncClient
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+
 from core.middleware.rate_limit import _find_route_handler
+
 
 @pytest.fixture(autouse=True)
 def _low_rate_limits():
@@ -23,6 +27,7 @@ def _low_rate_limits():
 @pytest.fixture
 async def client() -> AsyncGenerator[AsyncClient, None]:
     from httpx import ASGITransport
+
     from services.gateway.app import create_app
     app = create_app()
     transport = ASGITransport(app=app)
@@ -54,6 +59,7 @@ class TestRedisOutageResilience:
     def _dead_redis_limiter(self):
         from slowapi import Limiter
         from slowapi.util import get_remote_address
+
         from core.config.settings import Settings, get_settings
         test_settings = Settings(RATE_LIMIT_PUBLIC='1/minute', RATE_LIMIT_AUTH='1/minute', RATE_LIMIT_BOOKING='1/minute')
         get_settings.cache_clear()
@@ -67,6 +73,7 @@ class TestRedisOutageResilience:
     @pytest.fixture
     async def client(self) -> AsyncGenerator[AsyncClient, None]:
         from httpx import ASGITransport
+
         from services.gateway.app import create_app
         app = create_app()
         transport = ASGITransport(app=app)
@@ -93,6 +100,7 @@ class TestRateLimitConfig:
 
     def test_limiter_has_in_memory_fallback_enabled(self) -> None:
         from pathlib import Path
+
         import core.middleware.rate_limit as rl_module
         src = Path(rl_module.__file__).read_text(encoding='utf-8')
         assert 'in_memory_fallback_enabled=True' in src

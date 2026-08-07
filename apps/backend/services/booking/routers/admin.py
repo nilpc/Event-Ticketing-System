@@ -1,16 +1,31 @@
 from __future__ import annotations
+
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.db.session import get_db_session
 from core.redis import get_redis
 from core.security.auth import get_current_user_id
 from services.booking.repositories.cache_repo import CacheRepository
-from services.booking.schemas.admin import AdminEventResponse, AdminVenueResponse, EventCreate, EventUpdate, ShowtimeBatchCreate, ShowtimeCreate, ShowtimeUpdate, UserPromoteResponse, VenueCreate, VenueUpdate
+from services.booking.schemas.admin import (
+    AdminEventResponse,
+    AdminVenueResponse,
+    EventCreate,
+    EventUpdate,
+    ShowtimeBatchCreate,
+    ShowtimeCreate,
+    ShowtimeUpdate,
+    UserPromoteResponse,
+    VenueCreate,
+    VenueUpdate,
+)
 from services.booking.schemas.catalog import ShowtimeResponse, VenueResponse
 from services.booking.services.admin_service import AdminService
 from services.identity.models.user import User
+
 router = APIRouter(prefix='/v1/admin', tags=['admin'])
 
 async def _require_merchant(user_id: UUID=Depends(get_current_user_id), session: AsyncSession=Depends(get_db_session)) -> User:

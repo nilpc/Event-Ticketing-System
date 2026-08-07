@@ -1,13 +1,17 @@
 from __future__ import annotations
+
 import hashlib
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.config import settings
 from services.identity.models.user import RefreshToken
+
 
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()

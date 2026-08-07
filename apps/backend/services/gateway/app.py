@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 import asyncio
 from contextlib import asynccontextmanager
+
 import structlog
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+
 logger = structlog.get_logger()
 
 @asynccontextmanager
@@ -46,6 +49,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title='Event Ticketing Backend', version='0.1.0', lifespan=lifespan)
     from starlette.middleware.base import BaseHTTPMiddleware
+
     from core.config import settings
 
     async def _security_headers(request, call_next):
@@ -68,6 +72,7 @@ def create_app() -> FastAPI:
     from slowapi import _rate_limit_exceeded_handler
     from slowapi.errors import RateLimitExceeded
     from slowapi.middleware import SlowAPIMiddleware
+
     from core.middleware.rate_limit import create_limiter
     limiter = create_limiter()
     app.state.limiter = limiter

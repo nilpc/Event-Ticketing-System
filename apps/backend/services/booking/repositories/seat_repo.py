@@ -1,13 +1,17 @@
 from __future__ import annotations
+
 from decimal import Decimal
 from typing import cast
 from uuid import UUID
+
 from sqlalchemy import select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.enums import SeatStatus
 from core.exceptions import SeatUnavailableError
 from services.booking.models.seat import Seat
+
 
 class SeatRepository:
 

@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 import asyncio
 import json
+
 import structlog
 from fastapi import WebSocket
+
 logger = structlog.get_logger()
 
 class ConnectionManager:
@@ -53,5 +56,5 @@ class ConnectionManager:
     def get_connection_count(self, show_id: str | None=None) -> int:
         if show_id:
             return len(self._connections.get(show_id, set()))
-        return sum((len(conns) for conns in self._connections.values()))
+        return sum(len(conns) for conns in self._connections.values())
 manager = ConnectionManager()

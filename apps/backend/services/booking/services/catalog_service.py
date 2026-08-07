@@ -1,12 +1,26 @@
 from __future__ import annotations
+
 import json
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from services.booking.schemas.catalog import SectionSummaryResponse
+
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from services.booking.repositories.cache_repo import CacheRepository
 from services.booking.repositories.catalog_repo import CatalogRepository
-from services.booking.schemas.catalog import EventResponse, SeatMapResponse, SeatResponse, ShowtimeResponse, VenueResponse
+from services.booking.schemas.catalog import (
+    EventResponse,
+    SeatMapResponse,
+    SeatResponse,
+    ShowtimeResponse,
+    VenueResponse,
+)
+
 logger = structlog.get_logger()
 VENUE_CACHE_TTL = 60
 EVENT_CACHE_TTL = 60
