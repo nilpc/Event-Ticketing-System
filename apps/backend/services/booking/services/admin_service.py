@@ -4,6 +4,7 @@ import uuid
 from collections.abc import Iterator
 
 import structlog
+from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -126,7 +127,7 @@ class AdminService:
         showtime = await self.repo.get_showtime(uuid.UUID(show_id))
         if showtime is None:
             raise LookupError(f'Showtime {show_id} not found')
-        update_kwargs = {}
+        update_kwargs: dict[str, Any] = {}
         if data.front_price is not None:
             update_kwargs['front_price'] = data.front_price
         if data.middle_price is not None:

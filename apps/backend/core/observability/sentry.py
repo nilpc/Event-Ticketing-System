@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import sentry_sdk
 import structlog
+from typing import Any
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from sentry_sdk.types import Event
 
 logger = structlog.get_logger()
 
@@ -13,7 +15,7 @@ def init_sentry(dsn: str, environment: str='development') -> None:
         return
     _SENSITIVE_HEADERS = {'authorization', 'cookie', 'set-cookie', 'x-api-key'}
 
-    def _scrub_request(event: dict[str, object], _hint: dict[str, object]) -> dict[str, object] | None:
+    def _scrub_request(event: Event, _hint: dict[str, Any]) -> Event | None:
         request = event.get('request', {})
         if isinstance(request, dict):
             headers = request.get('headers', {})
