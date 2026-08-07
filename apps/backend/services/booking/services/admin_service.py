@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterator
+from typing import Any
 
 import structlog
-from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from typing import Any
+
 import sentry_sdk
 import structlog
-from typing import Any
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from sentry_sdk.types import Event
