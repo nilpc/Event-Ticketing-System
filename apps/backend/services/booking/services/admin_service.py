@@ -61,8 +61,10 @@ class AdminService:
         if event is None:
             raise LookupError(f'Event {event_id} not found')
         showtimes = await self.repo.list_showtimes_by_event(event_id)
+        for s in showtimes:
+            await self.delete_showtime(str(s.show_id))
         await self.repo.delete_event(event_id)
-        await self._invalidate_catalog(['events:all', 'showtimes:all', f'showtimes:event:{event_id}'] + [f'showtime:{s.show_id}' for s in showtimes] + [f'seatmap:{s.show_id}' for s in showtimes])
+        await self._invalidate_catalog(['events:all', 'showtimes:all', f'showtimes:event:{event_id}'])
 
     async def create_venue(self, data: VenueCreate, created_by: uuid.UUID | None=None) -> Venue:
         venue = Venue(venue_id=uuid.uuid4(), name=data.name, capacity=data.capacity, created_by=created_by)
@@ -89,8 +91,10 @@ class AdminService:
         if venue is None:
             raise LookupError(f'Venue {venue_id} not found')
         showtimes = await self.repo.list_showtimes_by_venue(uuid.UUID(venue_id))
+        for s in showtimes:
+            await self.delete_showtime(str(s.show_id))
         await self.repo.delete_venue(uuid.UUID(venue_id))
-        await self._invalidate_catalog(['venues:all', 'showtimes:all'] + [f'showtime:{s.show_id}' for s in showtimes] + [f'showtimes:event:{s.event_id}' for s in showtimes] + [f'seatmap:{s.show_id}' for s in showtimes])
+        await self._invalidate_catalog(['venues:all', 'showtimes:all'])
 
     async def list_showtimes(self, created_by: uuid.UUID | None=None) -> list[Showtime]:
         return await self.repo.list_showtimes(created_by=created_by)
@@ -103,7 +107,7 @@ class AdminService:
             if venue:
                 for chunk in _seat_chunks(result.show_id, venue.capacity, float(data.front_price), float(data.middle_price), float(data.back_price)):
                     await self.repo.create_seats(chunk)
-        await self._invalidate_catalog(['showtimes:all', f'showtimes:event:{data.event_id}'])
+        await self._invalidate_catalog(['showtimes:all', 'events:all', 'venues:all', f'showtimes:event:{data.event_id}'])
         return result
 
     async def get_showtime(self, show_id: str) -> Showtime | None:
@@ -120,7 +124,7 @@ class AdminService:
                 if venue:
                     for chunk in _seat_chunks(result.show_id, venue.capacity, float(data.front_price), float(data.middle_price), float(data.back_price)):
                         await self.repo.create_seats(chunk)
-        await self._invalidate_catalog(['showtimes:all', f'showtimes:event:{data.event_id}'])
+        await self._invalidate_catalog(['showtimes:all', 'events:all', 'venues:all', f'showtimes:event:{data.event_id}'])
         return created
 
     async def update_showtime(self, show_id: str, data: ShowtimeUpdate) -> Showtime:
@@ -138,14 +142,16 @@ class AdminService:
             update_kwargs['start_time'] = data.start_time
         if data.end_time is not None:
             update_kwargs['end_time'] = data.end_time
-        return await self.repo.update_showtime(showtime, **update_kwargs)
+        result = await self.repo.update_showtime(showtime, **update_kwargs)
+        await self._invalidate_catalog(['showtimes:all', 'events:all', 'venues:all', f'showtime:{show_id}', f'showtimes:event:{showtime.event_id}'])
+        return result
 
     async def delete_showtime(self, show_id: str) -> None:
         showtime = await self.repo.get_showtime(uuid.UUID(show_id))
         if showtime is None:
             raise LookupError(f'Showtime {show_id} not found')
         await self.repo.delete_showtime(uuid.UUID(show_id))
-        await self._invalidate_catalog(['showtimes:all', f'showtime:{show_id}', f'seatmap:{show_id}', f'showtimes:event:{showtime.event_id}'])
+        await self._invalidate_catalog(['showtimes:all', 'events:all', 'venues:all', f'showtime:{show_id}', f'seatmap:{show_id}', f'showtimes:event:{showtime.event_id}'])
 
     async def _invalidate_catalog(self, keys: list[str]) -> None:
         if self.cache_repo is None:
