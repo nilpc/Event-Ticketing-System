@@ -93,11 +93,14 @@ async def seed(reset: bool=False):
                 await session.execute(text('INSERT INTO booking.events (event_id, event_type, name, description, created_by) VALUES (:eid, :etype, :name, :desc, :created_by)'), {'eid': eid, 'etype': ev['event_type'], 'name': ev['name'], 'desc': ev['description'], 'created_by': None})
                 vid = venue_ids[ev['venue_idx']]
                 sid = uuid4()
-                show_ids.append(sid)
+                show_ids.append((sid, ev['event_type']))
                 await session.execute(text("INSERT INTO booking.showtimes (show_id, event_id, venue_id, front_price, middle_price, back_price, start_time, end_time) VALUES (:sid, :eid, :vid, :fp, :mp, :bp, NOW() + :hours * INTERVAL '1 hour', NOW() + (:hours + :dur) * INTERVAL '1 hour')"), {'sid': sid, 'eid': eid, 'vid': vid, 'fp': ev['front_price'], 'mp': ev['middle_price'], 'bp': ev['back_price'], 'hours': ev['hours_from_now'], 'dur': ev['duration_hours']})
             import random
-            for sid in show_ids:
-                num_seats = random.randint(50, 10000)
+            for sid, etype in show_ids:
+                if etype == 'MOVIE':
+                    num_seats = random.randint(50, 150)
+                else:
+                    num_seats = random.randint(500, 8000)
                 seat_params = []
                 for i in range(num_seats):
                     sec_idx = i % 3
@@ -130,7 +133,7 @@ async def seed(reset: bool=False):
         print(f"  {i + 1}. [{ev['event_type']}] {ev['name']}")
         print(f"     venue:    {VENUES[ev['venue_idx']][0]}")
         print(f'     event_id: {event_ids[i]}')
-        print(f'     show_id:  {show_ids[i]}')
+        print(f'     show_id:  {show_ids[i][0]}')
         print(f"     front price: ${ev['front_price']:.2f}")
     print('=' * 60)
 if __name__ == '__main__':

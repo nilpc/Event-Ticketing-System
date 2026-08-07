@@ -160,31 +160,41 @@ class AdminService:
 _SEAT_CHUNK = 100
 
 def _seat_chunks(show_id: uuid.UUID, capacity: int, front_price: float, middle_price: float, back_price: float) -> Iterator[list[dict]]:
-    import math
-    total_sections = math.ceil(capacity / _SEAT_CHUNK)
-    front_sections = max(1, int(total_sections * 0.1))
-    middle_sections = max(1, int(total_sections * 0.3))
+    vip_limit = max(1, int(capacity * 0.1))
+    premium_limit = max(1, int(capacity * 0.4))
+    
     chunk: list[dict] = []
-    seat_num = 0
-    row_idx = 0
-    section_num = 1
-    for _ in range(capacity):
-        if section_num <= front_sections:
-            tier = 'VIP'
+    
+    for i in range(capacity):
+        if i < vip_limit:
+            tier = 'vip'
             price = front_price
-        elif section_num <= front_sections + middle_sections:
-            tier = 'Premium'
+            section = 'SEC-1'
+        elif i < premium_limit:
+            tier = 'premium'
             price = middle_price
+            section = 'SEC-2'
         else:
-            tier = 'Standard'
+            tier = 'standard'
             price = back_price
-        row = chr(ord('A') + row_idx % 26)
-        seat_num += 1
-        chunk.append({'show_id': show_id, 'seat_id': f'{row}{seat_num}', 'section': f'SEC-{section_num}', 'tier': tier, 'price': price, 'status': SeatStatus.AVAILABLE})
-        row_idx += 1
+            section = 'SEC-3'
+            
+        row = chr(ord('A') + (i % 26))
+        seat_num = i + 1
+        seat_id = f'{row}{seat_num}'
+        
+        chunk.append({
+            'show_id': show_id,
+            'seat_id': seat_id,
+            'section': section,
+            'tier': tier,
+            'price': price,
+            'status': SeatStatus.AVAILABLE
+        })
+        
         if len(chunk) >= _SEAT_CHUNK:
             yield chunk
             chunk = []
-            section_num += 1
+            
     if chunk:
         yield chunk
