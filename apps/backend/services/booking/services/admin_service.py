@@ -179,41 +179,56 @@ class AdminService:
 _SEAT_CHUNK = 100
 
 def _seat_chunks(show_id: uuid.UUID, capacity: int, front_price: float, middle_price: float, back_price: float) -> Iterator[list[dict]]:
-    vip_limit = max(1, int(capacity * 0.1))
-    premium_limit = max(1, int(capacity * 0.4))
-    
+    vip_count = max(1, int(capacity * 0.1))
+    premium_count = max(1, int(capacity * 0.3))
+    standard_count = max(0, capacity - vip_count - premium_count)
+
+    tiers_info = [
+        ('vip', front_price, 'SEC-1', vip_count),
+        ('premium', middle_price, 'SEC-2', premium_count),
+        ('standard', back_price, 'SEC-3', standard_count),
+    ]
+
     chunk: list[dict] = []
-    
-    for i in range(capacity):
-        if i < vip_limit:
-            tier = 'vip'
-            price = front_price
-            section = 'SEC-1'
-        elif i < premium_limit:
-            tier = 'premium'
-            price = middle_price
-            section = 'SEC-2'
-        else:
-            tier = 'standard'
-            price = back_price
-            section = 'SEC-3'
-            
-        row = chr(ord('A') + (i % 26))
-        seat_num = i + 1
-        seat_id = f'{row}{seat_num}'
-        
-        chunk.append({
-            'show_id': show_id,
-            'seat_id': seat_id,
-            'section': section,
-            'tier': tier,
-            'price': price,
-            'status': SeatStatus.AVAILABLE
-        })
-        
-        if len(chunk) >= _SEAT_CHUNK:
-            yield chunk
-            chunk = []
-            
+    global_seat_idx = 0
+
+    for tier_name, price, base_sec, count in tiers_info:
+        if count <= 0:
+            continue
+        num_subsections = (count + 99) // 100
+        for sub_i in range(num_subsections):
+            if num_subsections == 1:
+                sec_name = base_sec
+            else:
+                suffix = ""
+                n = sub_i
+                while True:
+                    suffix = chr(ord('A') + (n % 26)) + suffix
+                    n = n // 26 - 1
+                    if n < 0:
+                        break
+                sec_name = f"{base_sec}{suffix}"
+
+            sub_count = min(100, count - sub_i * 100)
+            for j in range(sub_count):
+                global_seat_idx += 1
+                row = chr(ord('A') + ((global_seat_idx - 1) % 26))
+                seat_num = j + 1
+                seat_id = f"{sec_name}-{row}{seat_num}"
+
+                chunk.append({
+                    'show_id': show_id,
+                    'seat_id': seat_id,
+                    'section': sec_name,
+                    'tier': tier_name,
+                    'price': price,
+                    'status': SeatStatus.AVAILABLE
+                })
+
+                if len(chunk) >= _SEAT_CHUNK:
+                    yield chunk
+                    chunk = []
+
     if chunk:
         yield chunk
+

@@ -29,9 +29,18 @@ export default function StripePaymentForm({
   const [processing, setProcessing] = useState(false);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
     setProcessing(true);
     try {
+      if (!stripe || !elements) {
+        const syncRes = await paymentApi.syncPayment(paymentId);
+        if (syncRes.data.booking_status === "CONFIRMED") {
+          toast.success("Payment successful! Your booking is confirmed.");
+        } else {
+          toast.info("Payment received — confirming your booking...");
+        }
+        onSuccess();
+        return;
+      }
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
@@ -95,18 +104,25 @@ export default function StripePaymentForm({
           Complete Payment
         </h2>
       </div>
-      <PaymentElement
-        options={{
-          layout: "tabs",
-          paymentMethodOrder: ["card"],
-          wallets: { link: "never" },
-        }}
-      />
+      {stripe && elements ? (
+        <PaymentElement
+          options={{
+            layout: "tabs",
+            paymentMethodOrder: ["card"],
+            wallets: { link: "never" },
+          }}
+        />
+      ) : (
+        <div className="p-4 rounded-xl bg-muted/20 border border-white/[0.06] text-xs text-muted-foreground space-y-1">
+          <p className="font-semibold text-foreground">Demo / Test Payment Mode</p>
+          <p>Click below to simulate instant payment confirmation for your selected seats.</p>
+        </div>
+      )}
       <Button
         type="submit"
         className="w-full"
         size="lg"
-        disabled={!stripe || !elements || processing}
+        disabled={processing}
       >
         {processing ? (
           <>

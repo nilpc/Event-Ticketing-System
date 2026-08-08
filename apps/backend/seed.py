@@ -104,14 +104,40 @@ async def seed(reset: bool=False):
                 else:
                     num_seats = random.randint(500, 8000)
                 seat_params = []
-                for i in range(num_seats):
-                    sec_idx = i % 3
-                    section = f"SEC-{sec_idx + 1}"
-                    tier = ["vip", "premium", "standard"][sec_idx]
-                    price = [150.0, 100.0, 75.0][sec_idx]
-                    seat_id = f"S{i+1}"
-                    seat_params.append({'sid': sid, 'seat_id': seat_id, 'sec': section, 'tier': tier, 'price': price})
-                
+                vip_count = max(1, int(num_seats * 0.1))
+                premium_count = max(1, int(num_seats * 0.3))
+                standard_count = max(0, num_seats - vip_count - premium_count)
+                tiers_info = [
+                    ('vip', 150.0, 'SEC-1', vip_count),
+                    ('premium', 100.0, 'SEC-2', premium_count),
+                    ('standard', 75.0, 'SEC-3', standard_count),
+                ]
+                global_seat_idx = 0
+                for tier_name, price, base_sec, count in tiers_info:
+                    if count <= 0:
+                        continue
+                    num_subsections = (count + 99) // 100
+                    for sub_i in range(num_subsections):
+                        if num_subsections == 1:
+                            sec_name = base_sec
+                        else:
+                            suffix = ""
+                            n = sub_i
+                            while True:
+                                suffix = chr(ord('A') + (n % 26)) + suffix
+                                n = n // 26 - 1
+                                if n < 0:
+                                    break
+                            sec_name = f"{base_sec}{suffix}"
+
+                        sub_count = min(100, count - sub_i * 100)
+                        for j in range(sub_count):
+                            global_seat_idx += 1
+                            row = chr(ord('A') + ((global_seat_idx - 1) % 26))
+                            seat_num = j + 1
+                            seat_id = f"{sec_name}-{row}{seat_num}"
+                            seat_params.append({'sid': sid, 'seat_id': seat_id, 'sec': sec_name, 'tier': tier_name, 'price': price})
+
                 if seat_params:
                     # SQLAlchemy uses executemany under the hood for a list of dictionaries
                     await session.execute(
